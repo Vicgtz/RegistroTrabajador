@@ -1,0 +1,30 @@
+﻿@inherits LayoutComponentBase
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            <AuthorizeView>
+                <div class="empresa" title="Empresa">@context.User.FindFirst("empresa")?.Value</div>
+                <div class="usuario">
+                    <span class="avatar" aria-hidden="true">@Inicial(context.User.Identity?.Name)</span>
+                    <span class="nombre">@context.User.Identity?.Name</span>
+                </div>
+                <button class="btn btn-sm btn-outline-primary" @onclick="CerrarSesion">Salir</button>
+            </AuthorizeView>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    Ocurrió un error inesperado.
+    <a href="." class="reload">Recargar</a>
+    <span class="dismiss">🗙</span>
+</div>

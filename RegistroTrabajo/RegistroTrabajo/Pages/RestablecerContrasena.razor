@@ -1,0 +1,73 @@
+﻿@page "/restablecer-contrasena"
+@layout LoginLayout
+@attribute [AllowAnonymous]
+@inject AuthClient Auth
+
+<PageTitle>Nueva contraseña - Registro de Trabajo</PageTitle>
+
+<div class="card shadow border-0" style="background-color: rgba(255, 255, 255, 0.96);">
+    <div class="card-body p-4">
+        <h1 class="h4 text-center mb-1">Nueva contraseña</h1>
+
+        @if (string.IsNullOrWhiteSpace(Token))
+        {
+            <Alerta Mensaje="El enlace está incompleto. Solicita uno nuevo desde «¿Olvidaste tu contraseña?»." Tipo="warning" Clase="mt-3" />
+            <a class="btn btn-primary w-100" href="olvide-contrasena">Solicitar enlace</a>
+        }
+        else if (listo)
+        {
+            <Alerta Mensaje="Tu contraseña se actualizó. Ya puedes iniciar sesión." Tipo="success" Clase="mt-3" />
+            <a class="btn btn-primary w-100" href="login">Iniciar sesión</a>
+        }
+        else
+        {
+            <p class="text-center text-muted mb-4">Elige una contraseña segura para tu cuenta.</p>
+            <EditForm Model="modelo" OnValidSubmit="Guardar">
+                <DataAnnotationsValidator />
+                <div class="mb-3">
+                    <label for="nueva" class="form-label">Contraseña nueva</label>
+                    <InputText id="nueva" type="password" class="form-control" autocomplete="new-password" @bind-Value="modelo.Nueva" disabled="@cargando" />
+                    <div class="form-text">Entre 10 y 128 caracteres, con mayúsculas, minúsculas y números.</div>
+                    <ValidationMessage For="() => modelo.Nueva" />
+                </div>
+                <div class="mb-3">
+                    <label for="confirmar" class="form-label">Confirmar contraseña</label>
+                    <InputText id="confirmar" type="password" class="form-control" autocomplete="new-password" @bind-Value="modelo.Confirmar" disabled="@cargando" />
+                    <ValidationMessage For="() => modelo.Confirmar" />
+                </div>
+                <Alerta Mensaje="@error" Tipo="danger" />
+                <button type="submit" class="btn btn-primary w-100" disabled="@cargando">
+                    @if (cargando) { <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> }
+                    Guardar contraseña
+                </button>
+            </EditForm>
+        }
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? Token { get; set; }
+    private readonly Modelo modelo = new();
+    private bool cargando, listo;
+    private string? error;
+
+    private async Task Guardar()
+    {
+        error = null;
+        cargando = true;
+        var r = await Auth.RestablecerContrasenaAsync(Token!, modelo.Nueva);
+        cargando = false;
+        if (r.Ok) listo = true; else error = r.Error;
+    }
+
+    private class Modelo
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Ingresa la contraseña nueva")]
+        [System.ComponentModel.DataAnnotations.StringLength(128, MinimumLength = 10, ErrorMessage = "Debe tener entre 10 y 128 caracteres")]
+        public string Nueva { get; set; } = "";
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Confirma la contraseña")]
+        [System.ComponentModel.DataAnnotations.Compare(nameof(Nueva), ErrorMessage = "Las contraseñas no coinciden")]
+        public string Confirmar { get; set; } = "";
+    }
+}

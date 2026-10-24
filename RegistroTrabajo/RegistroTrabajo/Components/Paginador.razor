@@ -1,0 +1,24 @@
+﻿@if (Total > 0)
+{
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+        <small class="text-muted">Mostrando @Desde–@Hasta de @Total</small>
+        <div class="btn-group btn-group-sm" role="group" aria-label="Paginación">
+            <button class="btn btn-outline-primary" disabled="@(Page <= 1)" @onclick="() => Ir(Page - 1)">Anterior</button>
+            <span class="btn btn-outline-secondary disabled">@Page / @Paginas</span>
+            <button class="btn btn-outline-primary" disabled="@(Page >= Paginas)" @onclick="() => Ir(Page + 1)">Siguiente</button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Page { get; set; } = 1;
+    [Parameter] public int PageSize { get; set; } = 20;
+    [Parameter] public int Total { get; set; }
+    [Parameter] public EventCallback<int> OnPage { get; set; }
+
+    private int Paginas => Math.Max(1, (int)Math.Ceiling(Total / (double)PageSize));
+    private int Desde => (Page - 1) * PageSize + 1;
+    private int Hasta => Math.Min(Total, Page * PageSize);
+
+    private Task Ir(int p) => OnPage.InvokeAsync(Math.Clamp(p, 1, Paginas));
+}

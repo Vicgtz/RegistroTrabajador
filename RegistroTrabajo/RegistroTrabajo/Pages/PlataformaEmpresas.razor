@@ -1,0 +1,191 @@
+﻿@page "/plataforma/empresas"
+@attribute [Authorize]
+@inject PlataformaClient Api
+
+<PageTitle>Empresas - Plataforma</PageTitle>
+
+<SoloConPermiso Codigo="@Permisos.PlataformaEmpresasConsultar">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <h1 class="h3 mb-0">Empresas de la plataforma</h1>
+        @if (puedeCrear) { <button class="btn btn-primary" @onclick="Nueva">Nueva empresa</button> }
+    </div>
+
+    <div class="tarjeta p-3 mb-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-9">
+                <label class="form-label mb-1" for="buscar">Buscar</label>
+                <input id="buscar" class="form-control" placeholder="Nombre o RFC" @bind="buscar" @onkeydown="Tecla" />
+            </div>
+            <div class="col-12 col-md-3"><button class="btn btn-outline-primary w-100" @onclick="Buscar">Buscar</button></div>
+        </div>
+    </div>
+
+    <Alerta Mensaje="@error" Tipo="danger" />
+    <Alerta Mensaje="@exito" Tipo="success" />
+    @if (cargando) { <Cargando /> }
+    else if (datos is not null)
+    {
+        <div class="tarjeta p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead><tr><th>Empresa</th><th class="d-none d-md-table-cell">RFC</th><th>Usuarios</th><th>Estado</th><th class="d-none d-lg-table-cell">Alta</th><th class="text-end">Acciones</th></tr></thead>
+                    <tbody>
+                        @foreach (var e in datos.Items)
+                        {
+                            <tr>
+                                <td>@(e.NombreComercial ?? e.Nombre) @if (e.EsPlataforma) { <span class="badge text-bg-info">plataforma</span> }<div class="small text-muted">@e.Nombre</div></td>
+                                <td class="d-none d-md-table-cell">@e.RFC</td>
+                                <td>@e.UsuariosTotal</td>
+                                <td><span class="badge @(e.Estado == EstadoEmpresa.Activa ? "text-bg-success" : e.Estado == EstadoEmpresa.Suspendida ? "text-bg-warning" : "text-bg-secondary")">@Formato.EstadoEmpresa(e.Estado)</span></td>
+                                <td class="d-none d-lg-table-cell">@Formato.Local(e.FechaCreacionUtc)</td>
+                                <td class="text-end text-nowrap">
+                                    @if (puedeEstado && !e.EsPlataforma)
+                                    {
+                                        @if (e.Estado != EstadoEmpresa.Activa) { <button class="btn btn-sm btn-outline-success" @onclick="() => PedirEstado(e, EstadoEmpresa.Activa)">Activar</button> }
+                                        @if (e.Estado == EstadoEmpresa.Activa) { <button class="btn btn-sm btn-outline-warning" @onclick="() => PedirEstado(e, EstadoEmpresa.Suspendida)">Suspender</button> }
+                                        @if (e.Estado != EstadoEmpresa.Inactiva) { <button class="btn btn-sm btn-outline-danger" @onclick="() => PedirEstado(e, EstadoEmpresa.Inactiva)">Desactivar</button> }
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        @if (datos.Items.Count == 0) { <tr><td colspan="6" class="text-center text-muted py-4">No hay empresas con esos criterios.</td></tr> }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <Paginador Page="datos.Page" PageSize="datos.PageSize" Total="datos.Total" OnPage="IrAPagina" />
+    }
+</SoloConPermiso>
+
+<Modal @bind-Visible="formVisible" Titulo="Nueva empresa" Tamano="modal-lg">
+    <ChildContent>
+        <EditForm Model="form" OnValidSubmit="Crear" id="formEmpresa">
+            <DataAnnotationsValidator />
+            <h3 class="h6 text-muted">Empresa</h3>
+            <div class="row g-3 mb-3">
+                <div class="col-md-8"><label class="form-label">Nombre</label><InputText class="form-control" @bind-Value="form.Nombre" /><ValidationMessage For="() => form.Nombre" /></div>
+                <div class="col-md-4"><label class="form-label">RFC</label><InputText class="form-control" @bind-Value="form.RFC" /><ValidationMessage For="() => form.RFC" /></div>
+                <div class="col-md-6"><label class="form-label">Nombre comercial</label><InputText class="form-control" @bind-Value="form.NombreComercial" /></div>
+                <div class="col-md-6"><label class="form-label">Correo de contacto</label><InputText type="email" class="form-control" @bind-Value="form.CorreoContacto" /><ValidationMessage For="() => form.CorreoContacto" /></div>
+            </div>
+            <h3 class="h6 text-muted">Administrador de la empresa</h3>
+            <div class="row g-3">
+                <div class="col-md-6"><label class="form-label">Nombre</label><InputText class="form-control" @bind-Value="form.AdminNombre" /><ValidationMessage For="() => form.AdminNombre" /></div>
+                <div class="col-md-6"><label class="form-label">Apellido</label><InputText class="form-control" @bind-Value="form.AdminApellido" /><ValidationMessage For="() => form.AdminApellido" /></div>
+                <div class="col-md-6"><label class="form-label">Correo</label><InputText type="email" class="form-control" @bind-Value="form.AdminCorreo" /><ValidationMessage For="() => form.AdminCorreo" /></div>
+                <div class="col-md-6">
+                    <label class="form-label">Contraseña inicial</label>
+                    <InputText type="password" class="form-control" autocomplete="new-password" @bind-Value="form.AdminContrasena" />
+                    <div class="form-text">Deberá cambiarla al iniciar sesión.</div>
+                    <ValidationMessage For="() => form.AdminContrasena" />
+                </div>
+            </div>
+            <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
+        </EditForm>
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => formVisible = false">Cancelar</button>
+        <button class="btn btn-primary" type="submit" form="formEmpresa" disabled="@guardando">Crear empresa</button>
+    </Footer>
+</Modal>
+
+<Modal @bind-Visible="confirmVisible" Titulo="@confirmTitulo" Tamano="modal-sm">
+    <ChildContent><p class="mb-0">@confirmMensaje</p></ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => confirmVisible = false">Cancelar</button>
+        <button class="btn btn-primary" @onclick="EjecutarEstado" disabled="@guardando">Confirmar</button>
+    </Footer>
+</Modal>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? Estado { get; set; }
+    private const int TamanoPagina = 15;
+    private PagedResult<EmpresaPlataformaDto>? datos;
+    private bool cargando = true, puedeCrear, puedeEstado, guardando, formVisible, confirmVisible;
+    private string? error, exito, errorForm, buscar;
+    private int pagina = 1;
+    private FormModel form = new();
+    private string confirmTitulo = "", confirmMensaje = "";
+    private EmpresaPlataformaDto? empresaEstado;
+    private byte nuevoEstado;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = Estado is null ? null : (await Estado).User;
+        puedeCrear = user?.TienePermiso(Permisos.PlataformaEmpresasCrear) == true;
+        puedeEstado = user?.TienePermiso(Permisos.PlataformaEmpresasCambiarEstado) == true;
+        if (user?.TienePermiso(Permisos.PlataformaEmpresasConsultar) == true) await Cargar(); else cargando = false;
+    }
+
+    private async Task Cargar()
+    {
+        cargando = true;
+        var r = await Api.ListarAsync(pagina, TamanoPagina, buscar);
+        if (r.Ok) datos = r.Data; else error = r.Error;
+        cargando = false;
+    }
+
+    private async Task Buscar() { pagina = 1; await Cargar(); }
+    private async Task Tecla(KeyboardEventArgs e) { if (e.Key == "Enter") await Buscar(); }
+    private async Task IrAPagina(int p) { pagina = p; await Cargar(); }
+
+    private void Nueva() { form = new(); errorForm = null; formVisible = true; }
+
+    private async Task Crear()
+    {
+        errorForm = null;
+        guardando = true;
+        try
+        {
+            var r = await Api.CrearAsync(new CrearEmpresaPlataformaRequest
+            {
+                Nombre = form.Nombre, NombreComercial = form.NombreComercial, RFC = form.RFC, CorreoContacto = form.CorreoContacto,
+                AdminNombre = form.AdminNombre, AdminApellido = form.AdminApellido, AdminCorreo = form.AdminCorreo, AdminContrasena = form.AdminContrasena
+            });
+            if (!r.Ok) { errorForm = r.Error; return; }
+            formVisible = false;
+            exito = $"Empresa «{r.Data!.Nombre}» creada con su administrador.";
+            await Cargar();
+        }
+        finally { guardando = false; }
+    }
+
+    private void PedirEstado(EmpresaPlataformaDto e, byte estado)
+    {
+        empresaEstado = e;
+        nuevoEstado = estado;
+        confirmTitulo = estado switch { EstadoEmpresa.Activa => "Activar empresa", EstadoEmpresa.Suspendida => "Suspender empresa", _ => "Desactivar empresa" };
+        confirmMensaje = estado == EstadoEmpresa.Activa
+            ? $"«{e.Nombre}» podrá volver a operar."
+            : $"Todas las sesiones de «{e.Nombre}» se cerrarán y sus usuarios no podrán iniciar sesión.";
+        confirmVisible = true;
+    }
+
+    private async Task EjecutarEstado()
+    {
+        if (empresaEstado is null) return;
+        guardando = true;
+        try
+        {
+            var r = await Api.CambiarEstadoAsync(empresaEstado.EmpresaId, nuevoEstado);
+            confirmVisible = false;
+            if (r.Ok) { exito = $"Empresa «{empresaEstado.Nombre}»: {Formato.EstadoEmpresa(nuevoEstado).ToLowerInvariant()}."; error = null; }
+            else { error = r.Error; exito = null; }
+            await Cargar();
+        }
+        finally { guardando = false; }
+    }
+
+    private class FormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Ingresa el nombre"), System.ComponentModel.DataAnnotations.StringLength(160, MinimumLength = 2)]
+        public string Nombre { get; set; } = "";
+        [System.ComponentModel.DataAnnotations.StringLength(160)] public string? NombreComercial { get; set; }
+        [System.ComponentModel.DataAnnotations.StringLength(13, MinimumLength = 12, ErrorMessage = "El RFC tiene 12 o 13 caracteres")] public string? RFC { get; set; }
+        [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "Correo inválido")] public string? CorreoContacto { get; set; }
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Ingresa el nombre")] public string AdminNombre { get; set; } = "";
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Ingresa el apellido")] public string AdminApellido { get; set; } = "";
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Ingresa el correo"), System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "Correo inválido")] public string AdminCorreo { get; set; } = "";
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Ingresa la contraseña"), System.ComponentModel.DataAnnotations.StringLength(128, MinimumLength = 10, ErrorMessage = "Debe tener entre 10 y 128 caracteres")] public string AdminContrasena { get; set; } = "";
+    }
+}

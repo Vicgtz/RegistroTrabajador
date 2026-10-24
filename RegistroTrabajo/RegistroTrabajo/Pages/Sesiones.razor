@@ -1,0 +1,55 @@
+﻿@page "/sesiones"
+@attribute [Authorize]
+@inject SesionesClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>Sesiones - Registro de Trabajo</PageTitle>
+
+<SoloConPermiso Codigo="@Permisos.SesionesConsultar">
+    <h1 class="h3 mb-3">Sesiones activas</h1>
+    <p class="text-muted">Sesiones abiertas de todos los usuarios de la empresa. Al cerrar una, ese dispositivo deberá iniciar sesión otra vez.</p>
+    <Alerta Mensaje="@error" Tipo="danger" />
+    <Alerta Mensaje="@exito" Tipo="success" />
+    @if (cargando) { <Cargando /> }
+    else if (datos is not null)
+    {
+        <TablaSesiones Items="datos.Items" MostrarUsuario="true" PuedeCerrar="puedeRevocar" OnCerrar="Cerrar" />
+        <Paginador Page="datos.Page" PageSize="datos.PageSize" Total="datos.Total" OnPage="IrAPagina" />
+    }
+</SoloConPermiso>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? Estado { get; set; }
+    private const int TamanoPagina = 20;
+    private PagedResult<SesionDto>? datos;
+    private bool cargando = true, puedeRevocar;
+    private string? error, exito;
+    private int pagina = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = Estado is null ? null : (await Estado).User;
+        puedeRevocar = user?.TienePermiso(Permisos.SesionesRevocar) == true;
+        if (user?.TienePermiso(Permisos.SesionesConsultar) == true) await Cargar(); else cargando = false;
+    }
+
+    private async Task Cargar()
+    {
+        cargando = true;
+        var r = await Api.ListarAsync(pagina, TamanoPagina);
+        if (r.Ok) datos = r.Data; else error = r.Error;
+        cargando = false;
+    }
+
+    private async Task IrAPagina(int p) { pagina = p; await Cargar(); }
+
+    private async Task Cerrar(SesionDto s)
+    {
+        error = exito = null;
+        var r = await Api.RevocarAsync(s.SesionId);
+        if (!r.Ok) { error = r.Error; return; }
+        if (s.EsActual) { Navigation.NavigateTo("login", replace: true); return; }
+        exito = $"Sesión de {s.UsuarioCorreo} cerrada.";
+        await Cargar();
+    }
+}

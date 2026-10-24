@@ -1,0 +1,49 @@
+﻿@page "/login"
+@layout LoginLayout
+@attribute [AllowAnonymous]
+
+<PageTitle>Iniciar sesión - Registro de Trabajo</PageTitle>
+
+<div class="card shadow border-0" style="background-color: rgba(255, 255, 255, 0.96);">
+    <div class="card-body p-4">
+        <svg class="d-block mx-auto mb-2" width="64" height="64" viewBox="0 0 24 24" aria-hidden="true" style="fill: var(--rt-azul);">
+            <path d="M9 4h6a1 1 0 0 1 1 1v2h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h3V5a1 1 0 0 1 1-1Zm1 3h4V6h-4v1Z" />
+        </svg>
+        <h1 class="h3 text-center mb-1">Registro de Trabajo</h1>
+        <p class="text-center text-muted mb-4">Inicia sesión para continuar</p>
+
+        <EditForm Model="modelo" OnValidSubmit="IniciarSesion">
+            <DataAnnotationsValidator />
+
+            <div class="mb-3">
+                <label for="correo" class="form-label">Correo</label>
+                <InputText id="correo" type="email" class="form-control" @bind-Value="modelo.Correo" autocomplete="username" disabled="@cargando" />
+                <ValidationMessage For="() => modelo.Correo" />
+            </div>
+
+            <div class="mb-3">
+                <label for="contra" class="form-label">Contraseña</label>
+                <InputText id="contra" type="password" class="form-control" @bind-Value="modelo.Contrasena" autocomplete="current-password" disabled="@cargando" />
+                <ValidationMessage For="() => modelo.Contrasena" />
+            </div>
+
+            @if (!string.IsNullOrEmpty(error))
+            {
+                <div class="alert alert-danger py-2" role="alert">@error</div>
+            }
+
+            <button type="submit" class="btn btn-primary w-100" disabled="@cargando">
+                @if (cargando)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                    <span>Entrando...</span>
+                }
+                else
+                {
+                    <span>Iniciar sesión</span>
+                }
+            </button>
+            <div class="text-center mt-3"><a href="olvide-contrasena">¿Olvidaste tu contraseña?</a></div>
+        </EditForm>
+    </div>
+</div>

@@ -1,0 +1,134 @@
+﻿@page "/empresa"
+@attribute [Authorize]
+@inject EmpresaClient Api
+
+<PageTitle>Mi empresa - Registro de Trabajo</PageTitle>
+
+<SoloConPermiso Codigo="@Permisos.EmpresaConsultar">
+    <h1 class="h3 mb-3">Mi empresa</h1>
+    @if (cargando) { <Cargando /> }
+    else if (datos is not null && config is not null)
+    {
+        @if (!puedeEditar) { <div class="alert alert-info py-2">Tu cuenta solo puede consultar estos datos.</div> }
+        <div class="row g-3">
+            <div class="col-12 col-xl-6">
+                <div class="tarjeta p-3">
+                    <h2 class="h5">Datos generales</h2>
+                    <EditForm Model="datos" OnValidSubmit="GuardarDatos">
+                        <DataAnnotationsValidator />
+                        <fieldset disabled="@(!puedeEditar)">
+                            <div class="mb-3"><label class="form-label">Nombre</label><InputText class="form-control" @bind-Value="datos.Nombre" /><ValidationMessage For="() => datos.Nombre" /></div>
+                            <div class="mb-3"><label class="form-label">Nombre comercial</label><InputText class="form-control" @bind-Value="datos.NombreComercial" /></div>
+                            <div class="row g-3">
+                                <div class="col-md-6 mb-3"><label class="form-label">RFC</label><InputText class="form-control" @bind-Value="datos.RFC" /><ValidationMessage For="() => datos.RFC" /></div>
+                                <div class="col-md-6 mb-3"><label class="form-label">Teléfono</label><InputText class="form-control" @bind-Value="datos.TelefonoContacto" /></div>
+                            </div>
+                            <div class="mb-3"><label class="form-label">Correo de contacto</label><InputText type="email" class="form-control" @bind-Value="datos.CorreoContacto" /><ValidationMessage For="() => datos.CorreoContacto" /></div>
+                            <div class="mb-3"><label class="form-label">URL del logotipo</label><InputText class="form-control" @bind-Value="datos.LogoUrl" /></div>
+                            <div class="row g-3">
+                                <div class="col-6 mb-3"><label class="form-label">Color primario</label><InputText class="form-control" placeholder="#1F6FA8" @bind-Value="datos.ColorPrimario" /><ValidationMessage For="() => datos.ColorPrimario" /></div>
+                                <div class="col-6 mb-3"><label class="form-label">Color secundario</label><InputText class="form-control" placeholder="#0F2F4A" @bind-Value="datos.ColorSecundario" /><ValidationMessage For="() => datos.ColorSecundario" /></div>
+                            </div>
+                        </fieldset>
+                        <Alerta Mensaje="@errorDatos" Tipo="danger" />
+                        <Alerta Mensaje="@exitoDatos" Tipo="success" />
+                        @if (puedeEditar) { <button class="btn btn-primary" type="submit" disabled="@guardandoDatos">Guardar datos</button> }
+                    </EditForm>
+                </div>
+            </div>
+
+            <div class="col-12 col-xl-6">
+                <div class="tarjeta p-3">
+                    <h2 class="h5">Configuración</h2>
+                    <EditForm Model="config" OnValidSubmit="GuardarConfig">
+                        <DataAnnotationsValidator />
+                        <fieldset disabled="@(!puedeEditar)">
+                            <div class="mb-3">
+                                <label class="form-label">Zona horaria</label>
+                                <InputText class="form-control" @bind-Value="config.ZonaHorariaId" />
+                                <div class="form-text">Identificador del sistema, por ejemplo <code>Central Standard Time (Mexico)</code> o <code>America/Mexico_City</code>.</div>
+                                <ValidationMessage For="() => config.ZonaHorariaId" />
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-4 mb-3"><label class="form-label">Cultura</label><InputText class="form-control" @bind-Value="config.Cultura" /><ValidationMessage For="() => config.Cultura" /></div>
+                                <div class="col-md-4 mb-3"><label class="form-label">Formato de fecha</label><InputText class="form-control" @bind-Value="config.FormatoFecha" /><ValidationMessage For="() => config.FormatoFecha" /></div>
+                                <div class="col-md-4 mb-3"><label class="form-label">Formato de hora</label><InputText class="form-control" @bind-Value="config.FormatoHora" /><ValidationMessage For="() => config.FormatoHora" /></div>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Cierre por inactividad (minutos)</label>
+                                    <InputNumber class="form-control" @bind-Value="config.CierreSesionInactividadMinutos" />
+                                    <div class="form-text">Entre 5 y 1440.</div>
+                                    <ValidationMessage For="() => config.CierreSesionInactividadMinutos" />
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Duración máxima de sesión (horas)</label>
+                                    <InputNumber class="form-control" @bind-Value="config.DuracionSesionMaximaHoras" />
+                                    <div class="form-text">Entre 1 y 168.</div>
+                                    <ValidationMessage For="() => config.DuracionSesionMaximaHoras" />
+                                </div>
+                            </div>
+                            <div class="form-check mb-3">
+                                <InputCheckbox class="form-check-input" id="gps" @bind-Value="config.PermitirValidacionGps" />
+                                <label class="form-check-label" for="gps">Permitir validación por GPS</label>
+                            </div>
+                        </fieldset>
+                        <Alerta Mensaje="@errorConfig" Tipo="danger" />
+                        <Alerta Mensaje="@exitoConfig" Tipo="success" />
+                        @if (puedeEditar) { <button class="btn btn-primary" type="submit" disabled="@guardandoConfig">Guardar configuración</button> }
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    }
+    <Alerta Mensaje="@error" Tipo="danger" Clase="mt-3" />
+</SoloConPermiso>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? Estado { get; set; }
+    private ActualizarEmpresaRequest? datos;
+    private ConfiguracionEmpresaDto? config;
+    private bool cargando = true, puedeEditar, guardandoDatos, guardandoConfig;
+    private string? error, errorDatos, exitoDatos, errorConfig, exitoConfig;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = Estado is null ? null : (await Estado).User;
+        puedeEditar = user?.TienePermiso(Permisos.EmpresaConfigurar) == true;
+        if (user?.TienePermiso(Permisos.EmpresaConsultar) != true) { cargando = false; return; }
+
+        var e = await Api.ObtenerAsync();
+        var c = await Api.ConfiguracionAsync();
+        if (!e.Ok) error = e.Error;
+        else if (!c.Ok) error = c.Error;
+        else
+        {
+            var d = e.Data!;
+            datos = new ActualizarEmpresaRequest
+            {
+                Nombre = d.Nombre, NombreComercial = d.NombreComercial, RFC = d.RFC, CorreoContacto = d.CorreoContacto,
+                TelefonoContacto = d.TelefonoContacto, LogoUrl = d.LogoUrl, ColorPrimario = d.ColorPrimario, ColorSecundario = d.ColorSecundario
+            };
+            config = c.Data;
+        }
+        cargando = false;
+    }
+
+    private async Task GuardarDatos()
+    {
+        errorDatos = exitoDatos = null;
+        guardandoDatos = true;
+        var r = await Api.ActualizarAsync(datos!);
+        if (r.Ok) exitoDatos = "Datos guardados."; else errorDatos = r.Error;
+        guardandoDatos = false;
+    }
+
+    private async Task GuardarConfig()
+    {
+        errorConfig = exitoConfig = null;
+        guardandoConfig = true;
+        var r = await Api.ActualizarConfiguracionAsync(config!);
+        if (r.Ok) exitoConfig = "Configuración guardada."; else errorConfig = r.Error;
+        guardandoConfig = false;
+    }
+}

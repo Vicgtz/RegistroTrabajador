@@ -1,0 +1,11 @@
+﻿@if (!string.IsNullOrEmpty(Mensaje))
+{
+    <div class="alert alert-@Tipo py-2 @Clase" role="alert">@Mensaje</div>
+}
+
+@code {
+    [Parameter] public string? Mensaje { get; set; }
+    /// <summary>danger, success, warning o info.</summary>
+    [Parameter] public string Tipo { get; set; } = "danger";
+    [Parameter] public string? Clase { get; set; }
+}

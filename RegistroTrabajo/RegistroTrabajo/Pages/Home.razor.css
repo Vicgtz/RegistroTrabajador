@@ -1,0 +1,14 @@
+.dato-etiqueta {
+    color: var(--rt-texto-suave);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.dato-valor {
+    font-size: 1.6rem;
+    font-weight: 600;
+    color: var(--rt-azul-oscuro);
+    line-height: 1.2;
+    margin-bottom: 0.4rem;
+}

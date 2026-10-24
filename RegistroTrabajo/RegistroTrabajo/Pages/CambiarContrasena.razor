@@ -1,0 +1,53 @@
+@page "/cuenta/contrasena"
+@attribute [Authorize]
+
+<PageTitle>Mi contraseña - Registro de Trabajo</PageTitle>
+
+<h1 class="h3 mb-3">Mi contraseña</h1>
+
+<div class="tarjeta p-4" style="max-width: 480px;">
+    @if (obligatorio)
+    {
+        <div class="alert alert-info py-2" role="alert">Debes cambiar tu contraseña antes de continuar.</div>
+    }
+
+    <EditForm Model="modelo" OnValidSubmit="Guardar">
+        <DataAnnotationsValidator />
+
+        <div class="mb-3">
+            <label for="actual" class="form-label">Contraseña actual</label>
+            <InputText id="actual" type="password" class="form-control" @bind-Value="modelo.Actual" autocomplete="current-password" disabled="@guardando" />
+            <ValidationMessage For="() => modelo.Actual" />
+        </div>
+
+        <div class="mb-3">
+            <label for="nueva" class="form-label">Contraseña nueva</label>
+            <InputText id="nueva" type="password" class="form-control" @bind-Value="modelo.Nueva" autocomplete="new-password" disabled="@guardando" />
+            <div class="form-text">Entre 10 y 128 caracteres, con mayúsculas, minúsculas y números.</div>
+            <ValidationMessage For="() => modelo.Nueva" />
+        </div>
+
+        <div class="mb-3">
+            <label for="confirmar" class="form-label">Confirmar contraseña nueva</label>
+            <InputText id="confirmar" type="password" class="form-control" @bind-Value="modelo.Confirmar" autocomplete="new-password" disabled="@guardando" />
+            <ValidationMessage For="() => modelo.Confirmar" />
+        </div>
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <div class="alert alert-danger py-2" role="alert">@error</div>
+        }
+        @if (!string.IsNullOrEmpty(exito))
+        {
+            <div class="alert alert-success py-2" role="alert">@exito</div>
+        }
+
+        <button type="submit" class="btn btn-primary" disabled="@guardando">
+            @if (guardando)
+            {
+                <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+            }
+            Cambiar contraseña
+        </button>
+    </EditForm>
+</div>

@@ -1,0 +1,4 @@
+.login-fondo {
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--rt-azul-oscuro) 0%, var(--rt-azul) 100%);
+}

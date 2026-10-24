@@ -1,0 +1,127 @@
+﻿@page "/roles"
+@attribute [Authorize]
+
+<PageTitle>Roles y permisos - Registro de Trabajo</PageTitle>
+
+<SoloConPermiso Codigo="@Permisos.RolesConsultar">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <h1 class="h3 mb-0">Roles y permisos</h1>
+        @if (Puede(Permisos.RolesConfigurar))
+        {
+            <button class="btn btn-primary" @onclick="NuevoRol">Nuevo rol</button>
+        }
+    </div>
+
+    <Alerta Mensaje="@error" Tipo="danger" />
+    <Alerta Mensaje="@exito" Tipo="success" />
+
+    @if (cargando) { <Cargando /> }
+    else
+    {
+        <div class="row g-3">
+            <div class="col-12 col-lg-4">
+                <div class="tarjeta p-0">
+                    <div class="list-group list-group-flush">
+                        @foreach (var r in roles)
+                        {
+                            <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(seleccionado?.RolId == r.RolId ? "active" : "")" @onclick="() => Seleccionar(r)">
+                                <span>
+                                    @r.Nombre
+                                    @if (r.EsSistema) { <span class="badge text-bg-light ms-1">sistema</span> }
+                                </span>
+                                @if (!r.Estado) { <span class="badge text-bg-secondary">inactivo</span> }
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-8">
+                @if (seleccionado is null)
+                {
+                    <div class="tarjeta p-4 text-muted text-center">Selecciona un rol para ver sus permisos.</div>
+                }
+                else
+                {
+                    <div class="tarjeta p-3">
+                        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+                            <div>
+                                <h2 class="h5 mb-0">@seleccionado.Nombre</h2>
+                                @if (!string.IsNullOrEmpty(seleccionado.Descripcion)) { <small class="text-muted">@seleccionado.Descripcion</small> }
+                            </div>
+                            @if (!seleccionado.EsSistema && Puede(Permisos.RolesConfigurar))
+                            {
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-primary" @onclick="EditarRol">Editar</button>
+                                    <button class="btn btn-outline-secondary" @onclick="AlternarEstado">@(seleccionado.Estado ? "Desactivar" : "Activar")</button>
+                                </div>
+                            }
+                        </div>
+
+                        @if (!PuedeEditarPermisos)
+                        {
+                            <div class="alert alert-info py-2">@MotivoSoloLectura</div>
+                        }
+
+                        @if (cargandoPermisos) { <Cargando /> }
+                        else
+                        {
+                            @foreach (var grupo in catalogo.GroupBy(p => p.Modulo))
+                            {
+                                <div class="mb-3">
+                                    <div class="fw-semibold border-bottom pb-1 mb-2">@grupo.Key</div>
+                                    <div class="row row-cols-1 row-cols-md-2 g-1">
+                                        @foreach (var p in grupo)
+                                        {
+                                            <div class="col">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="p-@p.PermisoId" checked="@permisosRol.Contains(p.Codigo)"
+                                                           disabled="@(!PuedeEditarPermisos)" @onchange="e => Alternar(p.Codigo, (bool)e.Value!)" />
+                                                    <label class="form-check-label" for="p-@p.PermisoId">
+                                                        @p.Accion
+                                                        <code class="ms-1 small text-muted">@p.Codigo</code>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                            @if (PuedeEditarPermisos)
+                            {
+                                <button class="btn btn-primary" @onclick="GuardarPermisos" disabled="@(!hayCambios || guardando)">
+                                    @if (guardando) { <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> }
+                                    Guardar permisos
+                                </button>
+                                @if (hayCambios) { <span class="text-muted ms-2">Hay cambios sin guardar.</span> }
+                            }
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</SoloConPermiso>
+
+<Modal @bind-Visible="formVisible" Titulo="@(editandoId is null ? "Nuevo rol" : "Editar rol")" Tamano="modal-sm">
+    <ChildContent>
+        <EditForm Model="form" OnValidSubmit="GuardarRol" id="formRol">
+            <DataAnnotationsValidator />
+            <div class="mb-3">
+                <label class="form-label">Nombre</label>
+                <InputText class="form-control" @bind-Value="form.Nombre" />
+                <ValidationMessage For="() => form.Nombre" />
+            </div>
+            <div class="mb-1">
+                <label class="form-label">Descripción</label>
+                <InputTextArea class="form-control" rows="2" @bind-Value="form.Descripcion" />
+                <ValidationMessage For="() => form.Descripcion" />
+            </div>
+            <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
+        </EditForm>
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => formVisible = false">Cancelar</button>
+        <button class="btn btn-primary" type="submit" form="formRol" disabled="@guardando">Guardar</button>
+    </Footer>
+</Modal>

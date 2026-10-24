@@ -1,0 +1,94 @@
+﻿@page "/"
+@attribute [Authorize]
+
+<PageTitle>Inicio - Registro de Trabajo</PageTitle>
+
+@if (perfil is null)
+{
+    <div class="text-center py-5 text-muted">
+        <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Cargando...
+    </div>
+}
+else
+{
+    <div class="bienvenida mb-4">
+        <h1 class="h3 mb-1">Hola, @perfil.Nombre</h1>
+        <p class="text-muted mb-2">@perfil.EmpresaNombre · @perfil.Correo</p>
+        @foreach (var rol in perfil.Roles)
+        {
+            <span class="badge rounded-pill text-bg-primary me-1">@rol</span>
+        }
+        @if (perfil.Roles.Count == 0)
+        {
+            <span class="badge rounded-pill text-bg-secondary">Sin rol asignado</span>
+        }
+    </div>
+
+    @if (cargando)
+    {
+        <div class="text-muted"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Cargando resumen...</div>
+    }
+    else if (resumen is not null)
+    {
+        <div class="row g-3 mb-4">
+            @if (resumen.Empresa is not null)
+            {
+                <div class="col-12 col-md-6 col-xl-4">
+                    <div class="tarjeta p-3 h-100">
+                        <div class="dato-etiqueta">Empresa</div>
+                        <div class="dato-valor">@(resumen.Empresa.NombreComercial ?? resumen.Empresa.Nombre)</div>
+                        <span class="badge @(resumen.Empresa.Estado == EstadoEmpresa.Activa ? "text-bg-success" : "text-bg-warning")">@TextoEstadoEmpresa(resumen.Empresa.Estado)</span>
+                    </div>
+                </div>
+            }
+            @if (resumen.UsuariosTotal is not null)
+            {
+                <div class="col-6 col-md-3 col-xl-4">
+                    <div class="tarjeta p-3 h-100">
+                        <div class="dato-etiqueta">Usuarios</div>
+                        <div class="dato-valor">@resumen.UsuariosTotal</div>
+                    </div>
+                </div>
+            }
+            @if (resumen.SesionesActivas is not null)
+            {
+                <div class="col-6 col-md-3 col-xl-4">
+                    <div class="tarjeta p-3 h-100">
+                        <div class="dato-etiqueta">Sesiones activas</div>
+                        <div class="dato-valor">@resumen.SesionesActivas</div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (resumen.AccesosRecientes is { Count: > 0 })
+        {
+            <div class="tarjeta p-3">
+                <h2 class="h6 mb-3">Accesos recientes</h2>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr><th>Fecha</th><th>Correo</th><th>Resultado</th><th class="d-none d-md-table-cell">IP</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var a in resumen.AccesosRecientes)
+                            {
+                                <tr>
+                                    <td class="text-nowrap">@Local(a.FechaUtc)</td>
+                                    <td>@a.CorreoIntentado</td>
+                                    <td><span class="badge @(a.Resultado == ResultadoAcceso.Exitoso ? "text-bg-success" : "text-bg-danger")">@TextoResultado(a.Resultado)</span></td>
+                                    <td class="d-none d-md-table-cell">@a.DireccionIp</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(errorResumen))
+        {
+            <div class="alert alert-warning mt-3 py-2" role="alert">@errorResumen</div>
+        }
+    }
+}

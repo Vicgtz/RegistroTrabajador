@@ -1,0 +1,35 @@
+﻿@if (Visible)
+{
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal d-block" tabindex="-1" role="dialog" aria-modal="true" @onclick="Cerrar">
+        <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered @Tamano" @onclick:stopPropagation>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5">@Titulo</h2>
+                    <button type="button" class="btn-close" aria-label="Cerrar" @onclick="Cerrar"></button>
+                </div>
+                <div class="modal-body">@ChildContent</div>
+                @if (Footer is not null)
+                {
+                    <div class="modal-footer">@Footer</div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+    [Parameter] public string Titulo { get; set; } = "";
+    /// <summary>Clase de Bootstrap: modal-sm, modal-lg o modal-xl.</summary>
+    [Parameter] public string? Tamano { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? Footer { get; set; }
+
+    private async Task Cerrar()
+    {
+        Visible = false;
+        await VisibleChanged.InvokeAsync(false);
+    }
+}

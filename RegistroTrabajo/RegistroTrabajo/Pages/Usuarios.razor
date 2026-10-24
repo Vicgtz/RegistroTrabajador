@@ -1,0 +1,203 @@
+﻿@page "/usuarios"
+@attribute [Authorize]
+
+<PageTitle>Usuarios - Registro de Trabajo</PageTitle>
+
+<SoloConPermiso Codigo="@Permisos.UsuariosConsultar">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <h1 class="h3 mb-0">Usuarios</h1>
+        @if (Puede(Permisos.UsuariosCrear))
+        {
+            <button class="btn btn-primary" @onclick="NuevoUsuario">Nuevo usuario</button>
+        }
+    </div>
+
+    <div class="tarjeta p-3 mb-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-6">
+                <label class="form-label mb-1" for="buscar">Buscar</label>
+                <input id="buscar" class="form-control" placeholder="Nombre, apellido o correo" @bind="filtro.Buscar" @bind:event="oninput" @onkeydown="TeclaBuscar" />
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label mb-1" for="estado">Estado</label>
+                <select id="estado" class="form-select" @bind="filtro.Estado">
+                    <option value="">Todos</option>
+                    <option value="@EstadoUsuario.Activo">Activos</option>
+                    <option value="@EstadoUsuario.Inactivo">Inactivos</option>
+                    <option value="@EstadoUsuario.Suspendido">Suspendidos</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-3">
+                <button class="btn btn-outline-primary w-100" @onclick="Buscar">Buscar</button>
+            </div>
+        </div>
+    </div>
+
+    <Alerta Mensaje="@error" Tipo="danger" />
+    <Alerta Mensaje="@exito" Tipo="success" />
+
+    @if (cargando)
+    {
+        <Cargando />
+    }
+    else if (datos is not null)
+    {
+        <div class="tarjeta p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr><th>Nombre</th><th>Correo</th><th>Roles</th><th>Estado</th><th class="d-none d-lg-table-cell">Último acceso</th><th class="text-end">Acciones</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var u in datos.Items)
+                        {
+                            var esYo = u.UsuarioId == yoId;
+                            <tr>
+                                <td>@u.Nombre @u.Apellido @if (esYo) { <span class="badge text-bg-light">tú</span> }</td>
+                                <td>
+                                    @u.Correo
+                                    @if (u.CorreoConfirmadoUtc is null) { <span class="badge text-bg-warning ms-1" title="Correo sin confirmar">sin confirmar</span> }
+                                </td>
+                                <td>@foreach (var r in u.Roles) { <span class="badge rounded-pill text-bg-primary me-1">@r</span> }</td>
+                                <td>
+                                    <span class="badge @(u.Estado == EstadoUsuario.Activo ? "text-bg-success" : "text-bg-secondary")">@Formato.EstadoUsuario(u.Estado)</span>
+                                    @if (u.BloqueadoHastaUtc is { } b && DateTime.SpecifyKind(b, DateTimeKind.Utc) > DateTime.UtcNow) { <span class="badge text-bg-danger ms-1">bloqueado</span> }
+                                </td>
+                                <td class="d-none d-lg-table-cell">@Formato.Local(u.UltimoAccesoUtc)</td>
+                                <td class="text-end text-nowrap">
+                                    @if (Puede(Permisos.UsuariosEditar)) { <button class="btn btn-sm btn-outline-primary" @onclick="() => Editar(u)">Editar</button> }
+                                    @if (Puede(Permisos.RolesConsultar)) { <button class="btn btn-sm btn-outline-primary" @onclick="() => AbrirRoles(u)">Roles</button> }
+                                    <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" @onclick="() => MenuAbierto = MenuAbierto == u.UsuarioId ? null : u.UsuarioId">Más</button>
+                                        @if (MenuAbierto == u.UsuarioId)
+                                        {
+                                            <ul class="dropdown-menu dropdown-menu-end show" style="position:absolute;">
+                                                @if (!esYo && Puede(Permisos.UsuariosRestablecerContrasena)) { <li><button class="dropdown-item" @onclick="() => AbrirReset(u)">Restablecer contraseña</button></li> }
+                                                @if (Puede(Permisos.UsuariosDesbloquear)) { <li><button class="dropdown-item" @onclick="() => PedirDesbloquear(u)">Desbloquear cuenta</button></li> }
+                                                @if (!esYo && Puede(Permisos.UsuariosRevocarSesiones)) { <li><button class="dropdown-item" @onclick="() => PedirCerrarSesiones(u)">Cerrar sus sesiones</button></li> }
+                                                @if (!esYo && u.Estado == EstadoUsuario.Activo && Puede(Permisos.UsuariosDesactivar)) { <li><button class="dropdown-item text-danger" @onclick="() => PedirDesactivar(u)">Desactivar</button></li> }
+                                                @if (u.Estado != EstadoUsuario.Activo && Puede(Permisos.UsuariosEditar)) { <li><button class="dropdown-item" @onclick="() => PedirActivar(u)">Activar</button></li> }
+                                            </ul>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        @if (datos.Items.Count == 0)
+                        {
+                            <tr><td colspan="6" class="text-center text-muted py-4">No hay usuarios con esos criterios.</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <Paginador Page="datos.Page" PageSize="datos.PageSize" Total="datos.Total" OnPage="IrAPagina" />
+    }
+</SoloConPermiso>
+
+@* ---- Crear / editar ---- *@
+<Modal @bind-Visible="formVisible" Titulo="@(editandoId is null ? "Nuevo usuario" : "Editar usuario")"><ChildContent>
+    <EditForm Model="form" OnValidSubmit="Guardar" id="formUsuario">
+        <DataAnnotationsValidator />
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Nombre</label>
+                <InputText class="form-control" @bind-Value="form.Nombre" />
+                <ValidationMessage For="() => form.Nombre" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Apellido</label>
+                <InputText class="form-control" @bind-Value="form.Apellido" />
+                <ValidationMessage For="() => form.Apellido" />
+            </div>
+            <div class="col-12">
+                <label class="form-label">Correo</label>
+                <InputText type="email" class="form-control" @bind-Value="form.Correo" />
+                <ValidationMessage For="() => form.Correo" />
+                @if (editandoId is not null) { <div class="form-text">Si cambias el correo, deberá confirmarse otra vez.</div> }
+            </div>
+            @if (editandoId is null)
+            {
+                <div class="col-12">
+                    <label class="form-label">Contraseña inicial</label>
+                    <InputText type="password" class="form-control" @bind-Value="form.Contrasena" autocomplete="new-password" />
+                    <div class="form-text">Entre 10 y 128 caracteres, con mayúsculas, minúsculas y números.</div>
+                    <ValidationMessage For="() => form.Contrasena" />
+                </div>
+            }
+            <div class="col-12">
+                <div class="form-check">
+                    <InputCheckbox class="form-check-input" id="debeCambiar" @bind-Value="form.DebeCambiarContrasena" />
+                    <label class="form-check-label" for="debeCambiar">Debe cambiar la contraseña al iniciar sesión</label>
+                </div>
+            </div>
+            @if (editandoId is null && Puede(Permisos.RolesConsultar) && rolesDisponibles.Count > 0)
+            {
+                <div class="col-12">
+                    <label class="form-label">Roles</label>
+                    @foreach (var r in rolesDisponibles.Where(r => r.Estado))
+                    {
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="rol-@r.RolId" checked="@rolesSeleccionados.Contains(r.RolId)" @onchange="e => AlternarRolNuevo(r.RolId, (bool)e.Value!)" />
+                            <label class="form-check-label" for="rol-@r.RolId">@r.Nombre</label>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+        <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
+    </EditForm></ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => formVisible = false">Cancelar</button>
+        <button class="btn btn-primary" type="submit" form="formUsuario" disabled="@guardando">
+            @if (guardando) { <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> }
+            Guardar
+        </button>
+    </Footer>
+</Modal>
+
+@* ---- Roles del usuario ---- *@
+<Modal @bind-Visible="rolesVisible" Titulo="@($"Roles de {usuarioRoles?.Nombre} {usuarioRoles?.Apellido}")">
+    @if (cargandoRoles) { <Cargando /> }
+    else
+    {
+        <Alerta Mensaje="@errorRoles" Tipo="danger" />
+        @foreach (var r in rolesDisponibles)
+        {
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="ur-@r.RolId" checked="@rolesDelUsuario.Contains(r.RolId)"
+                       disabled="@(!Puede(Permisos.RolesConfigurar) || usuarioRoles?.UsuarioId == yoId || (!r.Estado && !rolesDelUsuario.Contains(r.RolId)))"
+                       @onchange="e => CambiarRol(r, (bool)e.Value!)" />
+                <label class="form-check-label" for="ur-@r.RolId">
+                    @r.Nombre
+                    @if (r.EsSistema) { <span class="badge text-bg-light">sistema</span> }
+                    @if (!r.Estado) { <span class="badge text-bg-secondary">inactivo</span> }
+                    @if (!string.IsNullOrEmpty(r.Descripcion)) { <div class="form-text mt-0">@r.Descripcion</div> }
+                </label>
+            </div>
+        }
+        @if (usuarioRoles?.UsuarioId == yoId) { <div class="form-text">No puedes modificar tus propios roles.</div> }
+    }
+</Modal>
+
+@* ---- Restablecer contraseña ---- *@
+<Modal @bind-Visible="resetVisible" Titulo="@($"Restablecer contraseña de {usuarioReset?.Nombre} {usuarioReset?.Apellido}")"><ChildContent>
+    <p class="text-muted">Se asignará esta contraseña, se cerrarán sus sesiones y deberá cambiarla al entrar.</p>
+    <label class="form-label" for="nuevaContra">Contraseña nueva</label>
+    <input id="nuevaContra" type="password" class="form-control" autocomplete="new-password" @bind="resetContrasena" />
+    <div class="form-text">Entre 10 y 128 caracteres, con mayúsculas, minúsculas y números.</div>
+    <Alerta Mensaje="@errorReset" Tipo="danger" Clase="mt-3 mb-0" /></ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => resetVisible = false">Cancelar</button>
+        <button class="btn btn-primary" @onclick="Restablecer" disabled="@guardando">Restablecer</button>
+    </Footer>
+</Modal>
+
+@* ---- Confirmación genérica ---- *@
+<Modal @bind-Visible="confirmVisible" Titulo="@confirmTitulo" Tamano="modal-sm"><ChildContent>
+    <p class="mb-0">@confirmMensaje</p></ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => confirmVisible = false">Cancelar</button>
+        <button class="btn btn-primary" @onclick="EjecutarConfirmacion" disabled="@guardando">Confirmar</button>
+    </Footer>
+</Modal>

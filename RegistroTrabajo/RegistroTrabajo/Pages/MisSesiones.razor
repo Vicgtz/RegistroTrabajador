@@ -1,0 +1,47 @@
+﻿@page "/cuenta/sesiones"
+@attribute [Authorize]
+@inject SesionesClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>Mis sesiones - Registro de Trabajo</PageTitle>
+
+<h1 class="h3 mb-3">Mis sesiones</h1>
+<p class="text-muted">Dispositivos donde tu cuenta tiene la sesión abierta. Si no reconoces alguno, ciérralo y cambia tu contraseña.</p>
+<Alerta Mensaje="@error" Tipo="danger" />
+<Alerta Mensaje="@exito" Tipo="success" />
+@if (cargando) { <Cargando /> }
+else if (datos is not null)
+{
+    <TablaSesiones Items="datos.Items" MostrarUsuario="false" PuedeCerrar="true" OnCerrar="Cerrar" />
+    <Paginador Page="datos.Page" PageSize="datos.PageSize" Total="datos.Total" OnPage="IrAPagina" />
+}
+
+@code {
+    private const int TamanoPagina = 20;
+    private PagedResult<SesionDto>? datos;
+    private bool cargando = true;
+    private string? error, exito;
+    private int pagina = 1;
+
+    protected override async Task OnInitializedAsync() => await Cargar();
+
+    private async Task Cargar()
+    {
+        cargando = true;
+        var r = await Api.MiasAsync(pagina, TamanoPagina);
+        if (r.Ok) datos = r.Data; else error = r.Error;
+        cargando = false;
+    }
+
+    private async Task IrAPagina(int p) { pagina = p; await Cargar(); }
+
+    private async Task Cerrar(SesionDto s)
+    {
+        error = exito = null;
+        var r = await Api.RevocarMiaAsync(s.SesionId);
+        if (!r.Ok) { error = r.Error; return; }
+        if (s.EsActual) { Navigation.NavigateTo("login", replace: true); return; }
+        exito = "Sesión cerrada.";
+        await Cargar();
+    }
+}

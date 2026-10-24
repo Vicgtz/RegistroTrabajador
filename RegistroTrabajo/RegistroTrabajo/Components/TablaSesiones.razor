@@ -1,0 +1,47 @@
+﻿<div class="tarjeta p-0">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    @if (MostrarUsuario) { <th>Usuario</th> }
+                    <th>Dispositivo</th><th class="d-none d-md-table-cell">IP</th><th>Inicio</th><th>Última actividad</th>
+                    <th class="d-none d-lg-table-cell">Expira</th><th class="text-end"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var s in Items)
+                {
+                    <tr>
+                        @if (MostrarUsuario) { <td>@s.UsuarioCorreo</td> }
+                        <td>
+                            @(string.IsNullOrWhiteSpace(s.Dispositivo) ? "Desconocido" : s.Dispositivo)
+                            @if (s.EsActual) { <span class="badge text-bg-success ms-1">esta sesión</span> }
+                            @if (!string.IsNullOrWhiteSpace(s.UserAgent)) { <div class="small text-muted text-truncate" style="max-width: 18rem;" title="@s.UserAgent">@s.UserAgent</div> }
+                        </td>
+                        <td class="d-none d-md-table-cell">@s.DireccionIp</td>
+                        <td class="text-nowrap">@Formato.Local(s.FechaCreacionUtc)</td>
+                        <td class="text-nowrap">@Formato.Local(s.UltimaActividadUtc)</td>
+                        <td class="d-none d-lg-table-cell text-nowrap">@Formato.Local(s.ExpiraUtc)</td>
+                        <td class="text-end">
+                            @if (PuedeCerrar)
+                            {
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => OnCerrar.InvokeAsync(s)">@(s.EsActual ? "Salir" : "Cerrar")</button>
+                            }
+                        </td>
+                    </tr>
+                }
+                @if (Items.Count == 0)
+                {
+                    <tr><td colspan="7" class="text-center text-muted py-4">No hay sesiones activas.</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<SesionDto> Items { get; set; } = Array.Empty<SesionDto>();
+    [Parameter] public bool MostrarUsuario { get; set; }
+    [Parameter] public bool PuedeCerrar { get; set; }
+    [Parameter] public EventCallback<SesionDto> OnCerrar { get; set; }
+}

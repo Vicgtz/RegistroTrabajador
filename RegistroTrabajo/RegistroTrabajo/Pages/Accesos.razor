@@ -1,0 +1,80 @@
+﻿@page "/accesos"
+@attribute [Authorize]
+@inject RegistrosClient Api
+
+<PageTitle>Historial de accesos - Registro de Trabajo</PageTitle>
+
+<SoloConPermiso Codigo="@Permisos.AccesosConsultar">
+    <h1 class="h3 mb-3">Historial de accesos</h1>
+    <div class="tarjeta p-3 mb-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-6 col-md-3">
+                <label class="form-label mb-1" for="desde">Desde</label>
+                <input id="desde" type="date" class="form-control" @bind="desde" />
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label mb-1" for="hasta">Hasta</label>
+                <input id="hasta" type="date" class="form-control" @bind="hasta" />
+            </div>
+            <div class="col-12 col-md-3">
+                <button class="btn btn-outline-primary w-100" @onclick="Buscar">Filtrar</button>
+            </div>
+        </div>
+    </div>
+    <Alerta Mensaje="@error" Tipo="danger" />
+    @if (cargando) { <Cargando /> }
+    else if (datos is not null)
+    {
+        <div class="tarjeta p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead><tr><th>Fecha</th><th>Correo</th><th>Resultado</th><th class="d-none d-md-table-cell">IP</th><th class="d-none d-lg-table-cell">Detalle</th></tr></thead>
+                    <tbody>
+                        @foreach (var a in datos.Items)
+                        {
+                            <tr>
+                                <td class="text-nowrap">@Formato.Local(a.FechaUtc)</td>
+                                <td>@a.CorreoIntentado</td>
+                                <td><span class="badge @(a.Resultado == ResultadoAcceso.Exitoso ? "text-bg-success" : "text-bg-danger")">@Formato.ResultadoAcceso(a.Resultado)</span></td>
+                                <td class="d-none d-md-table-cell">@a.DireccionIp</td>
+                                <td class="d-none d-lg-table-cell small text-muted">@a.Detalle</td>
+                            </tr>
+                        }
+                        @if (datos.Items.Count == 0) { <tr><td colspan="5" class="text-center text-muted py-4">Sin registros en ese periodo.</td></tr> }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <Paginador Page="datos.Page" PageSize="datos.PageSize" Total="datos.Total" OnPage="IrAPagina" />
+    }
+</SoloConPermiso>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? Estado { get; set; }
+    private readonly FechaFiltro filtro = new() { PageSize = 20 };
+    private PagedResult<HistorialAccesoDto>? datos;
+    private DateTime? desde, hasta;
+    private bool cargando = true;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = Estado is null ? null : (await Estado).User;
+        if (user?.TienePermiso(Permisos.AccesosConsultar) == true) await Cargar(); else cargando = false;
+    }
+
+    private async Task Buscar() { filtro.Page = 1; await Cargar(); }
+    private async Task IrAPagina(int p) { filtro.Page = p; await Cargar(); }
+
+    private async Task Cargar()
+    {
+        cargando = true;
+        error = null;
+        // Las fechas se eligen en hora local y la API filtra en UTC.
+        filtro.Desde = desde is { } d ? DateTime.SpecifyKind(d.Date, DateTimeKind.Local).ToUniversalTime() : null;
+        filtro.Hasta = hasta is { } h ? DateTime.SpecifyKind(h.Date.AddDays(1).AddSeconds(-1), DateTimeKind.Local).ToUniversalTime() : null;
+        var r = await Api.AccesosAsync(filtro);
+        if (r.Ok) datos = r.Data; else error = r.Error;
+        cargando = false;
+    }
+}

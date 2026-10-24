@@ -1,0 +1,59 @@
+﻿@page "/olvide-contrasena"
+@layout LoginLayout
+@attribute [AllowAnonymous]
+@inject AuthClient Auth
+
+<PageTitle>Recuperar contraseña - Registro de Trabajo</PageTitle>
+
+<div class="card shadow border-0" style="background-color: rgba(255, 255, 255, 0.96);">
+    <div class="card-body p-4">
+        <h1 class="h4 text-center mb-1">Recuperar contraseña</h1>
+        <p class="text-center text-muted mb-4">Escribe tu correo y te enviaremos un enlace para crear una contraseña nueva.</p>
+
+        @if (enviado)
+        {
+            <Alerta Mensaje="@mensaje" Tipo="success" />
+            <a class="btn btn-primary w-100" href="login">Volver a iniciar sesión</a>
+        }
+        else
+        {
+            <EditForm Model="modelo" OnValidSubmit="Enviar">
+                <DataAnnotationsValidator />
+                <div class="mb-3">
+                    <label for="correo" class="form-label">Correo</label>
+                    <InputText id="correo" type="email" class="form-control" @bind-Value="modelo.Correo" autocomplete="username" disabled="@cargando" />
+                    <ValidationMessage For="() => modelo.Correo" />
+                </div>
+                <Alerta Mensaje="@error" Tipo="danger" />
+                <button type="submit" class="btn btn-primary w-100" disabled="@cargando">
+                    @if (cargando) { <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> }
+                    Enviar enlace
+                </button>
+                <div class="text-center mt-3"><a href="login">Volver a iniciar sesión</a></div>
+            </EditForm>
+        }
+    </div>
+</div>
+
+@code {
+    private readonly Modelo modelo = new();
+    private bool cargando, enviado;
+    private string? error, mensaje;
+
+    private async Task Enviar()
+    {
+        error = null;
+        cargando = true;
+        var r = await Auth.OlvideContrasenaAsync(modelo.Correo);
+        cargando = false;
+        if (r.Ok) { enviado = true; mensaje = r.Data?.Mensaje ?? "Si el correo está registrado, recibirás un enlace para restablecer tu contraseña."; }
+        else error = r.Error;
+    }
+
+    private class Modelo
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Ingresa tu correo")]
+        [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "Correo inválido")]
+        public string Correo { get; set; } = "";
+    }
+}
