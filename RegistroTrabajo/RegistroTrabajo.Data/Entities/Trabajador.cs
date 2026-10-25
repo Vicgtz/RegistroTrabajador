@@ -71,9 +71,9 @@ public class Trabajador
 
     public ICollection<Tarea> Tareas { get; set; } = new List<Tarea>();
 
-    public ICollection<TrabajadorSupervisor> TrabajadorSupervisoresTrabajadores { get; set; } = new List<TrabajadorSupervisor>();
+    public ICollection<TrabajadorSupervisor> SupervisionesComoSupervisor { get; set; } = new List<TrabajadorSupervisor>();
 
-    public ICollection<TrabajadorSupervisor> TrabajadorSupervisoresTrabajadoresNavigation { get; set; } = new List<TrabajadorSupervisor>();
+    public ICollection<TrabajadorSupervisor> SupervisionesComoSupervisado { get; set; } = new List<TrabajadorSupervisor>();
 
     public Usuario? Usuario { get; set; }
 

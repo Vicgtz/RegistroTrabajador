@@ -1138,13 +1138,13 @@ public partial class RegistroTrabajoDbContext
                 .OnDelete(DeleteBehavior.NoAction)
                 .HasConstraintName("FK__TrabajadorSuperv__2B0A656D");
 
-            entity.HasOne(d => d.Trabajador).WithMany(p => p.TrabajadorSupervisoresTrabajadores)
+            entity.HasOne(d => d.Supervisor).WithMany(p => p.SupervisionesComoSupervisor)
                 .HasPrincipalKey(p => new { p.EmpresaId, p.TrabajadorId })
                 .HasForeignKey(d => new { d.EmpresaId, d.SupervisorTrabajadorId })
                 .OnDelete(DeleteBehavior.NoAction)
                 .HasConstraintName("FK__TrabajadorSuperv__2A164134");
 
-            entity.HasOne(d => d.TrabajadoresNavigation).WithMany(p => p.TrabajadorSupervisoresTrabajadoresNavigation)
+            entity.HasOne(d => d.Supervisado).WithMany(p => p.SupervisionesComoSupervisado)
                 .HasPrincipalKey(p => new { p.EmpresaId, p.TrabajadorId })
                 .HasForeignKey(d => new { d.EmpresaId, d.TrabajadorId })
                 .OnDelete(DeleteBehavior.NoAction)

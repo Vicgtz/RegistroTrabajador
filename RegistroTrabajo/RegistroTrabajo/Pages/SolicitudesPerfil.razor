@@ -1,0 +1,120 @@
+@page "/solicitudes-perfil"
+@attribute [Authorize]
+
+<PageTitle>Solicitudes de perfil - Registro de Trabajo</PageTitle>
+
+<SoloConPermiso Codigo="@Permisos.PerfilResolverSolicitudes">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <h1 class="h3 mb-0">Solicitudes de cambio de perfil</h1>
+        <select class="form-select w-auto" aria-label="Estado" @bind="filtro.Estado" @bind:after="Buscar">
+            <option value="@EstadoSolicitudPerfil.Pendiente">Pendientes</option>
+            <option value="">Todas</option>
+            <option value="@EstadoSolicitudPerfil.Aprobada">Aprobadas</option>
+            <option value="@EstadoSolicitudPerfil.Rechazada">Rechazadas</option>
+            <option value="@EstadoSolicitudPerfil.Cancelada">Canceladas</option>
+        </select>
+    </div>
+
+    <Alerta Mensaje="@error" Tipo="danger" />
+    <Alerta Mensaje="@exito" Tipo="success" />
+
+    @if (cargando) { <Cargando /> }
+    else if (datos is not null)
+    {
+        <div class="tarjeta p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead><tr><th>Trabajador</th><th>Cambios solicitados</th><th>Solicitada</th><th>Estado</th><th class="text-end">Acciones</th></tr></thead>
+                    <tbody>
+                        @foreach (var s in datos.Items)
+                        {
+                            <tr>
+                                <td><a href="trabajadores/@s.TrabajadorId">@s.TrabajadorNombre</a></td>
+                                <td class="small">
+                                    @if (s.Datos.CorreoContacto is not null) { <div>Correo: @s.Datos.CorreoContacto</div> }
+                                    @if (s.Datos.Telefono is not null) { <div>Teléfono: @s.Datos.Telefono</div> }
+                                    @if (s.Datos.Direccion is not null) { <div>Dirección: @s.Datos.Direccion</div> }
+                                </td>
+                                <td>@Formato.Local(s.SolicitadaUtc)</td>
+                                <td>
+                                    <span class="badge @FormatoLaboral.ClaseSolicitud(s.Estado)">@FormatoLaboral.EstadoSolicitud(s.Estado)</span>
+                                    @if (s.RevisadaUtc is not null && s.Estado != EstadoSolicitudPerfil.Pendiente) { <div class="small text-muted">@Formato.Local(s.RevisadaUtc)</div> }
+                                    @if (!string.IsNullOrEmpty(s.ComentarioRevision)) { <div class="small text-muted">@s.ComentarioRevision</div> }
+                                </td>
+                                <td class="text-end text-nowrap">
+                                    @if (s.Estado == EstadoSolicitudPerfil.Pendiente)
+                                    {
+                                        <button class="btn btn-sm btn-success" @onclick="() => Abrir(s, true)">Aprobar</button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => Abrir(s, false)">Rechazar</button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        @if (datos.Items.Count == 0) { <tr><td colspan="5" class="text-center text-muted py-4">No hay solicitudes.</td></tr> }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <Paginador Page="datos.Page" PageSize="datos.PageSize" Total="datos.Total" OnPage="IrAPagina" />
+    }
+</SoloConPermiso>
+
+<Modal @bind-Visible="resolverVisible" Titulo="@(aprobar ? "Aprobar solicitud" : "Rechazar solicitud")" Tamano="modal-sm">
+    <ChildContent>
+        <p class="small text-muted">
+            @(aprobar ? "Los datos del expediente se actualizarán con lo solicitado." : "El expediente no se modifica. Indica el motivo del rechazo.")
+        </p>
+        <label class="form-label">Comentario@(aprobar ? " (opcional)" : "")</label>
+        <InputText class="form-control" @bind-Value="comentario" />
+        <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => resolverVisible = false">Cancelar</button>
+        <button class="btn @(aprobar ? "btn-success" : "btn-danger")" @onclick="Resolver" disabled="@guardando">Confirmar</button>
+    </Footer>
+</Modal>
+
+@code {
+    [Inject] private SolicitudesPerfilClient Api { get; set; } = default!;
+
+    private PagedResult<SolicitudCambioPerfilDto>? datos;
+    private readonly SolicitudPerfilFiltro filtro = new() { PageSize = 20, Estado = EstadoSolicitudPerfil.Pendiente };
+    private bool cargando = true, guardando, resolverVisible, aprobar;
+    private string? error, exito, errorForm, comentario;
+    private SolicitudCambioPerfilDto? actual;
+
+    protected override async Task OnInitializedAsync() => await Cargar();
+
+    private async Task Cargar()
+    {
+        cargando = true;
+        error = null;
+        var r = await Api.ListarAsync(filtro);
+        if (r.Ok) datos = r.Data; else error = r.Error;
+        cargando = false;
+    }
+
+    private async Task Buscar() { filtro.Page = 1; await Cargar(); }
+    private async Task IrAPagina(int p) { filtro.Page = p; await Cargar(); }
+
+    private void Abrir(SolicitudCambioPerfilDto s, bool aprobada)
+    {
+        actual = s; aprobar = aprobada; comentario = null; errorForm = null; resolverVisible = true;
+    }
+
+    private async Task Resolver()
+    {
+        if (actual is null) return;
+        errorForm = null;
+        guardando = true;
+        try
+        {
+            var r = await Api.ResolverAsync(actual.SolicitudCambioPerfilId, aprobar, comentario);
+            if (!r.Ok) { errorForm = r.Error; return; }
+            resolverVisible = false;
+            exito = aprobar ? "Solicitud aprobada y expediente actualizado." : "Solicitud rechazada.";
+            await Cargar();
+        }
+        finally { guardando = false; }
+    }
+}

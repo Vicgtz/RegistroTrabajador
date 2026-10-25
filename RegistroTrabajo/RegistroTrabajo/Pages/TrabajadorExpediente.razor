@@ -1,0 +1,319 @@
+@page "/trabajadores/{Id:guid}"
+@attribute [Authorize]
+
+<PageTitle>Expediente - Registro de Trabajo</PageTitle>
+
+<SoloConPermiso Codigo="@Permisos.TrabajadoresConsultar">
+    <a href="trabajadores" class="small">&larr; Volver al listado</a>
+
+    <Alerta Mensaje="@error" Tipo="danger" Clase="mt-2" />
+    <Alerta Mensaje="@exito" Tipo="success" Clase="mt-2" />
+
+    @if (cargando) { <Cargando /> }
+    else if (t is not null)
+    {
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 my-3">
+            <div>
+                <h1 class="h3 mb-1">@t.Nombres @t.Apellidos</h1>
+                <span class="badge @FormatoLaboral.ClaseEstado(t.EstadoLaboral)">@FormatoLaboral.Estado(t.EstadoLaboral)</span>
+                @if (!string.IsNullOrEmpty(t.NumeroEmpleado)) { <span class="text-muted ms-2">N.º @t.NumeroEmpleado</span> }
+            </div>
+            <div class="btn-group">
+                @if (Puede(Permisos.TrabajadoresEditar) && t.EstadoLaboral != EstadoLaboral.Baja)
+                {
+                    <button class="btn btn-outline-primary" @onclick="AbrirEditar">Editar</button>
+                    <button class="btn btn-outline-secondary" @onclick="AlternarEstadoLaboral">@(t.EstadoLaboral == EstadoLaboral.Activo ? "Marcar inactivo" : "Marcar activo")</button>
+                }
+                @if (Puede(Permisos.TrabajadoresBaja) && t.EstadoLaboral != EstadoLaboral.Baja)
+                {
+                    <button class="btn btn-outline-danger" @onclick="AbrirBaja">Dar de baja</button>
+                }
+                @if (Puede(Permisos.TrabajadoresBaja) && t.EstadoLaboral == EstadoLaboral.Baja)
+                {
+                    <button class="btn btn-outline-primary" @onclick="AbrirReingreso">Reingresar</button>
+                }
+            </div>
+        </div>
+
+        @if (t.EstadoLaboral == EstadoLaboral.Baja)
+        {
+            <div class="alert alert-secondary">
+                Baja el @FormatoLaboral.Fecha(t.FechaBaja): @(t.MotivoBaja ?? "sin motivo registrado").
+                El historial del trabajador se conserva y el acceso de su cuenta queda bloqueado.
+            </div>
+        }
+
+        <div class="row g-3">
+            <div class="col-12 col-lg-6">
+                <div class="tarjeta p-3 h-100">
+                    <h2 class="h5">Información laboral</h2>
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">Departamento</dt><dd class="col-sm-7">@(t.Departamento ?? "—")</dd>
+                        <dt class="col-sm-5">Puesto</dt><dd class="col-sm-7">@(t.Puesto ?? "—")</dd>
+                        @if (t.VerSensibles)
+                        {
+                            <dt class="col-sm-5">Fecha de ingreso</dt><dd class="col-sm-7">@FormatoLaboral.Fecha(t.FechaIngreso)</dd>
+                        }
+                        <dt class="col-sm-5">Supervisores</dt><dd class="col-sm-7">@(t.Supervisores.Count == 0 ? "—" : string.Join(", ", t.Supervisores))</dd>
+                    </dl>
+                </div>
+            </div>
+            <div class="col-12 col-lg-6">
+                <div class="tarjeta p-3 h-100">
+                    <h2 class="h5">Datos personales</h2>
+                    @if (!t.VerSensibles)
+                    {
+                        <p class="text-muted mb-0">Los datos personales solo se muestran a los roles autorizados.</p>
+                    }
+                    else
+                    {
+                        <dl class="row mb-0">
+                            <dt class="col-sm-5">Correo de contacto</dt><dd class="col-sm-7">@(t.CorreoContacto ?? "—")</dd>
+                            <dt class="col-sm-5">Teléfono</dt><dd class="col-sm-7">@(t.Telefono ?? "—")</dd>
+                            <dt class="col-sm-5">Dirección</dt><dd class="col-sm-7">@(t.Direccion ?? "—")</dd>
+                            <dt class="col-sm-5">Nacimiento</dt><dd class="col-sm-7">@FormatoLaboral.Fecha(t.FechaNacimiento)</dd>
+                            <dt class="col-sm-5">Cuenta de usuario</dt><dd class="col-sm-7">@(t.UsuarioId is null ? "Sin cuenta vinculada" : "Vinculada")</dd>
+                        </dl>
+                    }
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-6">
+                <div class="tarjeta p-3 h-100">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h2 class="h5 mb-0">Supervisión</h2>
+                        @if (Puede(Permisos.SupervisoresGestionar) && t.EstadoLaboral != EstadoLaboral.Baja)
+                        {
+                            <button class="btn btn-sm btn-primary" @onclick="AbrirSupervisor">Asignar supervisor</button>
+                        }
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead><tr><th>Supervisor</th><th>Desde</th><th>Hasta</th><th></th></tr></thead>
+                            <tbody>
+                                @foreach (var s in supervisores)
+                                {
+                                    <tr class="@(s.FechaFin is null ? "" : "text-muted")">
+                                        <td>@s.SupervisorNombre @if (s.EsPrincipal && s.FechaFin is null) { <span class="badge text-bg-primary">principal</span> }</td>
+                                        <td>@FormatoLaboral.Fecha(s.FechaInicio)</td>
+                                        <td>@FormatoLaboral.Fecha(s.FechaFin)</td>
+                                        <td class="text-end">
+                                            @if (s.FechaFin is null && Puede(Permisos.SupervisoresGestionar))
+                                            {
+                                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => FinalizarSupervision(s)">Finalizar</button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                                @if (supervisores.Count == 0) { <tr><td colspan="4" class="text-muted text-center py-2">Sin supervisores asignados.</td></tr> }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            @if (t.VerSensibles)
+            {
+                <div class="col-12 col-lg-6">
+                    <div class="tarjeta p-3 h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h2 class="h5 mb-0">Contactos de emergencia</h2>
+                            @if (Puede(Permisos.TrabajadoresEditar))
+                            {
+                                <button class="btn btn-sm btn-primary" @onclick="NuevoContacto">Agregar</button>
+                            }
+                        </div>
+                        <ul class="list-group list-group-flush">
+                            @foreach (var c in contactos)
+                            {
+                                <li class="list-group-item px-0 d-flex justify-content-between align-items-start gap-2">
+                                    <div>
+                                        <strong>@c.NombreCompleto</strong>
+                                        @if (c.EsPrincipal) { <span class="badge text-bg-primary ms-1">principal</span> }
+                                        <div class="small text-muted">@(c.Parentesco ?? "—") · @c.Telefono@(string.IsNullOrEmpty(c.TelefonoAlternativo) ? "" : " / " + c.TelefonoAlternativo)</div>
+                                    </div>
+                                    @if (Puede(Permisos.TrabajadoresEditar))
+                                    {
+                                        <div class="btn-group btn-group-sm text-nowrap">
+                                            <button class="btn btn-outline-primary" @onclick="() => EditarContacto(c)">Editar</button>
+                                            <button class="btn btn-outline-danger" @onclick="() => PedirEliminarContacto(c)">Quitar</button>
+                                        </div>
+                                    }
+                                </li>
+                            }
+                            @if (contactos.Count == 0) { <li class="list-group-item px-0 text-muted">Sin contactos registrados.</li> }
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <div class="tarjeta p-3">
+                        <h2 class="h5">Historial laboral</h2>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead><tr><th>Vigente desde</th><th>Cambio</th><th>Motivo</th><th>Detalle</th><th class="d-none d-md-table-cell">Registrado</th></tr></thead>
+                                <tbody>
+                                    @foreach (var h in historial)
+                                    {
+                                        <tr>
+                                            <td>@FormatoLaboral.Fecha(h.FechaEfectiva)</td>
+                                            <td><span class="badge text-bg-light">@h.TipoCambio</span></td>
+                                            <td>@(h.Motivo ?? "—")</td>
+                                            <td>
+                                                <details>
+                                                    <summary class="small">Ver antes / después</summary>
+                                                    <pre class="small mb-1">Antes: @Formato.Json(h.DatosAntesJson)</pre>
+                                                    <pre class="small mb-0">Después: @Formato.Json(h.DatosDespuesJson)</pre>
+                                                </details>
+                                            </td>
+                                            <td class="d-none d-md-table-cell">@Formato.Local(h.RegistradoUtc)</td>
+                                        </tr>
+                                    }
+                                    @if (historial.Count == 0) { <tr><td colspan="5" class="text-muted text-center py-2">Sin movimientos.</td></tr> }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</SoloConPermiso>
+
+@* ---- Editar expediente ---- *@
+<Modal @bind-Visible="editarVisible" Titulo="Editar expediente" Tamano="modal-lg">
+    <ChildContent>
+        <EditForm Model="form" OnValidSubmit="GuardarEdicion" id="formEditar">
+            <DataAnnotationsValidator />
+            <div class="row g-3">
+                <div class="col-md-6"><label class="form-label">Nombres</label><InputText class="form-control" @bind-Value="form.Nombres" /><ValidationMessage For="() => form.Nombres" /></div>
+                <div class="col-md-6"><label class="form-label">Apellidos</label><InputText class="form-control" @bind-Value="form.Apellidos" /><ValidationMessage For="() => form.Apellidos" /></div>
+                <div class="col-md-4"><label class="form-label">Número de empleado</label><InputText class="form-control" @bind-Value="form.NumeroEmpleado" /></div>
+                <div class="col-md-4"><label class="form-label">Fecha de ingreso</label><InputDate class="form-control" @bind-Value="form.FechaIngreso" /></div>
+                <div class="col-md-4"><label class="form-label">Teléfono</label><InputText class="form-control" @bind-Value="form.Telefono" /></div>
+                <div class="col-md-6"><label class="form-label">Correo de contacto</label><InputText type="email" class="form-control" @bind-Value="form.CorreoContacto" /><ValidationMessage For="() => form.CorreoContacto" /></div>
+                <div class="col-md-6"><label class="form-label">Fecha de nacimiento</label><InputDate class="form-control" @bind-Value="form.FechaNacimiento" /></div>
+                <div class="col-md-6">
+                    <label class="form-label">Departamento</label>
+                    <select class="form-select" @bind="form.DepartamentoId">
+                        <option value="">Sin departamento</option>
+                        @foreach (var d in departamentos.Where(x => x.Estado || x.Id == t?.DepartamentoId)) { <option value="@d.Id">@d.Nombre@(d.Estado ? "" : " (inactivo)")</option> }
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Puesto</label>
+                    <select class="form-select" @bind="form.PuestoId">
+                        <option value="">Sin puesto</option>
+                        @foreach (var p in puestos.Where(x => x.Estado || x.Id == t?.PuestoId)) { <option value="@p.Id">@p.Nombre@(p.Estado ? "" : " (inactivo)")</option> }
+                    </select>
+                </div>
+                <div class="col-12"><label class="form-label">Dirección</label><InputText class="form-control" @bind-Value="form.Direccion" /></div>
+                <div class="col-md-4">
+                    <label class="form-label">Cambio vigente desde</label>
+                    <InputDate class="form-control" @bind-Value="form.FechaEfectiva" />
+                    <div class="form-text">Aplica a cambios de puesto o departamento.</div>
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label">Motivo del cambio</label>
+                    <InputText class="form-control" @bind-Value="form.MotivoCambio" />
+                </div>
+            </div>
+            <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
+        </EditForm>
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => editarVisible = false">Cancelar</button>
+        <button class="btn btn-primary" type="submit" form="formEditar" disabled="@guardando">Guardar</button>
+    </Footer>
+</Modal>
+
+@* ---- Baja ---- *@
+<Modal @bind-Visible="bajaVisible" Titulo="Dar de baja al trabajador" Tamano="modal-sm">
+    <ChildContent>
+        <p class="small text-muted">Se bloqueará el acceso de su cuenta y se cerrarán sus supervisiones. El historial se conserva.</p>
+        <div class="mb-3">
+            <label class="form-label">Fecha de baja</label>
+            <InputDate class="form-control" @bind-Value="bajaFecha" />
+        </div>
+        <div class="mb-1">
+            <label class="form-label">Motivo</label>
+            <InputText class="form-control" @bind-Value="bajaMotivo" />
+        </div>
+        <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => bajaVisible = false">Cancelar</button>
+        <button class="btn btn-danger" @onclick="ConfirmarBaja" disabled="@guardando">Confirmar baja</button>
+    </Footer>
+</Modal>
+
+@* ---- Reingreso ---- *@
+<Modal @bind-Visible="reingresoVisible" Titulo="Reingresar trabajador" Tamano="modal-sm">
+    <ChildContent>
+        <p class="small text-muted">El acceso de su cuenta no se reactiva automáticamente; hágalo desde Usuarios si corresponde.</p>
+        <label class="form-label">Motivo</label>
+        <InputText class="form-control" @bind-Value="reingresoMotivo" />
+        <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => reingresoVisible = false">Cancelar</button>
+        <button class="btn btn-primary" @onclick="ConfirmarReingreso" disabled="@guardando">Reingresar</button>
+    </Footer>
+</Modal>
+
+@* ---- Asignar supervisor ---- *@
+<Modal @bind-Visible="supervisorVisible" Titulo="Asignar supervisor" Tamano="modal-sm">
+    <ChildContent>
+        <div class="mb-3">
+            <label class="form-label">Supervisor</label>
+            <select class="form-select" @bind="supervisorId">
+                <option value="">Selecciona…</option>
+                @foreach (var c in candidatos) { <option value="@c.TrabajadorId">@c.Nombres @c.Apellidos</option> }
+            </select>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Desde</label>
+            <InputDate class="form-control" @bind-Value="supervisorInicio" />
+        </div>
+        <div class="form-check">
+            <InputCheckbox class="form-check-input" id="esPrincipal" @bind-Value="supervisorPrincipal" />
+            <label class="form-check-label" for="esPrincipal">Supervisor principal</label>
+        </div>
+        <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => supervisorVisible = false">Cancelar</button>
+        <button class="btn btn-primary" @onclick="ConfirmarSupervisor" disabled="@(guardando || supervisorId is null)">Asignar</button>
+    </Footer>
+</Modal>
+
+@* ---- Contacto de emergencia ---- *@
+<Modal @bind-Visible="contactoVisible" Titulo="@(contactoId is null ? "Nuevo contacto de emergencia" : "Editar contacto de emergencia")" Tamano="modal-sm">
+    <ChildContent>
+        <EditForm Model="contactoForm" OnValidSubmit="GuardarContacto" id="formContacto">
+            <DataAnnotationsValidator />
+            <div class="mb-3"><label class="form-label">Nombre completo</label><InputText class="form-control" @bind-Value="contactoForm.NombreCompleto" /><ValidationMessage For="() => contactoForm.NombreCompleto" /></div>
+            <div class="mb-3"><label class="form-label">Parentesco</label><InputText class="form-control" @bind-Value="contactoForm.Parentesco" /></div>
+            <div class="mb-3"><label class="form-label">Teléfono</label><InputText class="form-control" @bind-Value="contactoForm.Telefono" /><ValidationMessage For="() => contactoForm.Telefono" /></div>
+            <div class="mb-3"><label class="form-label">Teléfono alterno</label><InputText class="form-control" @bind-Value="contactoForm.TelefonoAlternativo" /></div>
+            <div class="form-check">
+                <InputCheckbox class="form-check-input" id="contactoPrincipal" @bind-Value="contactoForm.EsPrincipal" />
+                <label class="form-check-label" for="contactoPrincipal">Contacto principal</label>
+            </div>
+            <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
+        </EditForm>
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => contactoVisible = false">Cancelar</button>
+        <button class="btn btn-primary" type="submit" form="formContacto" disabled="@guardando">Guardar</button>
+    </Footer>
+</Modal>
+
+@* ---- Confirmación genérica ---- *@
+<Modal @bind-Visible="confirmarVisible" Titulo="Confirmar" Tamano="modal-sm">
+    <ChildContent><p class="mb-0">@confirmarTexto</p></ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => confirmarVisible = false">Cancelar</button>
+        <button class="btn btn-danger" @onclick="EjecutarConfirmacion" disabled="@guardando">Confirmar</button>
+    </Footer>
+</Modal>

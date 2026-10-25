@@ -40,6 +40,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISesionService, SesionService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IBootstrapService, BootstrapService>();
+        services.AddScoped<IDepartamentoService, DepartamentoService>();
+        services.AddScoped<IPuestoService, PuestoService>();
+        services.AddScoped<ITrabajadorService, TrabajadorService>();
+        services.AddScoped<ISupervisionService, SupervisionService>();
+        services.AddScoped<IContactoEmergenciaService, ContactoEmergenciaService>();
+        services.AddScoped<ISolicitudCambioPerfilService, SolicitudCambioPerfilService>();
         return services;
     }
 }

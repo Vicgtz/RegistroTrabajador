@@ -1,0 +1,95 @@
+@page "/catalogos"
+@attribute [Authorize]
+
+<PageTitle>Departamentos y puestos - Registro de Trabajo</PageTitle>
+
+<h1 class="h3 mb-3">Departamentos y puestos</h1>
+
+<Alerta Mensaje="@error" Tipo="danger" />
+<Alerta Mensaje="@exito" Tipo="success" />
+
+@if (cargando) { <Cargando /> }
+else
+{
+    <div class="row g-3">
+        @if (Puede(Permisos.DepartamentosConsultar))
+        {
+            <div class="col-12 col-xl-6">
+                <div class="tarjeta p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h2 class="h5 mb-0">Departamentos</h2>
+                        @if (Puede(Permisos.DepartamentosGestionar)) { <button class="btn btn-sm btn-primary" @onclick="() => Nuevo(true)">Nuevo</button> }
+                    </div>
+                    @Tabla(departamentos, true, Puede(Permisos.DepartamentosGestionar))
+                </div>
+            </div>
+        }
+        @if (Puede(Permisos.PuestosConsultar))
+        {
+            <div class="col-12 col-xl-6">
+                <div class="tarjeta p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h2 class="h5 mb-0">Puestos</h2>
+                        @if (Puede(Permisos.PuestosGestionar)) { <button class="btn btn-sm btn-primary" @onclick="() => Nuevo(false)">Nuevo</button> }
+                    </div>
+                    @Tabla(puestos, false, Puede(Permisos.PuestosGestionar))
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private RenderFragment Tabla(List<CatalogoItemDto> items, bool esDepto, bool gestiona) => @<div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead><tr><th>Nombre</th><th class="text-end">Trabajadores</th><th>Estado</th>@if (gestiona) { <th class="text-end">Acciones</th> }</tr></thead>
+            <tbody>
+                @foreach (var i in items)
+                {
+                    <tr>
+                        <td>
+                            @i.Nombre
+                            @if (!string.IsNullOrEmpty(i.Descripcion)) { <div class="small text-muted">@i.Descripcion</div> }
+                        </td>
+                        <td class="text-end">@i.Trabajadores</td>
+                        <td><span class="badge @(i.Estado ? "text-bg-success" : "text-bg-secondary")">@(i.Estado ? "Activo" : "Inactivo")</span></td>
+                        @if (gestiona)
+                        {
+                            <td class="text-end text-nowrap">
+                                <button class="btn btn-sm btn-outline-primary" @onclick="() => Editar(i, esDepto)">Editar</button>
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => AlternarEstado(i, esDepto)">@(i.Estado ? "Desactivar" : "Activar")</button>
+                            </td>
+                        }
+                    </tr>
+                }
+                @if (items.Count == 0)
+                {
+                    <tr><td colspan="4" class="text-center text-muted py-3">Sin registros.</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>;
+}
+
+<Modal @bind-Visible="formVisible" Titulo="@TituloForm" Tamano="modal-sm">
+    <ChildContent>
+        <EditForm Model="form" OnValidSubmit="Guardar" id="formCatalogo">
+            <DataAnnotationsValidator />
+            <div class="mb-3">
+                <label class="form-label">Nombre</label>
+                <InputText class="form-control" @bind-Value="form.Nombre" />
+                <ValidationMessage For="() => form.Nombre" />
+            </div>
+            <div class="mb-1">
+                <label class="form-label">Descripción</label>
+                <InputTextArea class="form-control" rows="2" @bind-Value="form.Descripcion" />
+                <ValidationMessage For="() => form.Descripcion" />
+            </div>
+            <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
+        </EditForm>
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => formVisible = false">Cancelar</button>
+        <button class="btn btn-primary" type="submit" form="formCatalogo" disabled="@guardando">Guardar</button>
+    </Footer>
+</Modal>

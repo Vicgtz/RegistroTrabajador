@@ -44,5 +44,8 @@ builder.Services.AddScoped<SesionesClient>();
 builder.Services.AddScoped<RegistrosClient>();
 builder.Services.AddScoped<EmpresaClient>();
 builder.Services.AddScoped<PlataformaClient>();
+builder.Services.AddScoped<CatalogosClient>();
+builder.Services.AddScoped<TrabajadoresClient>();
+builder.Services.AddScoped<SolicitudesPerfilClient>();
 
 await builder.Build().RunAsync();

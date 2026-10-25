@@ -1,4 +1,4 @@
-# Registro de Trabajo — contexto del proyecto
+﻿# Registro de Trabajo — contexto del proyecto
 
 Aplicación web multiempresa para administrar trabajadores, permisos, asistencia, proyectos y tareas. Se construye por bloques; este archivo resume lo hecho hasta ahora (Bloque 1 cerrado) y las reglas para seguir.
 
@@ -10,7 +10,7 @@ Aplicación web multiempresa para administrar trabajadores, permisos, asistencia
   - `RegistroTrabajo.Services`: lógica de negocio, validaciones, autorización, sesiones, auditoría, correo. Interfaces + implementaciones, DI con `AddRegistroTrabajoServices()`.
   - `RegistroTrabajo.Api`: controladores, JWT, middlewares, límite de intentos, comandos de inicialización.
   - `RegistroTrabajo` (cliente Blazor WASM): login, inicio y pantallas de administración.
-  - `RegistroTrabajo.Tests`: xUnit (58 pruebas).
+  - `RegistroTrabajo.Tests`: xUnit (80 pruebas).
 - Base de datos: SQL Server local `RegistroTrabajo` (autenticación integrada). Sección de configuración de la API: `RegistroTrabajoApiSettings` (`DbSettings`, `JwtSettings`, `Security`, `Email`, `AllowedOrigins`).
 
 ## Bloque 1 (hecho): seguridad y administración
@@ -28,6 +28,13 @@ Aplicación web multiempresa para administrar trabajadores, permisos, asistencia
 ## Bloque 2 (solo en Data, sin Service/API/App todavía)
 El usuario creó 40 tablas laborales en la BD (Trabajadores, Departamentos, Puestos, Proyectos, Tareas, Horarios, RegistrosAsistencia, SolicitudesPermiso, SaldosPermiso, Notificaciones, etc.). Ya están como entidades en `Data/Entities/*.cs` y configuradas en `RegistroTrabajoDbContext.Laboral.cs` (generadas con EF scaffold y adaptadas: nombres en singular, NO ACTION, navegaciones inversas a Empresa/Usuario omitidas). Los servicios, endpoints y pantallas irán por etapas. Antes de empezar un módulo, leer su tabla real (columnas/CHECK/FK) en la BD.
 
+## Bloque 3 (hecho en código; falta aplicar el script 004 a la BD de desarrollo)
+- Administración de trabajadores y estructura organizacional: departamentos, puestos, expediente, supervisores con vigencia, contactos de emergencia, historial laboral, baja/reingreso y solicitudes de cambio de perfil. Detalle y endpoints en `BLOQUE3.md`.
+- Servicios nuevos: `DepartamentoService`/`PuestoService` (`CatalogoServices.cs`), `TrabajadorService`, `SupervisionService`, `ContactoEmergenciaService`, `SolicitudCambioPerfilService`. Controladores en `Bloque3Controllers.cs`; pantallas Blazor: Trabajadores, TrabajadorExpediente, Catalogos, SolicitudesPerfil, MiPerfil.
+- Significado de estados (la BD solo limita rangos): `EstadoLaboral` 1 Activo/2 Inactivo/3 Baja; `SolicitudCambioPerfil.Estado` 1 Pendiente/2 Aprobada/3 Rechazada/4 Cancelada. Ver `Constantes.cs`.
+- `TrabajadorSupervisor`: el scaffold tenía las navegaciones al revés; ahora `Supervisor` = quien supervisa (`SupervisorTrabajadorId`) y `Supervisado` = quien es supervisado (`TrabajadorId`). `FechaFin` es inclusiva.
+- Permisos nuevos (script `004_bloque3_permisos.sql`, aplicarlo ANTES de levantar la API: el bootstrap exige el catálogo completo). Los datos personales/contactos/historial requieren `trabajadores.ver_sensibles` (o ser el propio trabajador); editar el expediente exige ese mismo permiso.
+
 ## Comandos útiles
 ```powershell
 dotnet build RegistroTrabajo.sln
@@ -44,7 +51,8 @@ Puertos de desarrollo: API `http://localhost:5265`, cliente `http://localhost:51
 ## Base de datos y scripts
 - El esquema NO usa migraciones de EF: se gestiona con scripts SQL idempotentes en `RegistroTrabajo.Data/Scripts` (nunca se ejecutan solos).
   - `003_bloque1_faltantes.sql`: **aplicado** a la BD de desarrollo (EsPlataforma, CorreoConfirmadoUtc, tokens de confirmación, 5 permisos).
-  - `001_auditoria_solo_insercion.sql`: **pendiente** (requiere DBA y un usuario de la API que no sea db_owner).
+  - `004_bloque3_permisos.sql`: **pendiente de aplicar** a la BD de desarrollo (12 permisos del Bloque 3 + asignación a roles de sistema existentes); las pruebas de SQL Server ya lo validan dentro de una transacción revertida.
+- `001_auditoria_solo_insercion.sql`: **pendiente** (requiere DBA y un usuario de la API que no sea db_owner).
 - Las pruebas de SQL Server aplican los scripts dentro de una transacción que siempre se revierte y comprueban que cada tabla/columna de la BD esté mapeada (y al revés): mantenerlas verdes al cambiar el modelo.
 - Para regenerar entidades desde la BD se usó `dotnet ef dbcontext scaffold` en una carpeta temporal (fuera del repo) y un script de adaptación; no hay herramienta EF instalada globalmente.
 
@@ -61,6 +69,6 @@ Puertos de desarrollo: API `http://localhost:5265`, cliente `http://localhost:51
 - `appsettings.json` volvió a contener la clave JWT antigua: considerarla comprometida y moverla a user-secrets o variable de entorno (`RegistroTrabajoApiSettings__JwtSettings__SecretKey`). Los user-secrets solo se cargan en `Development`.
 - `RegistroTrabajo.Api/dev-credenciales.local.txt` guarda contraseñas de desarrollo: borrar cuando se copien.
 - Pruebas HTTP de extremo a extremo (WebApplicationFactory), detección de reutilización del refresh token, MFA y exportaciones: fuera del Bloque 1.
-- Siguiente: módulos del Bloque 2 (sugerido empezar por Trabajadores) en Service → API → App, por etapas.
+- Siguiente: resto de módulos del Bloque 2 (Horarios, Asistencia, Permisos, Proyectos, Tareas...) en Service → API → App, por etapas; usarán las relaciones de supervisión del Bloque 3 para aprobaciones.
 
 Más detalle del Bloque 1 (endpoints, scripts, límites): `BLOQUE1.md`.

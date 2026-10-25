@@ -27,6 +27,30 @@
                     </NavLink>
                 </div>
             }
+            @if (context.User.TienePermiso(Permisos.TrabajadoresConsultar))
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="trabajadores">
+                        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5Z" /></svg> Trabajadores
+                    </NavLink>
+                </div>
+            }
+            @if (context.User.TienePermiso(Permisos.DepartamentosConsultar) || context.User.TienePermiso(Permisos.PuestosConsultar))
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="catalogos">
+                        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 0h7v7h-7v-7Z" /></svg> Departamentos y puestos
+                    </NavLink>
+                </div>
+            }
+            @if (context.User.TienePermiso(Permisos.PerfilResolverSolicitudes))
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="solicitudes-perfil">
+                        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.3V21h3.7l10.9-10.9-3.7-3.7L3 17.3ZM20.7 7a1 1 0 0 0 0-1.4l-2.3-2.3a1 1 0 0 0-1.4 0l-1.8 1.8 3.7 3.7L20.7 7Z" /></svg> Solicitudes de perfil
+                    </NavLink>
+                </div>
+            }
             @if (context.User.TienePermiso(Permisos.RolesConsultar))
             {
                 <div class="nav-item px-3">
@@ -78,6 +102,14 @@
             }
 
             <div class="nav-section px-3">Mi cuenta</div>
+            @if (context.User.TienePermiso(Permisos.PerfilSolicitar))
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="cuenta/perfil">
+                        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5Z" /></svg> Mi perfil
+                    </NavLink>
+                </div>
+            }
             <div class="nav-item px-3">
                 <NavLink class="nav-link" href="cuenta/sesiones">
                     <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 1H7a2 2 0 0 0-2 2v18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2Zm0 18H7V5h10v14Z" /></svg> Mis sesiones

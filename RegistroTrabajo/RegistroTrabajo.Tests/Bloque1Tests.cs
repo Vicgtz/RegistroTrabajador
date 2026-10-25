@@ -466,7 +466,7 @@ public class Bloque1Tests : IDisposable
         var p = await _t.Svc<IAuthService>().ObtenerPerfilAsync(default);
         Assert.Equal("Acme", p.EmpresaNombre);
         Assert.Equal(new[] { NombresRol.Trabajador }, p.Roles);
-        Assert.Equal(new[] { Permisos.EmpresaConsultar }, p.Permisos);
+        Assert.Equal(PermisosPorDefecto.PorRol[NombresRol.Trabajador].OrderBy(x => x, StringComparer.Ordinal), p.Permisos.OrderBy(x => x, StringComparer.Ordinal));
         var json = System.Text.Json.JsonSerializer.Serialize(p);
         Assert.DoesNotContain("hash", json, StringComparison.OrdinalIgnoreCase);
 

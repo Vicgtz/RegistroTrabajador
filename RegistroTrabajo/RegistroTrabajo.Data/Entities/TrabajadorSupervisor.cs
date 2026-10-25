@@ -21,7 +21,9 @@ public class TrabajadorSupervisor
 
     public Departamento? Departamento { get; set; }
 
-    public Trabajador Trabajador { get; set; } = null!;
+    /// <summary>Quien supervisa (FK SupervisorTrabajadorId).</summary>
+    public Trabajador Supervisor { get; set; } = null!;
 
-    public Trabajador TrabajadoresNavigation { get; set; } = null!;
+    /// <summary>Quien es supervisado (FK TrabajadorId).</summary>
+    public Trabajador Supervisado { get; set; } = null!;
 }

@@ -15,6 +15,34 @@ public static class EstadoUsuario
     public const byte Suspendido = 3;
 }
 
+// Bloque 3. La BD solo limita EstadoLaboral a 1..3 y el estado de solicitud a 1..4; el significado es de la aplicación.
+public static class EstadoLaboral
+{
+    public const byte Activo = 1;
+    public const byte Inactivo = 2;
+    public const byte Baja = 3;
+}
+
+public static class EstadoSolicitudPerfil
+{
+    public const byte Pendiente = 1;
+    public const byte Aprobada = 2;
+    public const byte Rechazada = 3;
+    public const byte Cancelada = 4;
+}
+
+public static class TipoCambioLaboral
+{
+    public const string Ingreso = "Ingreso";
+    public const string Puesto = "Puesto";
+    public const string Departamento = "Departamento";
+    public const string Supervisor = "Supervisor";
+    public const string Estado = "Estado";
+    public const string Baja = "Baja";
+    public const string Reingreso = "Reingreso";
+    public const string Perfil = "Perfil";
+}
+
 public static class ResultadoAcceso
 {
     public const byte Exitoso = 1;
@@ -58,11 +86,36 @@ public static class Permisos
     public const string SesionesConsultar = "sesiones.consultar";
     public const string SesionesRevocar = "sesiones.revocar";
 
+    // Bloque 3
+    public const string TrabajadoresConsultar = "trabajadores.consultar";
+    public const string TrabajadoresCrear = "trabajadores.crear";
+    public const string TrabajadoresEditar = "trabajadores.editar";
+    public const string TrabajadoresBaja = "trabajadores.baja";
+    public const string TrabajadoresVerSensibles = "trabajadores.ver_sensibles";
+    public const string DepartamentosConsultar = "departamentos.consultar";
+    public const string DepartamentosGestionar = "departamentos.gestionar";
+    public const string PuestosConsultar = "puestos.consultar";
+    public const string PuestosGestionar = "puestos.gestionar";
+    public const string SupervisoresGestionar = "supervisores.gestionar";
+    public const string PerfilSolicitar = "perfil.solicitar";
+    public const string PerfilResolverSolicitudes = "perfil.resolver_solicitudes";
+
+    /// <summary>Permisos del Bloque 3 (catálogo insertado por el script 004).</summary>
+    public static readonly string[] Bloque3 =
+    {
+        TrabajadoresConsultar, TrabajadoresCrear, TrabajadoresEditar, TrabajadoresBaja, TrabajadoresVerSensibles,
+        DepartamentosConsultar, DepartamentosGestionar, PuestosConsultar, PuestosGestionar,
+        SupervisoresGestionar, PerfilSolicitar, PerfilResolverSolicitudes
+    };
+
     public static readonly string[] Todos =
     {
         EmpresaConsultar, EmpresaConfigurar, UsuariosConsultar, UsuariosCrear, UsuariosEditar,
         UsuariosDesactivar, UsuariosRevocarSesiones, UsuariosRestablecerContrasena, UsuariosDesbloquear,
-        RolesConsultar, RolesConfigurar, AuditoriaConsultar, AccesosConsultar, SesionesConsultar, SesionesRevocar
+        RolesConsultar, RolesConfigurar, AuditoriaConsultar, AccesosConsultar, SesionesConsultar, SesionesRevocar,
+        TrabajadoresConsultar, TrabajadoresCrear, TrabajadoresEditar, TrabajadoresBaja, TrabajadoresVerSensibles,
+        DepartamentosConsultar, DepartamentosGestionar, PuestosConsultar, PuestosGestionar,
+        SupervisoresGestionar, PerfilSolicitar, PerfilResolverSolicitudes
     };
 }
 /// <summary>Permisos exclusivos de la empresa de plataforma (nunca se asignan a roles de empresas normales).</summary>
@@ -83,9 +136,22 @@ public static class PermisosPorDefecto
         [NombresRol.RecursosHumanos] = new[]
         {
             Permisos.EmpresaConsultar, Permisos.UsuariosConsultar, Permisos.UsuariosCrear,
-            Permisos.UsuariosEditar, Permisos.UsuariosDesactivar, Permisos.RolesConsultar
+            Permisos.UsuariosEditar, Permisos.UsuariosDesactivar, Permisos.RolesConsultar,
+            Permisos.TrabajadoresConsultar, Permisos.TrabajadoresCrear, Permisos.TrabajadoresEditar,
+            Permisos.TrabajadoresBaja, Permisos.TrabajadoresVerSensibles,
+            Permisos.DepartamentosConsultar, Permisos.DepartamentosGestionar,
+            Permisos.PuestosConsultar, Permisos.PuestosGestionar,
+            Permisos.SupervisoresGestionar, Permisos.PerfilSolicitar, Permisos.PerfilResolverSolicitudes
         },
-        [NombresRol.Supervisor] = new[] { Permisos.EmpresaConsultar, Permisos.UsuariosConsultar },
-        [NombresRol.Trabajador] = new[] { Permisos.EmpresaConsultar }
+        [NombresRol.Supervisor] = new[]
+        {
+            Permisos.EmpresaConsultar, Permisos.UsuariosConsultar, Permisos.TrabajadoresConsultar,
+            Permisos.DepartamentosConsultar, Permisos.PuestosConsultar, Permisos.PerfilSolicitar
+        },
+        [NombresRol.Trabajador] = new[]
+        {
+            Permisos.EmpresaConsultar, Permisos.TrabajadoresConsultar, Permisos.DepartamentosConsultar,
+            Permisos.PuestosConsultar, Permisos.PerfilSolicitar
+        }
     };
 }

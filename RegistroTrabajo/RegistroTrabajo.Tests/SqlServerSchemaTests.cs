@@ -1,4 +1,4 @@
-using Microsoft.Data.SqlClient;
+﻿using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using RegistroTrabajo.Data;
 
@@ -76,9 +76,9 @@ public class SqlServerSchemaTests
     }
 
     [SqlServerFact]
-    public async Task Scripts_001_y_003_son_validos_e_idempotentes_sin_dejar_cambios()
+    public async Task Scripts_001_003_y_004_son_validos_e_idempotentes_sin_dejar_cambios()
     {
-        var (conn, tx, db) = await AbrirAsync("003_bloque1_faltantes.sql", "001_auditoria_solo_insercion.sql");
+        var (conn, tx, db) = await AbrirAsync("003_bloque1_faltantes.sql", "004_bloque3_permisos.sql", "001_auditoria_solo_insercion.sql");
         await using (conn) await using (db)
         try
         {
@@ -94,7 +94,7 @@ public class SqlServerSchemaTests
     [SqlServerFact]
     public async Task Modelo_ef_coincide_con_el_esquema_real()
     {
-        var (conn, tx, db) = await AbrirAsync("003_bloque1_faltantes.sql");
+        var (conn, tx, db) = await AbrirAsync("003_bloque1_faltantes.sql", "004_bloque3_permisos.sql");
         await using (conn) await using (db)
         try
         {
@@ -119,7 +119,7 @@ public class SqlServerSchemaTests
     [SqlServerFact]
     public async Task Todas_las_tablas_y_columnas_de_la_base_estan_mapeadas_en_el_modelo()
     {
-        var (conn, tx, db) = await AbrirAsync("003_bloque1_faltantes.sql");
+        var (conn, tx, db) = await AbrirAsync("003_bloque1_faltantes.sql", "004_bloque3_permisos.sql");
         await using (conn) await using (db)
         try
         {
