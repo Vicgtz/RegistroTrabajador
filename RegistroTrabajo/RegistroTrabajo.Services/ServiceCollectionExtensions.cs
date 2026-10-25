@@ -46,6 +46,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISupervisionService, SupervisionService>();
         services.AddScoped<IContactoEmergenciaService, ContactoEmergenciaService>();
         services.AddScoped<ISolicitudCambioPerfilService, SolicitudCambioPerfilService>();
+        services.AddScoped<ITiposPermisoService, TiposPermisoService>();
+        services.AddScoped<ICalculoDuracionService, CalculoDuracionService>();
+        services.AddScoped<ISolicitudesPermisoService, SolicitudesPermisoService>();
+        services.AddScoped<IAprobacionesPermisoService, AprobacionesPermisoService>();
+        services.AddScoped<ISaldosPermisoService, SaldosPermisoService>();
         return services;
     }
 }

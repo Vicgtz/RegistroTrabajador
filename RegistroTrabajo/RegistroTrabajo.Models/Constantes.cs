@@ -31,6 +31,53 @@ public static class EstadoSolicitudPerfil
     public const byte Cancelada = 4;
 }
 
+// Bloque 4. La BD solo limita rangos (Estado 1..5, Decision 1..3, TipoMovimiento 1..4, UnidadBase 1..2, cancelación 1..4);
+// el significado es de la aplicación.
+public static class EstadoSolicitudPermiso
+{
+    public const byte Pendiente = 1;
+    public const byte Aprobada = 2;
+    public const byte Rechazada = 3;
+    public const byte Cancelada = 4;
+    /// <summary>Reservado para uso futuro (la BD admite 1..5); hoy no se asigna.</summary>
+    public const byte Concluida = 5;
+}
+
+public static class DecisionPermiso
+{
+    public const byte Aprobada = 1;
+    public const byte Rechazada = 2;
+    /// <summary>Reservado: las decisiones sobre cancelaciones viven en SolicitudesCancelacionPermiso.</summary>
+    public const byte Cancelada = 3;
+}
+
+public static class EstadoCancelacionPermiso
+{
+    public const byte Pendiente = 1;
+    public const byte Aprobada = 2;
+    public const byte Rechazada = 3;
+    public const byte Cancelada = 4;
+}
+
+public static class UnidadPermiso
+{
+    public const byte Dias = 1;
+    public const byte Horas = 2;
+}
+
+/// <summary>
+/// Libro mayor de saldos. La BD exige Cantidad &gt; 0, así que el signo lo da el tipo:
+/// Asignación suma a lo asignado, Consumo suma a lo utilizado, Devolución resta de lo utilizado y
+/// Ajuste (a la baja) resta de lo asignado. Los ajustes al alza se registran como Asignación con descripción "Ajuste: ...".
+/// </summary>
+public static class TipoMovimientoSaldo
+{
+    public const byte Asignacion = 1;
+    public const byte Consumo = 2;
+    public const byte Devolucion = 3;
+    public const byte Ajuste = 4;
+}
+
 public static class TipoCambioLaboral
 {
     public const string Ingreso = "Ingreso";
@@ -100,6 +147,23 @@ public static class Permisos
     public const string PerfilSolicitar = "perfil.solicitar";
     public const string PerfilResolverSolicitudes = "perfil.resolver_solicitudes";
 
+    // Bloque 4
+    public const string PermisosConfigurar = "permisos.configurar";
+    public const string PermisosSolicitar = "permisos.solicitar";
+    public const string PermisosConsultarTodos = "permisos.consultar_todos";
+    public const string PermisosAprobar = "permisos.aprobar";
+    public const string PermisosAprobarTodos = "permisos.aprobar_todos";
+    public const string PermisosVerMotivoPrivado = "permisos.ver_motivo_privado";
+    public const string SaldosConsultar = "saldos.consultar";
+    public const string SaldosAjustar = "saldos.ajustar";
+
+    /// <summary>Permisos del Bloque 4 (catálogo insertado por el script 005).</summary>
+    public static readonly string[] Bloque4 =
+    {
+        PermisosConfigurar, PermisosSolicitar, PermisosConsultarTodos, PermisosAprobar, PermisosAprobarTodos,
+        PermisosVerMotivoPrivado, SaldosConsultar, SaldosAjustar
+    };
+
     /// <summary>Permisos del Bloque 3 (catálogo insertado por el script 004).</summary>
     public static readonly string[] Bloque3 =
     {
@@ -115,7 +179,9 @@ public static class Permisos
         RolesConsultar, RolesConfigurar, AuditoriaConsultar, AccesosConsultar, SesionesConsultar, SesionesRevocar,
         TrabajadoresConsultar, TrabajadoresCrear, TrabajadoresEditar, TrabajadoresBaja, TrabajadoresVerSensibles,
         DepartamentosConsultar, DepartamentosGestionar, PuestosConsultar, PuestosGestionar,
-        SupervisoresGestionar, PerfilSolicitar, PerfilResolverSolicitudes
+        SupervisoresGestionar, PerfilSolicitar, PerfilResolverSolicitudes,
+        PermisosConfigurar, PermisosSolicitar, PermisosConsultarTodos, PermisosAprobar, PermisosAprobarTodos,
+        PermisosVerMotivoPrivado, SaldosConsultar, SaldosAjustar
     };
 }
 /// <summary>Permisos exclusivos de la empresa de plataforma (nunca se asignan a roles de empresas normales).</summary>
@@ -141,17 +207,21 @@ public static class PermisosPorDefecto
             Permisos.TrabajadoresBaja, Permisos.TrabajadoresVerSensibles,
             Permisos.DepartamentosConsultar, Permisos.DepartamentosGestionar,
             Permisos.PuestosConsultar, Permisos.PuestosGestionar,
-            Permisos.SupervisoresGestionar, Permisos.PerfilSolicitar, Permisos.PerfilResolverSolicitudes
+            Permisos.SupervisoresGestionar, Permisos.PerfilSolicitar, Permisos.PerfilResolverSolicitudes,
+            Permisos.PermisosConfigurar, Permisos.PermisosSolicitar, Permisos.PermisosConsultarTodos,
+            Permisos.PermisosAprobar, Permisos.PermisosAprobarTodos, Permisos.PermisosVerMotivoPrivado,
+            Permisos.SaldosConsultar, Permisos.SaldosAjustar
         },
         [NombresRol.Supervisor] = new[]
         {
             Permisos.EmpresaConsultar, Permisos.UsuariosConsultar, Permisos.TrabajadoresConsultar,
-            Permisos.DepartamentosConsultar, Permisos.PuestosConsultar, Permisos.PerfilSolicitar
+            Permisos.DepartamentosConsultar, Permisos.PuestosConsultar, Permisos.PerfilSolicitar,
+            Permisos.PermisosSolicitar, Permisos.PermisosAprobar, Permisos.SaldosConsultar
         },
         [NombresRol.Trabajador] = new[]
         {
             Permisos.EmpresaConsultar, Permisos.TrabajadoresConsultar, Permisos.DepartamentosConsultar,
-            Permisos.PuestosConsultar, Permisos.PerfilSolicitar
+            Permisos.PuestosConsultar, Permisos.PerfilSolicitar, Permisos.PermisosSolicitar
         }
     };
 }

@@ -27,6 +27,11 @@ public class SolicitudPermiso
 
     public DateTime? ModificadaUtc { get; set; }
 
+    /// <summary>Clave enviada por el cliente para que un reintento no cree la solicitud dos veces (script 005).</summary>
+    public string? ClaveIdempotencia { get; set; }
+
+    public byte[] RowVersion { get; set; } = null!;
+
     public ICollection<AprobacionPermiso> AprobacionesPermiso { get; set; } = new List<AprobacionPermiso>();
 
     public ICollection<MovimientoSaldoPermiso> MovimientosSaldoPermiso { get; set; } = new List<MovimientoSaldoPermiso>();

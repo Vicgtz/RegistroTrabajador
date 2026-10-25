@@ -1,0 +1,176 @@
+@page "/permisos/aprobaciones"
+@attribute [Authorize]
+
+<PageTitle>Aprobaciones de permisos - Registro de Trabajo</PageTitle>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h1 class="h3 mb-0">Aprobaciones de permisos</h1>
+    @if (pestana == 0)
+    {
+        <select class="form-select w-auto" aria-label="Estado" @bind="estado" @bind:after="Buscar">
+            <option value="@EstadoSolicitudPermiso.Pendiente">Pendientes</option>
+            <option value="">Todas</option>
+            <option value="@EstadoSolicitudPermiso.Aprobada">Aprobadas</option>
+            <option value="@EstadoSolicitudPermiso.Rechazada">Rechazadas</option>
+            <option value="@EstadoSolicitudPermiso.Cancelada">Canceladas</option>
+        </select>
+    }
+</div>
+
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><button class="nav-link @(pestana == 0 ? "active" : "")" @onclick="() => CambiarPestana(0)">Solicitudes</button></li>
+    <li class="nav-item"><button class="nav-link @(pestana == 1 ? "active" : "")" @onclick="() => CambiarPestana(1)">Cancelaciones pendientes</button></li>
+</ul>
+
+<Alerta Mensaje="@error" Tipo="danger" />
+<Alerta Mensaje="@exito" Tipo="success" />
+
+@if (cargando) { <Cargando /> }
+else if (pestana == 0 && solicitudes is not null)
+{
+    <div class="tarjeta p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead><tr><th>Trabajador</th><th>Tipo</th><th>Fechas</th><th>Duración</th><th>Estado</th><th class="text-end">Acciones</th></tr></thead>
+                <tbody>
+                    @foreach (var s in solicitudes.Items)
+                    {
+                        <tr>
+                            <td><a href="trabajadores/@s.TrabajadorId">@s.TrabajadorNombre</a></td>
+                            <td>@s.TipoPermiso</td>
+                            <td>@FormatoPermisos.Rango(s.FechaInicio, s.FechaFin, s.EsPorHoras)</td>
+                            <td>@FormatoPermisos.Cantidad(s.Cantidad, s.Unidad)</td>
+                            <td>
+                                <span class="badge @FormatoPermisos.Clase(s.Estado)">@FormatoPermisos.Estado(s.Estado)</span>
+                                @if (!string.IsNullOrEmpty(s.ComentarioDecision)) { <div class="small text-muted">@s.ComentarioDecision</div> }
+                                @if (!string.IsNullOrEmpty(s.Motivo)) { <div class="small text-muted">Motivo: @s.Motivo</div> }
+                            </td>
+                            <td class="text-end text-nowrap">
+                                @if (s.Estado == EstadoSolicitudPermiso.Pendiente)
+                                {
+                                    <button class="btn btn-sm btn-success" @onclick="() => Abrir(s.SolicitudPermisoId, s.TrabajadorNombre, true, false)">Aprobar</button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => Abrir(s.SolicitudPermisoId, s.TrabajadorNombre, false, false)">Rechazar</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    @if (solicitudes.Items.Count == 0) { <tr><td colspan="6" class="text-center text-muted py-4">No hay solicitudes.</td></tr> }
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <Paginador Page="solicitudes.Page" PageSize="solicitudes.PageSize" Total="solicitudes.Total" OnPage="IrAPagina" />
+}
+else if (pestana == 1 && cancelaciones is not null)
+{
+    <div class="tarjeta p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead><tr><th>Trabajador</th><th>Permiso</th><th>Fechas</th><th>Duración</th><th>Motivo</th><th class="text-end">Acciones</th></tr></thead>
+                <tbody>
+                    @foreach (var c in cancelaciones.Items)
+                    {
+                        <tr>
+                            <td>@c.TrabajadorNombre</td>
+                            <td>@c.TipoPermiso</td>
+                            <td>@FormatoPermisos.Rango(c.FechaInicio, c.FechaFin, false)</td>
+                            <td>@c.Cantidad.ToString("0.##")</td>
+                            <td class="small">@(c.Motivo ?? "—")</td>
+                            <td class="text-end text-nowrap">
+                                <button class="btn btn-sm btn-success" @onclick="() => Abrir(c.SolicitudCancelacionId, c.TrabajadorNombre, true, true)">Autorizar</button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => Abrir(c.SolicitudCancelacionId, c.TrabajadorNombre, false, true)">Rechazar</button>
+                            </td>
+                        </tr>
+                    }
+                    @if (cancelaciones.Items.Count == 0) { <tr><td colspan="6" class="text-center text-muted py-4">No hay cancelaciones pendientes.</td></tr> }
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <Paginador Page="cancelaciones.Page" PageSize="cancelaciones.PageSize" Total="cancelaciones.Total" OnPage="IrAPagina" />
+}
+
+<Modal @bind-Visible="resolverVisible" Titulo="@Titulo" Tamano="modal-sm">
+    <ChildContent>
+        <p class="small text-muted">
+            @if (esCancelacion) { @(aprobar ? "El permiso se cancelará y se devolverá el saldo al trabajador." : "El permiso seguirá aprobado. Indica el motivo.") }
+            else { @(aprobar ? "Se descontará el saldo del trabajador." : "Se liberará el saldo reservado. Indica el motivo del rechazo.") }
+        </p>
+        <label class="form-label">Comentario@(aprobar ? " (opcional)" : "")</label>
+        <InputText class="form-control" @bind-Value="comentario" />
+        <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => resolverVisible = false">Cancelar</button>
+        <button class="btn @(aprobar ? "btn-success" : "btn-danger")" @onclick="Resolver" disabled="@guardando">Confirmar</button>
+    </Footer>
+</Modal>
+
+@code {
+    [Inject] private SolicitudesPermisoClient Api { get; set; } = default!;
+
+    private PagedResult<SolicitudPermisoDto>? solicitudes;
+    private PagedResult<SolicitudCancelacionDto>? cancelaciones;
+    private readonly SolicitudPermisoFiltro filtro = new() { PageSize = 20 };
+    private readonly CancelacionPermisoFiltro filtroCancelacion = new() { PageSize = 20 };
+    private byte? estado = EstadoSolicitudPermiso.Pendiente;
+    private int pestana;
+    private bool cargando = true, guardando, resolverVisible, aprobar, esCancelacion;
+    private string? error, exito, errorForm, comentario, nombre;
+    private Guid actualId;
+
+    private string Titulo => $"{(esCancelacion ? (aprobar ? "Autorizar cancelación" : "Rechazar cancelación") : (aprobar ? "Aprobar permiso" : "Rechazar permiso"))} · {nombre}";
+
+    protected override async Task OnInitializedAsync() => await Cargar();
+
+    private async Task Cargar()
+    {
+        cargando = true;
+        error = null;
+        if (pestana == 0)
+        {
+            filtro.Estado = estado;
+            var r = await Api.BandejaAsync(filtro);
+            if (r.Ok) solicitudes = r.Data; else error = r.Error;
+        }
+        else
+        {
+            var r = await Api.CancelacionesAsync(filtroCancelacion);
+            if (r.Ok) cancelaciones = r.Data; else error = r.Error;
+        }
+        cargando = false;
+    }
+
+    private async Task CambiarPestana(int p) { pestana = p; exito = null; await Cargar(); }
+    private async Task Buscar() { filtro.Page = 1; await Cargar(); }
+
+    private async Task IrAPagina(int p)
+    {
+        if (pestana == 0) filtro.Page = p; else filtroCancelacion.Page = p;
+        await Cargar();
+    }
+
+    private void Abrir(Guid id, string trabajador, bool aprobada, bool cancelacion)
+    {
+        actualId = id; nombre = trabajador; aprobar = aprobada; esCancelacion = cancelacion; comentario = null; errorForm = null; resolverVisible = true;
+    }
+
+    private async Task Resolver()
+    {
+        errorForm = null;
+        guardando = true;
+        try
+        {
+            var r = esCancelacion
+                ? (await Api.ResolverCancelacionAsync(actualId, aprobar, comentario)).Sin()
+                : (await Api.ResolverAsync(actualId, aprobar, comentario)).Sin();
+            if (!r.Ok) { errorForm = r.Error; return; }
+            resolverVisible = false;
+            exito = esCancelacion
+                ? (aprobar ? "Cancelación autorizada y saldo devuelto." : "Cancelación rechazada.")
+                : (aprobar ? "Permiso aprobado." : "Permiso rechazado.");
+            await Cargar();
+        }
+        finally { guardando = false; }
+    }
+}

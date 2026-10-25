@@ -1,0 +1,216 @@
+@page "/permisos/configuracion"
+@attribute [Authorize]
+
+<PageTitle>Tipos de permiso - Registro de Trabajo</PageTitle>
+
+<SoloConPermiso Codigo="@Permisos.PermisosConfigurar">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <h1 class="h3 mb-0">Tipos de permiso y reglas</h1>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary" @onclick="Sembrar">Crear tipos iniciales</button>
+            <button class="btn btn-primary" @onclick="NuevoTipo">Nuevo tipo</button>
+        </div>
+    </div>
+
+    <Alerta Mensaje="@error" Tipo="danger" />
+    <Alerta Mensaje="@exito" Tipo="success" />
+
+    @if (cargando) { <Cargando /> }
+    else
+    {
+        @foreach (var t in tipos)
+        {
+            <div class="tarjeta p-3 mb-3">
+                <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                    <div>
+                        <h2 class="h5 mb-1">@t.Nombre
+                            <span class="badge @(t.Estado ? "text-bg-success" : "text-bg-secondary")">@(t.Estado ? "Activo" : "Inactivo")</span>
+                        </h2>
+                        <div class="small text-muted">
+                            @(t.Descripcion ?? "Sin descripción") · Unidad: @FormatoPermisos.Unidad(t.UnidadBase) ·
+                            @(t.RequiereAprobacion ? "Requiere aprobación" : "Se aprueba automáticamente")
+                            @if (t.RequiereComprobante) { <span> · Requiere comprobante</span> }
+                            @if (t.PermiteFraccionar) { <span> · Admite horas</span> }
+                        </div>
+                    </div>
+                    <div class="text-nowrap">
+                        <button class="btn btn-sm btn-outline-primary" @onclick="() => EditarTipo(t)">Editar</button>
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => CambiarEstado(t)">@(t.Estado ? "Desactivar" : "Activar")</button>
+                        <button class="btn btn-sm btn-outline-primary" @onclick="() => NuevaRegla(t)">Agregar regla</button>
+                    </div>
+                </div>
+                @if (t.Reglas.Count == 0)
+                {
+                    <p class="small text-muted mt-2 mb-0">Sin reglas: no hay límites ni saldo. Agrega una regla para controlar los días u horas disponibles.</p>
+                }
+                else
+                {
+                    <div class="table-responsive mt-2">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead><tr><th>Vigencia</th><th>Cantidad anual</th><th>Límite por solicitud</th><th>Antigüedad mínima</th><th>Acumula</th><th>Saldo negativo</th><th>Estado</th><th></th></tr></thead>
+                            <tbody>
+                                @foreach (var r in t.Reglas)
+                                {
+                                    <tr>
+                                        <td>@FormatoLaboral.Fecha(r.ActivaDesde) – @FormatoLaboral.Fecha(r.ActivaHasta)</td>
+                                        <td>@(r.CantidadAnual?.ToString("0.##") ?? "Sin control")</td>
+                                        <td>@(r.LimitePorSolicitud?.ToString("0.##") ?? "—")</td>
+                                        <td>@(r.AntiguedadMinimaMeses is { } m ? $"{m} meses" : "—")</td>
+                                        <td>@(r.ReiniciaAnualmente ? "No (reinicia)" : "Sí")</td>
+                                        <td>@(r.PermiteSaldoNegativo ? "Permitido" : "No")</td>
+                                        <td><span class="badge @(r.Estado ? "text-bg-success" : "text-bg-secondary")">@(r.Estado ? "Activa" : "Inactiva")</span></td>
+                                        <td class="text-end"><button class="btn btn-sm btn-outline-secondary" @onclick="() => EditarRegla(t, r)">Editar</button></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        }
+        @if (tipos.Count == 0) { <div class="alert alert-info">Aún no hay tipos de permiso. Crea uno o usa «Crear tipos iniciales».</div> }
+    }
+</SoloConPermiso>
+
+<Modal @bind-Visible="tipoVisible" Titulo="@(tipoId is null ? "Nuevo tipo de permiso" : "Editar tipo de permiso")">
+    <ChildContent>
+        <div class="mb-2"><label class="form-label">Nombre</label><InputText class="form-control" @bind-Value="tipo.Nombre" /></div>
+        <div class="mb-2"><label class="form-label">Descripción</label><InputText class="form-control" @bind-Value="tipo.Descripcion" /></div>
+        <div class="mb-2">
+            <label class="form-label">Unidad del saldo</label>
+            <select class="form-select" @bind="tipo.UnidadBase">
+                <option value="@UnidadPermiso.Dias">Días</option>
+                <option value="@UnidadPermiso.Horas">Horas</option>
+            </select>
+        </div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" id="apr" @bind="tipo.RequiereAprobacion" /><label class="form-check-label" for="apr">Requiere aprobación</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" id="comp" @bind="tipo.RequiereComprobante" /><label class="form-check-label" for="comp">Requiere comprobante (se verifica fuera del sistema)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" id="frac" @bind="tipo.PermiteFraccionar" /><label class="form-check-label" for="frac">Permite solicitar por horas</label></div>
+        <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => tipoVisible = false">Cancelar</button>
+        <button class="btn btn-primary" @onclick="GuardarTipo" disabled="@guardando">Guardar</button>
+    </Footer>
+</Modal>
+
+<Modal @bind-Visible="reglaVisible" Titulo="@(reglaId is null ? "Nueva regla" : "Editar regla")">
+    <ChildContent>
+        <div class="row g-2">
+            <div class="col-6"><label class="form-label">Cantidad anual</label><input type="number" step="0.01" min="0" class="form-control" @bind="regla.CantidadAnual" /><div class="form-text">Vacío = sin control de saldo.</div></div>
+            <div class="col-6"><label class="form-label">Límite por solicitud</label><input type="number" step="0.01" min="0" class="form-control" @bind="regla.LimitePorSolicitud" /></div>
+            <div class="col-6"><label class="form-label">Antigüedad mínima (meses)</label><input type="number" min="0" class="form-control" @bind="regla.AntiguedadMinimaMeses" /></div>
+            <div class="col-6"></div>
+            <div class="col-6"><label class="form-label">Vigente desde</label><input type="date" class="form-control" @bind="desde" /></div>
+            <div class="col-6"><label class="form-label">Vigente hasta</label><input type="date" class="form-control" @bind="hasta" /></div>
+        </div>
+        <div class="form-check mt-2"><input class="form-check-input" type="checkbox" id="acu" checked="@(!regla.ReiniciaAnualmente)" @onchange="e => regla.ReiniciaAnualmente = !(bool)e.Value!" /><label class="form-check-label" for="acu">Acumular el saldo no usado al año siguiente</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" id="neg" @bind="regla.PermiteSaldoNegativo" /><label class="form-check-label" for="neg">Permitir saldo negativo</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" id="act" @bind="regla.Estado" /><label class="form-check-label" for="act">Regla activa</label></div>
+        <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => reglaVisible = false">Cancelar</button>
+        <button class="btn btn-primary" @onclick="GuardarRegla" disabled="@guardando">Guardar</button>
+    </Footer>
+</Modal>
+
+@code {
+    [Inject] private TiposPermisoClient Api { get; set; } = default!;
+
+    private List<TipoPermisoDto> tipos = new();
+    private GuardarTipoPermisoRequest tipo = new();
+    private GuardarReglaPermisoRequest regla = new();
+    private Guid? tipoId, reglaId, reglaTipoId;
+    private DateTime? desde, hasta;
+    private bool cargando = true, guardando, tipoVisible, reglaVisible;
+    private string? error, exito, errorForm;
+
+    protected override async Task OnInitializedAsync() => await Cargar();
+
+    private async Task Cargar()
+    {
+        var r = await Api.ListarAsync();
+        if (r.Ok) tipos = r.Data ?? new(); else error = r.Error;
+        cargando = false;
+    }
+
+    private void NuevoTipo() { tipoId = null; tipo = new(); errorForm = null; tipoVisible = true; }
+
+    private void EditarTipo(TipoPermisoDto t)
+    {
+        tipoId = t.TipoPermisoId; errorForm = null; tipoVisible = true;
+        tipo = new()
+        {
+            Nombre = t.Nombre, Descripcion = t.Descripcion, UnidadBase = t.UnidadBase, RequiereAprobacion = t.RequiereAprobacion,
+            RequiereComprobante = t.RequiereComprobante, PermiteFraccionar = t.PermiteFraccionar
+        };
+    }
+
+    private async Task GuardarTipo()
+    {
+        errorForm = null;
+        guardando = true;
+        try
+        {
+            var r = tipoId is { } id ? await Api.ActualizarAsync(id, tipo) : await Api.CrearAsync(tipo);
+            if (!r.Ok) { errorForm = r.Error; return; }
+            tipoVisible = false;
+            exito = "Tipo de permiso guardado.";
+            await Cargar();
+        }
+        finally { guardando = false; }
+    }
+
+    private async Task CambiarEstado(TipoPermisoDto t)
+    {
+        error = exito = null;
+        var r = await Api.EstadoAsync(t.TipoPermisoId, !t.Estado);
+        if (!r.Ok) { error = r.Error; return; }
+        await Cargar();
+    }
+
+    private async Task Sembrar()
+    {
+        error = exito = null;
+        var r = await Api.SembrarInicialesAsync();
+        if (!r.Ok) { error = r.Error; return; }
+        exito = "Tipos iniciales creados. Agrega una regla a cada tipo para definir saldo y límites.";
+        await Cargar();
+    }
+
+    private void NuevaRegla(TipoPermisoDto t)
+    {
+        reglaTipoId = t.TipoPermisoId; reglaId = null; regla = new(); desde = hasta = null; errorForm = null; reglaVisible = true;
+    }
+
+    private void EditarRegla(TipoPermisoDto t, ReglaPermisoDto r)
+    {
+        reglaTipoId = t.TipoPermisoId; reglaId = r.ReglaPermisoId; errorForm = null; reglaVisible = true;
+        regla = new()
+        {
+            AntiguedadMinimaMeses = r.AntiguedadMinimaMeses, CantidadAnual = r.CantidadAnual, LimitePorSolicitud = r.LimitePorSolicitud,
+            PermiteSaldoNegativo = r.PermiteSaldoNegativo, ReiniciaAnualmente = r.ReiniciaAnualmente, Estado = r.Estado
+        };
+        desde = r.ActivaDesde?.ToDateTime(TimeOnly.MinValue);
+        hasta = r.ActivaHasta?.ToDateTime(TimeOnly.MinValue);
+    }
+
+    private async Task GuardarRegla()
+    {
+        if (reglaTipoId is not { } tid) return;
+        errorForm = null;
+        guardando = true;
+        try
+        {
+            regla.ActivaDesde = desde is null ? null : DateOnly.FromDateTime(desde.Value);
+            regla.ActivaHasta = hasta is null ? null : DateOnly.FromDateTime(hasta.Value);
+            var r = reglaId is { } rid ? (await Api.ActualizarReglaAsync(tid, rid, regla)).Sin() : (await Api.CrearReglaAsync(tid, regla)).Sin();
+            if (!r.Ok) { errorForm = r.Error; return; }
+            reglaVisible = false;
+            exito = "Regla guardada.";
+            await Cargar();
+        }
+        finally { guardando = false; }
+    }
+}

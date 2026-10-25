@@ -1,0 +1,310 @@
+@page "/permisos"
+@attribute [Authorize]
+
+<PageTitle>Solicitar permiso - Registro de Trabajo</PageTitle>
+
+<SoloConPermiso Codigo="@Permisos.PermisosSolicitar">
+    <h1 class="h3 mb-3">@(editId is null ? "Solicitar permiso" : "Editar solicitud")</h1>
+
+    <Alerta Mensaje="@error" Tipo="danger" />
+    <Alerta Mensaje="@exito" Tipo="success" />
+
+    @if (cargando) { <Cargando /> }
+    else
+    {
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-lg-8">
+                <div class="tarjeta p-3">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" for="tipo">Tipo de permiso</label>
+                        <select id="tipo" class="form-select" @bind="tipoId" @bind:after="TipoCambio">
+                            <option value="">Selecciona un tipo…</option>
+                            @foreach (var t in tipos)
+                            {
+                                <option value="@t.TipoPermisoId">@t.Nombre</option>
+                            }
+                        </select>
+                    </div>
+
+                    @if (PermiteHoras)
+                    {
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="horas" @bind="porHoras" @bind:after="Recalcular" />
+                            <label class="form-check-label" for="horas">Solicitar por horas</label>
+                        </div>
+                    }
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label" for="inicio">@(porHoras ? "Fecha" : "Fecha de inicio")</label>
+                            <input id="inicio" type="date" class="form-control" @bind="inicio" @bind:after="InicioCambio" />
+                        </div>
+                        @if (!porHoras)
+                        {
+                            <div class="col-12 col-md-6">
+                                <label class="form-label" for="fin">Fecha de fin</label>
+                                <input id="fin" type="date" class="form-control" @bind="fin" @bind:after="Recalcular" />
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="col-6 col-md-3">
+                                <label class="form-label" for="hi">Desde</label>
+                                <input id="hi" type="time" class="form-control" @bind="horaInicio" @bind:after="Recalcular" />
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="form-label" for="hf">Hasta</label>
+                                <input id="hf" type="time" class="form-control" @bind="horaFin" @bind:after="Recalcular" />
+                            </div>
+                        }
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="motivo">Motivo <span class="badge text-bg-light border">Opcional</span></label>
+                        <div class="form-text mb-1">Es privado: solo lo ven quienes tienen autorización para revisarlo.</div>
+                        <textarea id="motivo" class="form-control" rows="3" maxlength="1000" @bind="motivo"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-4">
+                <div class="tarjeta p-3">
+                    <h2 class="h5">Saldo de permisos</h2>
+                    <hr class="mt-2" />
+                    @if (calculando) { <Cargando /> }
+                    else if (errorCalculo is not null) { <div class="alert alert-warning small mb-3">@errorCalculo</div> }
+                    else if (preview is null) { <p class="text-muted small">Elige el tipo y las fechas para ver cuánto se descuenta.</p> }
+                    else
+                    {
+                        <dl class="row mb-3">
+                            @if (preview.ControlaSaldo)
+                            {
+                                <dt class="col-7 fw-normal">Disponible</dt><dd class="col-5 text-end fw-semibold">@FormatoPermisos.Cantidad(preview.SaldoDisponible ?? 0, preview.Unidad)</dd>
+                            }
+                            <dt class="col-7 fw-normal">Solicitado</dt><dd class="col-5 text-end fw-semibold">@FormatoPermisos.Cantidad(preview.Cantidad, preview.Unidad)</dd>
+                            @if (preview.ControlaSaldo)
+                            {
+                                <dt class="col-7 fw-normal">Restante</dt>
+                                <dd class="col-5 text-end fw-semibold @((preview.SaldoRestante ?? 0) < 0 ? "text-danger" : "text-success")">@FormatoPermisos.Cantidad(preview.SaldoRestante ?? 0, preview.Unidad)</dd>
+                            }
+                        </dl>
+                        @if (!preview.ControlaSaldo) { <p class="small text-muted">Este tipo de permiso no descuenta saldo.</p> }
+                    }
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary" @onclick="Enviar" disabled="@(guardando || preview is null)">@(editId is null ? "Enviar solicitud" : "Guardar cambios")</button>
+                        <button class="btn btn-outline-primary" @onclick="Limpiar" disabled="@guardando">@(editId is null ? "Limpiar" : "Cancelar edición")</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tarjeta p-0">
+            <h2 class="h5 p-3 mb-0">Mis solicitudes</h2>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead><tr><th>Tipo</th><th>Fechas</th><th>Duración</th><th>Estado</th><th class="text-end">Acciones</th></tr></thead>
+                    <tbody>
+                        @foreach (var s in mias?.Items ?? Array.Empty<SolicitudPermisoDto>())
+                        {
+                            <tr>
+                                <td>@s.TipoPermiso</td>
+                                <td>@FormatoPermisos.Rango(s.FechaInicio, s.FechaFin, s.EsPorHoras)</td>
+                                <td>@FormatoPermisos.Cantidad(s.Cantidad, s.Unidad)</td>
+                                <td>
+                                    <span class="badge @FormatoPermisos.Clase(s.Estado)">@FormatoPermisos.Estado(s.Estado)</span>
+                                    @if (s.CancelacionPendiente) { <span class="badge text-bg-info">Cancelación pendiente</span> }
+                                    @if (!string.IsNullOrEmpty(s.ComentarioDecision)) { <div class="small text-muted">@s.ComentarioDecision</div> }
+                                </td>
+                                <td class="text-end text-nowrap">
+                                    @if (s.Estado == EstadoSolicitudPermiso.Pendiente)
+                                    {
+                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => Editar(s)">Editar</button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => CancelarPendiente(s)">Cancelar</button>
+                                    }
+                                    else if (s.Estado == EstadoSolicitudPermiso.Aprobada && !s.CancelacionPendiente && s.FechaFin >= DateTime.Now)
+                                    {
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => AbrirCancelacion(s)">Solicitar cancelación</button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        @if (mias is { Items.Count: 0 }) { <tr><td colspan="5" class="text-center text-muted py-3">Aún no has solicitado permisos.</td></tr> }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        @if (mias is not null) { <Paginador Page="mias.Page" PageSize="mias.PageSize" Total="mias.Total" OnPage="IrAPagina" /> }
+    }
+</SoloConPermiso>
+
+<Modal @bind-Visible="cancelacionVisible" Titulo="Solicitar cancelación" Tamano="modal-sm">
+    <ChildContent>
+        <p class="small text-muted">Un responsable revisará la solicitud. Si se autoriza, el permiso se cancela y se te devuelve el saldo.</p>
+        <label class="form-label">Motivo (opcional)</label>
+        <InputText class="form-control" @bind-Value="motivoCancelacion" />
+        <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => cancelacionVisible = false">Volver</button>
+        <button class="btn btn-danger" @onclick="SolicitarCancelacion" disabled="@guardando">Solicitar</button>
+    </Footer>
+</Modal>
+
+@code {
+    [Inject] private TiposPermisoClient TiposApi { get; set; } = default!;
+    [Inject] private SolicitudesPermisoClient Api { get; set; } = default!;
+
+    private List<TipoPermisoDto> tipos = new();
+    private PagedResult<SolicitudPermisoDto>? mias;
+    private readonly SolicitudPermisoFiltro filtro = new() { PageSize = 10 };
+
+    private Guid? tipoId;
+    private DateTime? inicio, fin;
+    private TimeOnly? horaInicio = new TimeOnly(9, 0), horaFin = new TimeOnly(10, 0);
+    private bool porHoras;
+    private string? motivo;
+    private Guid? editId;
+    private string? editRowVersion;
+    // Un reintento (doble clic, red lenta) reutiliza la clave y no crea la solicitud dos veces.
+    private string claveIdempotencia = NuevaClave();
+
+    private CalculoDuracionDto? preview;
+    private string? errorCalculo, error, exito, errorForm, motivoCancelacion;
+    private bool cargando = true, calculando, guardando, cancelacionVisible;
+    private SolicitudPermisoDto? paraCancelar;
+
+    private TipoPermisoDto? Tipo => tipos.FirstOrDefault(t => t.TipoPermisoId == tipoId);
+    private bool PermiteHoras => Tipo is { } t && (t.UnidadBase == UnidadPermiso.Horas || t.PermiteFraccionar);
+
+    private static string NuevaClave() => Guid.NewGuid().ToString("N");
+
+    protected override async Task OnInitializedAsync()
+    {
+        var t = await TiposApi.ListarAsync(true);
+        if (t.Ok) tipos = t.Data ?? new(); else error = t.Error;
+        await CargarMias();
+        cargando = false;
+    }
+
+    private async Task CargarMias()
+    {
+        var r = await Api.MiasAsync(filtro);
+        if (r.Ok) mias = r.Data; else error = r.Error;
+    }
+
+    private async Task IrAPagina(int p) { filtro.Page = p; await CargarMias(); }
+
+    private async Task TipoCambio()
+    {
+        if (!PermiteHoras) porHoras = false;
+        await Recalcular();
+    }
+
+    private async Task InicioCambio()
+    {
+        if (inicio is not null && (fin is null || fin < inicio)) fin = inicio;
+        await Recalcular();
+    }
+
+    private CalculoDuracionRequest? ArmarCalculo()
+    {
+        if (tipoId is not { } id || inicio is not { } i) return null;
+        if (porHoras)
+        {
+            if (horaInicio is not { } h1 || horaFin is not { } h2) return null;
+            return new() { TipoPermisoId = id, EsPorHoras = true, FechaInicio = i.Date + h1.ToTimeSpan(), FechaFin = i.Date + h2.ToTimeSpan() };
+        }
+        return new() { TipoPermisoId = id, FechaInicio = i.Date, FechaFin = (fin ?? i).Date };
+    }
+
+    private async Task Recalcular()
+    {
+        preview = null; errorCalculo = null;
+        var req = ArmarCalculo();
+        if (req is null) return;
+        calculando = true;
+        try
+        {
+            var r = await Api.CalcularAsync(req);
+            if (r.Ok) preview = r.Data; else errorCalculo = r.Error;
+        }
+        finally { calculando = false; }
+    }
+
+    private async Task Enviar()
+    {
+        var req = ArmarCalculo();
+        if (req is null) return;
+        error = exito = null;
+        guardando = true;
+        try
+        {
+            ApiResult<SolicitudPermisoDto> r = editId is { } id
+                ? await Api.ActualizarAsync(id, new ActualizarSolicitudPermisoRequest
+                {
+                    TipoPermisoId = req.TipoPermisoId, FechaInicio = req.FechaInicio, FechaFin = req.FechaFin, EsPorHoras = req.EsPorHoras,
+                    Motivo = motivo, RowVersion = editRowVersion ?? ""
+                })
+                : await Api.CrearAsync(new CrearSolicitudPermisoRequest
+                {
+                    TipoPermisoId = req.TipoPermisoId, FechaInicio = req.FechaInicio, FechaFin = req.FechaFin, EsPorHoras = req.EsPorHoras,
+                    Motivo = motivo, ClaveIdempotencia = claveIdempotencia
+                });
+            if (!r.Ok) { error = r.Error; return; }
+            exito = editId is null
+                ? (r.Data?.Estado == EstadoSolicitudPermiso.Aprobada ? "Permiso registrado y aprobado." : "Solicitud enviada. Tu responsable la revisará.")
+                : "Solicitud actualizada.";
+            Limpiar();
+            await CargarMias();
+        }
+        finally { guardando = false; }
+    }
+
+    private void Limpiar()
+    {
+        tipoId = null; inicio = fin = null; porHoras = false; motivo = null; editId = null; editRowVersion = null;
+        horaInicio = new TimeOnly(9, 0); horaFin = new TimeOnly(10, 0);
+        preview = null; errorCalculo = null; claveIdempotencia = NuevaClave();
+    }
+
+    private async Task Editar(SolicitudPermisoDto s)
+    {
+        error = exito = null;
+        editId = s.SolicitudPermisoId; editRowVersion = s.RowVersion;
+        tipoId = s.TipoPermisoId; porHoras = s.EsPorHoras; motivo = s.Motivo;
+        inicio = s.FechaInicio.Date; fin = s.FechaFin.Date;
+        if (s.EsPorHoras) { horaInicio = TimeOnly.FromDateTime(s.FechaInicio); horaFin = TimeOnly.FromDateTime(s.FechaFin); }
+        await Recalcular();
+    }
+
+    private async Task CancelarPendiente(SolicitudPermisoDto s)
+    {
+        error = exito = null;
+        var r = await Api.CancelarAsync(s.SolicitudPermisoId);
+        if (!r.Ok) { error = r.Error; return; }
+        if (editId == s.SolicitudPermisoId) Limpiar();
+        exito = "Solicitud cancelada.";
+        await CargarMias();
+    }
+
+    private void AbrirCancelacion(SolicitudPermisoDto s)
+    {
+        paraCancelar = s; motivoCancelacion = null; errorForm = null; cancelacionVisible = true;
+    }
+
+    private async Task SolicitarCancelacion()
+    {
+        if (paraCancelar is null) return;
+        errorForm = null;
+        guardando = true;
+        try
+        {
+            var r = await Api.SolicitarCancelacionAsync(paraCancelar.SolicitudPermisoId, motivoCancelacion);
+            if (!r.Ok) { errorForm = r.Error; return; }
+            cancelacionVisible = false;
+            exito = "Solicitud de cancelación enviada.";
+            await CargarMias();
+        }
+        finally { guardando = false; }
+    }
+}

@@ -616,6 +616,11 @@ public partial class RegistroTrabajoDbContext
 
             entity.HasKey(e => e.MovimientoSaldoPermisoId).HasName("PK__Movimien__322AAEDDA6F59FC2");
 
+            // Un consumo y una devolución como máximo por solicitud: un reintento no puede descontar ni devolver dos veces.
+            entity.HasIndex(e => new { e.SolicitudPermisoId, e.TipoMovimiento }, "UX_MovimientoSaldo_Solicitud_Tipo")
+                .IsUnique()
+                .HasFilter("[SolicitudPermisoId] IS NOT NULL AND [TipoMovimiento] IN (2, 3)");
+
             entity.Property(e => e.Cantidad).HasColumnType("decimal(10, 2)");
             entity.Property(e => e.Descripcion).HasMaxLength(300);
             entity.Property(e => e.FechaUtc)
@@ -963,12 +968,20 @@ public partial class RegistroTrabajoDbContext
             entity.HasIndex(e => new { e.EmpresaId, e.SolicitudPermisoId }, "UQ_SolicitudPermiso_Empresa_Id").IsUnique();
 
             entity.Property(e => e.SolicitudPermisoId).HasDefaultValueSql("(newsequentialid())");
+            entity.HasIndex(e => new { e.EmpresaId, e.TrabajadorId, e.ClaveIdempotencia }, "UX_SolicitudPermiso_Idempotencia")
+                .IsUnique()
+                .HasFilter("[ClaveIdempotencia] IS NOT NULL");
+
             entity.Property(e => e.CantidadSolicitada).HasColumnType("decimal(10, 2)");
+            entity.Property(e => e.ClaveIdempotencia).HasMaxLength(64);
             entity.Property(e => e.Estado).HasDefaultValue((byte)1);
             entity.Property(e => e.FechaFin).HasPrecision(0);
             entity.Property(e => e.FechaInicio).HasPrecision(0);
             entity.Property(e => e.ModificadaUtc).HasPrecision(0);
             entity.Property(e => e.MotivoPrivado).HasMaxLength(1000);
+            entity.Property(e => e.RowVersion)
+                .IsRowVersion()
+                .IsConcurrencyToken();
             entity.Property(e => e.SolicitadaUtc)
                 .HasPrecision(0)
                 .HasDefaultValueSql("(sysutcdatetime())");

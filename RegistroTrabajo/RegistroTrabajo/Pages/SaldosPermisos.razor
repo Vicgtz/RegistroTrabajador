@@ -1,0 +1,254 @@
+@page "/permisos/saldos"
+@attribute [Authorize]
+
+<PageTitle>Saldos de permisos - Registro de Trabajo</PageTitle>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h1 class="h3 mb-0">Saldos e historial de permisos</h1>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+        @if (verOtros)
+        {
+            <select class="form-select w-auto" aria-label="Trabajador" @bind="trabajadorId" @bind:after="CambiarSeleccion">
+                <option value="">Yo</option>
+                @foreach (var t in trabajadores)
+                {
+                    <option value="@t.TrabajadorId">@t.Apellidos, @t.Nombres</option>
+                }
+            </select>
+        }
+        <input type="number" class="form-control" style="width: 6.5rem" aria-label="Año" min="2000" max="2200" @bind="anio" @bind:after="CambiarSeleccion" />
+        @if (puedeAjustar)
+        {
+            <button class="btn btn-outline-primary" @onclick="AbrirAjuste" disabled="@(trabajadorId is null)">Ajustar saldo</button>
+            <button class="btn btn-outline-secondary" @onclick="Generar">Generar saldos del año</button>
+        }
+    </div>
+</div>
+
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><button class="nav-link @(pestana == 0 ? "active" : "")" @onclick="() => pestana = 0">Saldos</button></li>
+    <li class="nav-item"><button class="nav-link @(pestana == 1 ? "active" : "")" @onclick="() => pestana = 1">Historial de solicitudes</button></li>
+</ul>
+
+<Alerta Mensaje="@error" Tipo="danger" />
+<Alerta Mensaje="@exito" Tipo="success" />
+
+@if (cargando) { <Cargando /> }
+else if (pestana == 0)
+{
+    <div class="tarjeta p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead><tr><th>Tipo</th><th class="text-end">Asignado</th><th class="text-end">Utilizado</th><th class="text-end">Reservado</th><th class="text-end">Disponible</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var s in saldos)
+                    {
+                        <tr>
+                            <td>@s.TipoPermiso <span class="text-muted small">(@FormatoPermisos.Unidad(s.Unidad))</span></td>
+                            <td class="text-end">@s.Asignada.ToString("0.##")</td>
+                            <td class="text-end">@s.Utilizada.ToString("0.##")</td>
+                            <td class="text-end">@s.Reservada.ToString("0.##")</td>
+                            <td class="text-end fw-semibold @(s.Disponible < 0 ? "text-danger" : "text-success")">@s.Disponible.ToString("0.##")</td>
+                            <td class="text-end"><button class="btn btn-sm btn-outline-secondary" @onclick="() => VerMovimientos(s)">Movimientos</button></td>
+                        </tr>
+                    }
+                    @if (saldos.Count == 0) { <tr><td colspan="6" class="text-center text-muted py-4">No hay saldos registrados para @anio.</td></tr> }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+else
+{
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <select class="form-select w-auto" aria-label="Tipo" @bind="filtro.TipoPermisoId" @bind:after="BuscarHistorial">
+            <option value="">Todos los tipos</option>
+            @foreach (var t in tipos) { <option value="@t.TipoPermisoId">@t.Nombre</option> }
+        </select>
+        <select class="form-select w-auto" aria-label="Estado" @bind="filtro.Estado" @bind:after="BuscarHistorial">
+            <option value="">Todos los estados</option>
+            <option value="@EstadoSolicitudPermiso.Pendiente">Pendientes</option>
+            <option value="@EstadoSolicitudPermiso.Aprobada">Aprobadas</option>
+            <option value="@EstadoSolicitudPermiso.Rechazada">Rechazadas</option>
+            <option value="@EstadoSolicitudPermiso.Cancelada">Canceladas</option>
+        </select>
+        <input type="date" class="form-control w-auto" aria-label="Desde" @bind="desde" @bind:after="BuscarHistorial" />
+        <input type="date" class="form-control w-auto" aria-label="Hasta" @bind="hasta" @bind:after="BuscarHistorial" />
+    </div>
+    @if (historial is not null)
+    {
+        <div class="tarjeta p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead><tr><th>Trabajador</th><th>Tipo</th><th>Fechas</th><th>Duración</th><th>Estado</th><th>Resuelta</th></tr></thead>
+                    <tbody>
+                        @foreach (var s in historial.Items)
+                        {
+                            <tr>
+                                <td>@s.TrabajadorNombre</td>
+                                <td>@s.TipoPermiso</td>
+                                <td>@FormatoPermisos.Rango(s.FechaInicio, s.FechaFin, s.EsPorHoras)</td>
+                                <td>@FormatoPermisos.Cantidad(s.Cantidad, s.Unidad)</td>
+                                <td>
+                                    <span class="badge @FormatoPermisos.Clase(s.Estado)">@FormatoPermisos.Estado(s.Estado)</span>
+                                    @if (!string.IsNullOrEmpty(s.Motivo)) { <div class="small text-muted">Motivo: @s.Motivo</div> }
+                                </td>
+                                <td class="small">
+                                    @if (s.FechaDecisionUtc is not null) { <div>@Formato.Local(s.FechaDecisionUtc)</div> }
+                                    @if (!string.IsNullOrEmpty(s.ComentarioDecision)) { <div class="text-muted">@s.ComentarioDecision</div> }
+                                </td>
+                            </tr>
+                        }
+                        @if (historial.Items.Count == 0) { <tr><td colspan="6" class="text-center text-muted py-4">No hay solicitudes.</td></tr> }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <Paginador Page="historial.Page" PageSize="historial.PageSize" Total="historial.Total" OnPage="IrAPagina" />
+    }
+}
+
+<Modal @bind-Visible="movimientosVisible" Titulo="@($"Movimientos · {saldoActual?.TipoPermiso} {saldoActual?.PeriodoAnio}")" Tamano="modal-lg">
+    <ChildContent>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead><tr><th>Fecha</th><th>Movimiento</th><th class="text-end">Cantidad</th><th>Detalle</th></tr></thead>
+                <tbody>
+                    @foreach (var m in movimientos)
+                    {
+                        <tr>
+                            <td>@Formato.Local(m.FechaUtc)</td>
+                            <td>@FormatoPermisos.Movimiento(m.TipoMovimiento)</td>
+                            <td class="text-end">@(m.TipoMovimiento is TipoMovimientoSaldo.Consumo or TipoMovimientoSaldo.Ajuste ? "−" : "+")@m.Cantidad.ToString("0.##")</td>
+                            <td class="small">@(m.Descripcion ?? "—")</td>
+                        </tr>
+                    }
+                    @if (movimientos.Count == 0) { <tr><td colspan="4" class="text-center text-muted py-2">Sin movimientos.</td></tr> }
+                </tbody>
+            </table>
+        </div>
+    </ChildContent>
+</Modal>
+
+<Modal @bind-Visible="ajusteVisible" Titulo="Ajustar saldo" Tamano="modal-sm">
+    <ChildContent>
+        <p class="small text-muted">Positivo suma al saldo asignado; negativo resta. Queda registrado con tu usuario y el motivo.</p>
+        <div class="mb-2">
+            <label class="form-label">Tipo de permiso</label>
+            <select class="form-select" @bind="ajuste.TipoPermisoId">
+                @foreach (var t in tipos) { <option value="@t.TipoPermisoId">@t.Nombre (@FormatoPermisos.Unidad(t.UnidadBase))</option> }
+            </select>
+        </div>
+        <div class="mb-2"><label class="form-label">Cantidad</label><input type="number" step="0.01" class="form-control" @bind="ajuste.Cantidad" /></div>
+        <div class="mb-2"><label class="form-label">Motivo</label><InputText class="form-control" @bind-Value="ajuste.Motivo" /></div>
+        <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => ajusteVisible = false">Cancelar</button>
+        <button class="btn btn-primary" @onclick="Ajustar" disabled="@guardando">Guardar</button>
+    </Footer>
+</Modal>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? Estado { get; set; }
+    [Inject] private SaldosPermisoClient Api { get; set; } = default!;
+    [Inject] private SolicitudesPermisoClient SolicitudesApi { get; set; } = default!;
+    [Inject] private TiposPermisoClient TiposApi { get; set; } = default!;
+    [Inject] private TrabajadoresClient TrabajadoresApi { get; set; } = default!;
+
+    private List<SaldoPermisoDto> saldos = new();
+    private List<MovimientoSaldoDto> movimientos = new();
+    private List<TipoPermisoDto> tipos = new();
+    private List<TrabajadorResumenDto> trabajadores = new();
+    private PagedResult<SolicitudPermisoDto>? historial;
+    private readonly SolicitudPermisoFiltro filtro = new() { PageSize = 20 };
+    private AjustarSaldoRequest ajuste = new();
+    private SaldoPermisoDto? saldoActual;
+
+    private Guid? trabajadorId;
+    private short anio;
+    private DateTime? desde, hasta;
+    private int pestana;
+    private bool cargando = true, guardando, movimientosVisible, ajusteVisible, verOtros, puedeAjustar;
+    private string? error, exito, errorForm;
+
+    protected override async Task OnInitializedAsync()
+    {
+        anio = (short)DateTime.Today.Year;
+        var estado = Estado is null ? null : await Estado;
+        verOtros = estado?.User.TienePermiso(Permisos.SaldosConsultar) == true && estado.User.TienePermiso(Permisos.TrabajadoresConsultar);
+        puedeAjustar = estado?.User.TienePermiso(Permisos.SaldosAjustar) == true;
+
+        var t = await TiposApi.ListarAsync(false);
+        if (t.Ok) tipos = t.Data ?? new();
+        if (verOtros)
+        {
+            var w = await TrabajadoresApi.ListarAsync(new TrabajadorFiltro { PageSize = 200, EstadoLaboral = EstadoLaboral.Activo });
+            if (w.Ok) trabajadores = w.Data?.Items.ToList() ?? new();
+        }
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        cargando = true;
+        error = null;
+        var r = await Api.ListarAsync(trabajadorId, anio);
+        if (r.Ok) saldos = r.Data ?? new(); else { error = r.Error; saldos = new(); }
+        await CargarHistorial();
+        cargando = false;
+    }
+
+    private async Task CargarHistorial()
+    {
+        filtro.TrabajadorId = trabajadorId;
+        filtro.Desde = desde is null ? null : DateOnly.FromDateTime(desde.Value);
+        filtro.Hasta = hasta is null ? null : DateOnly.FromDateTime(hasta.Value);
+        var r = trabajadorId is null ? await SolicitudesApi.MiasAsync(filtro) : await SolicitudesApi.ListarAsync(filtro);
+        if (r.Ok) historial = r.Data; else { error ??= r.Error; historial = null; }
+    }
+
+    private async Task CambiarSeleccion() { exito = null; filtro.Page = 1; await Cargar(); }
+    private async Task BuscarHistorial() { filtro.Page = 1; await CargarHistorial(); }
+    private async Task IrAPagina(int p) { filtro.Page = p; await CargarHistorial(); }
+
+    private async Task VerMovimientos(SaldoPermisoDto s)
+    {
+        saldoActual = s;
+        var r = await Api.MovimientosAsync(s.SaldoPermisoId);
+        if (!r.Ok) { error = r.Error; return; }
+        movimientos = r.Data ?? new();
+        movimientosVisible = true;
+    }
+
+    private void AbrirAjuste()
+    {
+        ajuste = new AjustarSaldoRequest { TrabajadorId = trabajadorId ?? Guid.Empty, TipoPermisoId = tipos.FirstOrDefault()?.TipoPermisoId ?? Guid.Empty, PeriodoAnio = anio };
+        errorForm = null;
+        ajusteVisible = true;
+    }
+
+    private async Task Ajustar()
+    {
+        errorForm = null;
+        guardando = true;
+        try
+        {
+            var r = await Api.AjustarAsync(ajuste);
+            if (!r.Ok) { errorForm = r.Error; return; }
+            ajusteVisible = false;
+            exito = "Saldo ajustado.";
+            await Cargar();
+        }
+        finally { guardando = false; }
+    }
+
+    private async Task Generar()
+    {
+        error = exito = null;
+        var r = await Api.GenerarAsync(anio);
+        if (!r.Ok) { error = r.Error; return; }
+        exito = r.Data?.Creados > 0 ? $"Se crearon {r.Data.Creados} saldos para {anio}." : $"Los saldos de {anio} ya estaban generados.";
+        await Cargar();
+    }
+}

@@ -47,5 +47,8 @@ builder.Services.AddScoped<PlataformaClient>();
 builder.Services.AddScoped<CatalogosClient>();
 builder.Services.AddScoped<TrabajadoresClient>();
 builder.Services.AddScoped<SolicitudesPerfilClient>();
+builder.Services.AddScoped<TiposPermisoClient>();
+builder.Services.AddScoped<SolicitudesPermisoClient>();
+builder.Services.AddScoped<SaldosPermisoClient>();
 
 await builder.Build().RunAsync();
