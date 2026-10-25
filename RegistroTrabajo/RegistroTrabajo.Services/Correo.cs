@@ -79,6 +79,10 @@ internal static class PlantillasCorreo
         ("Restablece tu contraseña",
          $"Recibimos una solicitud para restablecer tu contraseña.\n\nAbre este enlace (válido por {minutos} minutos y de un solo uso):\n{Enlace(o, "restablecer-contrasena", token)}\n\nSi no fuiste tú, ignora este mensaje: tu contraseña no cambiará.");
 
+    public static (string Asunto, string Cuerpo) ContrasenaCambiada() =>
+        ("Tu contraseña fue cambiada",
+         "La contraseña de tu cuenta se cambió y se cerraron tus sesiones anteriores.\n\nSi no fuiste tú, solicita un nuevo restablecimiento y avisa a tu administrador.");
+
     public static (string Asunto, string Cuerpo) Confirmacion(EmailOptions o, string token, int horas) =>
         ("Confirma tu correo electrónico",
          $"Confirma tu correo electrónico para activar todas las funciones de tu cuenta.\n\nAbre este enlace (válido por {horas} horas):\n{Enlace(o, "confirmar-correo", token)}\n\nSi no esperabas este mensaje, ignóralo.");

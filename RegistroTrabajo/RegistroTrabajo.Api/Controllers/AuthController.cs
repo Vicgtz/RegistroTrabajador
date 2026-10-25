@@ -48,7 +48,7 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> OlvideContrasena(OlvideContrasenaRequest request, CancellationToken ct)
     {
         await _cuentas.SolicitarRecuperacionAsync(request.Correo, ct);
-        return Accepted(new MensajeResponse { Mensaje = "Si el correo está registrado, recibirás un enlace para restablecer tu contraseña." });
+        return Accepted(new MensajeResponse { Mensaje = "Si la cuenta cumple las condiciones, enviaremos las instrucciones a tu correo. El enlace tiene vigencia limitada." });
     }
 
     [HttpPost("restablecer-contrasena"), AllowAnonymous, EnableRateLimiting("login")]

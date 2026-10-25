@@ -47,6 +47,10 @@ public class SecurityOptions
     public int ActivityTouchSeconds { get; set; } = 60;
     /// <summary>Vigencia del enlace de recuperación de contraseña.</summary>
     public int RecoveryTokenMinutes { get; set; } = 30;
+    /// <summary>Máximo de enlaces de recuperación que se generan por cuenta dentro de la ventana.</summary>
+    public int RecoveryRequestsPerWindow { get; set; } = 3;
+    /// <summary>Ventana (minutos) del límite de solicitudes de recuperación por cuenta.</summary>
+    public int RecoveryRequestWindowMinutes { get; set; } = 15;
     /// <summary>Vigencia del enlace de confirmación de correo.</summary>
     public int ConfirmationTokenHours { get; set; } = 24;
     /// <summary>Si es verdadero, no se puede iniciar sesión sin haber confirmado el correo.</summary>

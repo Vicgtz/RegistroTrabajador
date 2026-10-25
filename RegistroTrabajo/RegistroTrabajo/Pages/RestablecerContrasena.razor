@@ -26,20 +26,30 @@
                 <DataAnnotationsValidator />
                 <div class="mb-3">
                     <label for="nueva" class="form-label">Contraseña nueva</label>
-                    <InputText id="nueva" type="password" class="form-control" autocomplete="new-password" @bind-Value="modelo.Nueva" disabled="@cargando" />
+                    <div class="input-group">
+                        <input id="nueva" type="@(ver ? "text" : "password")" class="form-control" autocomplete="new-password" @bind="modelo.Nueva" @bind:event="oninput" disabled="@cargando" />
+                        <button type="button" class="btn btn-outline-secondary" @onclick="() => ver = !ver" aria-label="@(ver ? "Ocultar contraseñas" : "Mostrar contraseñas")">@(ver ? "Ocultar" : "Mostrar")</button>
+                    </div>
                     <div class="form-text">Entre 10 y 128 caracteres, con mayúsculas, minúsculas y números.</div>
                     <ValidationMessage For="() => modelo.Nueva" />
                 </div>
                 <div class="mb-3">
                     <label for="confirmar" class="form-label">Confirmar contraseña</label>
-                    <InputText id="confirmar" type="password" class="form-control" autocomplete="new-password" @bind-Value="modelo.Confirmar" disabled="@cargando" />
+                    <input id="confirmar" type="@(ver ? "text" : "password")" class="form-control" autocomplete="new-password" @bind="modelo.Confirmar" @bind:event="oninput" disabled="@cargando" />
+                    @if (modelo.Confirmar.Length > 0 && modelo.Confirmar != modelo.Nueva)
+                    {
+                        <div class="form-text text-danger">Ambas contraseñas deben coincidir.</div>
+                    }
                     <ValidationMessage For="() => modelo.Confirmar" />
                 </div>
                 <Alerta Mensaje="@error" Tipo="danger" />
-                <button type="submit" class="btn btn-primary w-100" disabled="@cargando">
-                    @if (cargando) { <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> }
-                    Guardar contraseña
-                </button>
+                <div class="d-flex gap-2">
+                    <a class="btn btn-outline-secondary w-50" href="login">Cancelar</a>
+                    <button type="submit" class="btn btn-primary w-50" disabled="@cargando">
+                        @if (cargando) { <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> }
+                        Restablecer
+                    </button>
+                </div>
             </EditForm>
         }
     </div>
@@ -48,7 +58,7 @@
 @code {
     [SupplyParameterFromQuery] public string? Token { get; set; }
     private readonly Modelo modelo = new();
-    private bool cargando, listo;
+    private bool cargando, listo, ver;
     private string? error;
 
     private async Task Guardar()

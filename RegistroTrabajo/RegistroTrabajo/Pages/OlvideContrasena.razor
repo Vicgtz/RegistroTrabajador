@@ -12,8 +12,11 @@
 
         @if (enviado)
         {
-            <Alerta Mensaje="@mensaje" Tipo="success" />
-            <a class="btn btn-primary w-100" href="login">Volver a iniciar sesión</a>
+            <div class="text-center mb-3">
+                <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-success text-white" style="width:56px;height:56px;font-size:1.75rem;" aria-hidden="true">&#10003;</span>
+            </div>
+            <p class="text-center mb-4">@mensaje</p>
+            <a class="btn btn-outline-secondary w-100" href="login">Volver a iniciar sesión</a>
         }
         else
         {
@@ -46,7 +49,7 @@
         cargando = true;
         var r = await Auth.OlvideContrasenaAsync(modelo.Correo);
         cargando = false;
-        if (r.Ok) { enviado = true; mensaje = r.Data?.Mensaje ?? "Si el correo está registrado, recibirás un enlace para restablecer tu contraseña."; }
+        if (r.Ok) { enviado = true; mensaje = r.Data?.Mensaje ?? "Si la cuenta cumple las condiciones, enviaremos las instrucciones a tu correo. El enlace tiene vigencia limitada."; }
         else error = r.Error;
     }
 

@@ -340,6 +340,43 @@ public class Bloque1FaltantesTests : IDisposable
         Assert.Empty(_t.Correo.Enviados);
     }
 
+    [Fact]
+    public async Task Recuperacion_limita_las_solicitudes_por_cuenta_sin_cambiar_la_respuesta()
+    {
+        await _t.CrearEmpresaAsync("A", "admin@a.com");
+        var cuentas = _t.Svc<ICuentaService>();
+
+        for (var i = 0; i < 5; i++) await cuentas.SolicitarRecuperacionAsync("admin@a.com", default);   // sin excepción en ninguna
+        Assert.Equal(3, _t.Correo.Enviados.Count);                                                       // límite por defecto: 3 / 15 min
+        Assert.Equal(3, await _t.Db.TokensRecuperacionContrasena.CountAsync());
+        Assert.True(await _t.Db.Auditoria.AnyAsync(x => x.Accion == "RecuperacionLimitada"));
+
+        _t.Clock.Advance(TimeSpan.FromMinutes(16));                                                      // pasada la ventana, vuelve a permitirse
+        await cuentas.SolicitarRecuperacionAsync("admin@a.com", default);
+        Assert.Equal(4, _t.Correo.Enviados.Count);
+    }
+
+    [Fact]
+    public async Task Recuperacion_avisa_del_cambio_sin_incluir_secretos_y_audita_los_rechazos()
+    {
+        await _t.CrearEmpresaAsync("A", "admin@a.com");
+        var cuentas = _t.Svc<ICuentaService>();
+        await cuentas.SolicitarRecuperacionAsync("admin@a.com", default);
+        var token = _t.Correo.Enviados[0].Token;
+
+        await cuentas.RestablecerContrasenaAsync(token, "Recuperada-Segura-5", default);
+        var aviso = _t.Correo.Enviados[^1];
+        Assert.Equal(2, _t.Correo.Enviados.Count);
+        Assert.Equal("admin@a.com", aviso.Para);
+        Assert.DoesNotContain("token=", aviso.Cuerpo);
+        Assert.DoesNotContain("Recuperada-Segura-5", aviso.Cuerpo);
+
+        // Reutilizar el enlace: se rechaza y queda registrado, sin guardar el token.
+        Assert.Equal(ServiceErrorKind.Validation, (await Rechaza(() => cuentas.RestablecerContrasenaAsync(token, "Otra-Segura-Mas-6", default))).Kind);
+        var rechazos = await _t.Db.Auditoria.Where(x => x.Accion == "RestablecerContrasenaRechazado").ToListAsync();
+        Assert.Single(rechazos);
+    }
+
     // ---------------- Confirmación de correo ----------------
     [Fact]
     public async Task Un_usuario_nuevo_recibe_un_enlace_de_confirmacion_y_lo_confirma_una_sola_vez()

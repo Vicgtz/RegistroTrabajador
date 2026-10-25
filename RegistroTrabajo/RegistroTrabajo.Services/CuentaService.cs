@@ -48,6 +48,19 @@ public class CuentaService : ICuentaService
         if (u is null) return;
 
         var now = _clock.GetUtcNow().UtcDateTime;
+
+        // Límite por cuenta: misma respuesta pública, pero no se genera ni envía otro enlace.
+        var desde = now.AddMinutes(-_options.RecoveryRequestWindowMinutes);
+        var recientes = await _db.TokensRecuperacionContrasena
+            .CountAsync(t => t.UsuarioId == u.UsuarioId && t.CreadoUtc > desde, ct);
+        if (recientes >= _options.RecoveryRequestsPerWindow)
+        {
+            _auditoria.Registrar("Usuarios", nameof(Usuario), u.UsuarioId.ToString(), "RecuperacionLimitada",
+                empresaId: u.EmpresaId, usuarioId: u.UsuarioId);
+            await _db.SaveSafeAsync(ct);
+            return;
+        }
+
         var previos = await _db.TokensRecuperacionContrasena
             .Where(t => t.UsuarioId == u.UsuarioId && t.UsadoUtc == null && t.RevocadoUtc == null).ToListAsync(ct);
         foreach (var p in previos) p.RevocadoUtc = now;
@@ -73,11 +86,29 @@ public class CuentaService : ICuentaService
         var t = await _db.TokensRecuperacionContrasena.Include(x => x.Usuario).ThenInclude(x => x.Empresa)
             .FirstOrDefaultAsync(x => x.TokenHash == hash, ct);
 
-        if (t is null || t.UsadoUtc is not null || t.RevocadoUtc is not null || t.ExpiraUtc <= now
-            || t.Usuario.Estado != EstadoUsuario.Activo || t.Usuario.Empresa.Estado != EstadoEmpresa.Activa)
+        if (t is null)
             throw ServiceException.Validation(EnlaceInvalido);
 
+        if (t.UsadoUtc is not null || t.RevocadoUtc is not null || t.ExpiraUtc <= now
+            || t.Usuario.Estado != EstadoUsuario.Activo || t.Usuario.Empresa.Estado != EstadoEmpresa.Activa)
+        {
+            // Se deja constancia del intento rechazado (sin token ni contraseña).
+            _auditoria.Registrar("Usuarios", nameof(Usuario), t.UsuarioId.ToString(), "RestablecerContrasenaRechazado",
+                empresaId: t.EmpresaId, usuarioId: t.UsuarioId);
+            await _db.SaveSafeAsync(ct);
+            throw ServiceException.Validation(EnlaceInvalido);
+        }
+
         _passwords.ValidarPolitica(contrasenaNueva);
+
+        // Consumo atómico: solo una solicitud concurrente puede reclamar el token.
+        await using var tx = await _db.Database.BeginTransactionAsync(ct);
+        var reclamado = await _db.TokensRecuperacionContrasena
+            .Where(x => x.TokenRecuperacionId == t.TokenRecuperacionId
+                        && x.UsadoUtc == null && x.RevocadoUtc == null && x.ExpiraUtc > now)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.UsadoUtc, now), ct);
+        if (reclamado != 1)
+            throw ServiceException.Validation(EnlaceInvalido);
 
         var u = t.Usuario;
         u.HashContrasena = _passwords.Hash(u, contrasenaNueva);
@@ -96,6 +127,10 @@ public class CuentaService : ICuentaService
         _auditoria.Registrar("Usuarios", nameof(Usuario), u.UsuarioId.ToString(), "RestablecerContrasenaConEnlace",
             empresaId: u.EmpresaId, usuarioId: u.UsuarioId);
         await _db.SaveSafeAsync(ct);
+        await tx.CommitAsync(ct);
+
+        var (asunto, cuerpo) = PlantillasCorreo.ContrasenaCambiada();
+        await EnviarSinFallarAsync(u.Correo, asunto, cuerpo, ct);
     }
 
     // ---------------- Confirmación de correo ----------------
