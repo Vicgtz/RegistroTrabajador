@@ -1,0 +1,158 @@
+@page "/asistencia"
+@attribute [Authorize]
+@inject IJSRuntime JS
+
+<PageTitle>Registrar asistencia - Registro de Trabajo</PageTitle>
+
+<SoloConPermiso Codigo="@Permisos.AsistenciaRegistrar">
+    <h1 class="h3 mb-3">Registro de asistencia</h1>
+
+    <Alerta Mensaje="@error" Tipo="danger" />
+    <Alerta Mensaje="@exito" Tipo="success" />
+
+    @if (cargando) { <Cargando /> }
+    else if (estado is not null)
+    {
+        <div class="tarjeta p-4 mb-3 text-center">
+            <div class="text-muted small">Hora del servidor</div>
+            <div class="display-5 fw-semibold">@FormatoAsistencia.Hora(estado.HoraServidorUtc)</div>
+            <div class="mb-3">
+                @if (estado.JornadaAbierta is { } ab)
+                {
+                    <span class="badge text-bg-warning">Jornada abierta desde las @FormatoAsistencia.Hora(ab.EntradaUtc)</span>
+                }
+                else
+                {
+                    <span class="badge text-bg-secondary">Sin jornada abierta</span>
+                }
+            </div>
+
+            @if (estado.Siguiente == "Entrada")
+            {
+                <button class="btn btn-primary btn-lg px-5" @onclick="() => Registrar(true)" disabled="@registrando">Registrar entrada</button>
+            }
+            else
+            {
+                <button class="btn btn-danger btn-lg px-5" @onclick="() => Registrar(false)" disabled="@registrando">Registrar salida</button>
+            }
+            @if (estado.ExigeUbicacion)
+            {
+                <div class="form-text mt-2">Su empresa exige la ubicación. El navegador le pedirá permiso; se usa solo para registrar asistencia.</div>
+            }
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="tarjeta p-3 h-100">
+                    <h2 class="h6">Horario de hoy</h2>
+                    @if (estado.HorarioHoy is { Horario: not null } h)
+                    {
+                        <div>@h.Horario</div>
+                        <div class="text-muted">@(h.Dia is null ? "—" : FormatoAsistencia.Horario(h.Dia))</div>
+                    }
+                    else { <div class="text-muted">Sin horario asignado.</div> }
+                    @if (estado.HorarioHoy?.Festivo is { } f) { <div class="badge text-bg-info mt-2">Festivo: @f</div> }
+                    @if (estado.HorarioHoy?.Descanso is { } d) { <div class="badge text-bg-info mt-2">@d</div> }
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="tarjeta p-3 h-100">
+                    <h2 class="h6">Último registro</h2>
+                    @if (estado.Ultimo is { } u)
+                    {
+                        <div>@FormatoLaboral.Fecha(u.FechaLaboral) · Entrada @FormatoAsistencia.Hora(u.EntradaUtc) · Salida @FormatoAsistencia.Hora(u.SalidaUtc)</div>
+                        <span class="badge @FormatoAsistencia.ClaseEstado(u.Estado)">@(u.Incompleta ? "Jornada incompleta" : "Jornada completa")</span>
+                    }
+                    else { <div class="text-muted">Aún no tiene registros.</div> }
+                </div>
+            </div>
+        </div>
+    }
+
+    <h2 class="h5 mt-4">Mis registros recientes</h2>
+    @if (misRegistros is not null)
+    {
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead><tr><th>Fecha</th><th>Entrada</th><th>Salida</th><th>Horas</th><th>Estado</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var r in misRegistros.Items)
+                    {
+                        <tr>
+                            <td>@FormatoLaboral.Fecha(r.FechaLaboral)</td>
+                            <td>@FormatoAsistencia.Hora(r.EntradaUtc)</td>
+                            <td>@FormatoAsistencia.Hora(r.SalidaUtc)</td>
+                            <td>@(r.HorasTrabajadas?.ToString("0.##") ?? "—")</td>
+                            <td><span class="badge @FormatoAsistencia.ClaseEstado(r.Estado)">@FormatoAsistencia.Estado(r.Estado)</span>
+                                @if (r.Corregida) { <span class="badge text-bg-info" title="Tiene correcciones autorizadas">Corregida</span> }</td>
+                            <td class="small text-muted">@(r.Correcciones.LastOrDefault()?.Motivo)</td>
+                        </tr>
+                    }
+                    @if (misRegistros.Items.Count == 0) { <tr><td colspan="6" class="text-muted">Sin registros.</td></tr> }
+                </tbody>
+            </table>
+        </div>
+        <Paginador Page="misRegistros.Page" PageSize="misRegistros.PageSize" Total="misRegistros.Total" OnPage="IrAPagina" />
+    }
+</SoloConPermiso>
+
+@code {
+    [Inject] private AsistenciaClient Api { get; set; } = default!;
+
+    private EstadoJornadaDto? estado;
+    private PagedResult<RegistroAsistenciaDto>? misRegistros;
+    private readonly AsistenciaFiltro filtro = new() { PageSize = 10 };
+    private bool cargando = true, registrando;
+    private string? error, exito;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarEstado();
+        await CargarRegistros();
+        cargando = false;
+    }
+
+    private async Task CargarEstado()
+    {
+        var r = await Api.EstadoAsync();
+        if (r.Ok) estado = r.Data; else error = r.Error;
+    }
+
+    private async Task CargarRegistros()
+    {
+        var r = await Api.MiasAsync(filtro);
+        if (r.Ok) misRegistros = r.Data;
+    }
+
+    private async Task IrAPagina(int p) { filtro.Page = p; await CargarRegistros(); }
+
+    private async Task Registrar(bool entrada)
+    {
+        error = exito = null;
+        registrando = true;
+        try
+        {
+            var req = new RegistrarAsistenciaRequest();
+            if (estado?.ExigeUbicacion == true)
+            {
+                var geo = await JS.InvokeAsync<UbicacionJs>("rtGeo.obtener");
+                if (!geo.Ok) { error = geo.Error; return; }
+                req.Latitud = (decimal)geo.Lat; req.Longitud = (decimal)geo.Lon;
+            }
+            var r = entrada ? await Api.EntradaAsync(req) : await Api.SalidaAsync(req);
+            if (!r.Ok) { error = r.Error; return; }
+            exito = entrada ? $"Entrada registrada a las {FormatoAsistencia.Hora(r.Data?.EntradaUtc)}." : $"Salida registrada a las {FormatoAsistencia.Hora(r.Data?.SalidaUtc)}. Jornada completa.";
+            await CargarEstado();
+            await CargarRegistros();
+        }
+        finally { registrando = false; }
+    }
+
+    private sealed class UbicacionJs
+    {
+        public bool Ok { get; set; }
+        public double Lat { get; set; }
+        public double Lon { get; set; }
+        public string? Error { get; set; }
+    }
+}

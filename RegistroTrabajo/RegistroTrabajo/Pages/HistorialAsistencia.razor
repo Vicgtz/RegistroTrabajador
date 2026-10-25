@@ -1,0 +1,236 @@
+@page "/asistencia/historial"
+@attribute [Authorize]
+
+<PageTitle>Historial de asistencia - Registro de Trabajo</PageTitle>
+
+<SoloConPermiso Codigo="@Permisos.AsistenciaConsultar">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <h1 class="h3 mb-0">Historial de asistencia</h1>
+        <button class="btn btn-outline-primary" @onclick="NuevoManual">Agregar registro faltante</button>
+    </div>
+
+    <Alerta Mensaje="@error" Tipo="danger" />
+    <Alerta Mensaje="@exito" Tipo="success" />
+
+    <div class="tarjeta p-3 mb-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">Trabajador</label>
+                <select class="form-select" @bind="filtro.TrabajadorId">
+                    <option value="">Todos los visibles</option>
+                    @foreach (var t in trabajadores) { <option value="@t.TrabajadorId">@t.Nombres @t.Apellidos</option> }
+                </select>
+            </div>
+            <div class="col-md-2"><label class="form-label">Desde</label><input type="date" class="form-control" @bind="desde" /></div>
+            <div class="col-md-2"><label class="form-label">Hasta</label><input type="date" class="form-control" @bind="hasta" /></div>
+            <div class="col-md-2">
+                <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="inc" @bind="filtro.SoloIncompletas" /><label class="form-check-label" for="inc">Solo incompletas</label></div>
+            </div>
+            <div class="col-md-2"><button class="btn btn-primary w-100" @onclick="Buscar">Buscar</button></div>
+        </div>
+    </div>
+
+    @if (cargando) { <Cargando /> }
+    else if (datos is not null)
+    {
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead><tr><th>Trabajador</th><th>Fecha</th><th>Horario</th><th>Entrada</th><th>Salida</th><th>Horas</th><th>Estado</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var r in datos.Items)
+                    {
+                        <tr>
+                            <td>@r.Trabajador</td>
+                            <td>@FormatoLaboral.Fecha(r.FechaLaboral)</td>
+                            <td class="small">@(r.Horario ?? "—")<br /><span class="text-muted">@r.HorarioEsperado</span></td>
+                            <td>@FormatoAsistencia.Hora(r.EntradaUtc)</td>
+                            <td>@FormatoAsistencia.Hora(r.SalidaUtc)</td>
+                            <td>@(r.HorasTrabajadas?.ToString("0.##") ?? "—")</td>
+                            <td>
+                                <span class="badge @FormatoAsistencia.ClaseEstado(r.Estado)">@FormatoAsistencia.Estado(r.Estado)</span>
+                                @if (r.Corregida) { <span class="badge text-bg-info">Corregida</span> }
+                                @if (r.TienePermisoAprobado) { <span class="badge text-bg-light border" title="Tiene un permiso aprobado ese día">Permiso</span> }
+                            </td>
+                            <td class="text-nowrap text-end">
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => Detalle(r)">Detalle</button>
+                                @if (r.Estado != EstadoAsistencia.Anulada)
+                                {
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => Corregir(r)">Corregir</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    @if (datos.Items.Count == 0) { <tr><td colspan="8" class="text-muted">Sin registros para los filtros indicados.</td></tr> }
+                </tbody>
+            </table>
+        </div>
+        <Paginador Page="datos.Page" PageSize="datos.PageSize" Total="datos.Total" OnPage="IrAPagina" />
+    }
+</SoloConPermiso>
+
+<Modal @bind-Visible="detalleVisible" Titulo="Detalle del registro">
+    <ChildContent>
+        @if (seleccionado is { } s)
+        {
+            <p class="mb-1"><strong>@s.Trabajador</strong> · @FormatoLaboral.Fecha(s.FechaLaboral)</p>
+            <p class="mb-1">Entrada: @FormatoAsistencia.FechaHora(s.EntradaUtc) @(s.EntradaLatitud is { } la ? $"({la}, {s.EntradaLongitud})" : "")</p>
+            <p class="mb-3">Salida: @FormatoAsistencia.FechaHora(s.SalidaUtc) @(s.SalidaLatitud is { } lb ? $"({lb}, {s.SalidaLongitud})" : "")</p>
+            <h3 class="h6">Correcciones</h3>
+            @if (s.Correcciones.Count == 0) { <div class="text-muted small">Sin correcciones.</div> }
+            @foreach (var c in s.Correcciones)
+            {
+                <div class="border rounded p-2 mb-2 small">
+                    <div><strong>@c.CorregidoPor</strong> · @FormatoAsistencia.FechaHora(c.FechaCorreccionUtc)</div>
+                    <div>Antes: @FormatoAsistencia.FechaHora(c.EntradaAnteriorUtc) → @FormatoAsistencia.FechaHora(c.SalidaAnteriorUtc)</div>
+                    <div>Después: @FormatoAsistencia.FechaHora(c.EntradaNuevaUtc) → @FormatoAsistencia.FechaHora(c.SalidaNuevaUtc)</div>
+                    <div>Motivo: @c.Motivo</div>
+                </div>
+            }
+            <div class="form-text">Las ubicaciones registradas no son prueba infalible de presencia física.</div>
+        }
+    </ChildContent>
+    <Footer><button class="btn btn-outline-secondary" @onclick="() => detalleVisible = false">Cerrar</button></Footer>
+</Modal>
+
+<Modal @bind-Visible="corregirVisible" Titulo="Corregir registro">
+    <ChildContent>
+        @if (seleccionado is { } c)
+        {
+            <p class="mb-2"><strong>@c.Trabajador</strong> · @FormatoLaboral.Fecha(c.FechaLaboral). El valor original se conserva en el historial.</p>
+            <div class="row g-2">
+                <div class="col-6"><label class="form-label">Entrada</label><input type="datetime-local" class="form-control" @bind="nuevaEntrada" /></div>
+                <div class="col-6"><label class="form-label">Salida</label><input type="datetime-local" class="form-control" @bind="nuevaSalida" /></div>
+            </div>
+            <div class="mt-2"><label class="form-label">Motivo (obligatorio)</label><InputText class="form-control" @bind-Value="motivo" /></div>
+            <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
+        }
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-outline-danger me-auto" @onclick="Anular" disabled="@guardando">Anular registro</button>
+        <button class="btn btn-outline-secondary" @onclick="() => corregirVisible = false">Cancelar</button>
+        <button class="btn btn-primary" @onclick="GuardarCorreccion" disabled="@guardando">Guardar corrección</button>
+    </Footer>
+</Modal>
+
+<Modal @bind-Visible="manualVisible" Titulo="Agregar registro faltante">
+    <ChildContent>
+        <div class="mb-2">
+            <label class="form-label">Trabajador</label>
+            <select class="form-select" @bind="manual.TrabajadorId">
+                <option value="@Guid.Empty">Seleccione…</option>
+                @foreach (var t in trabajadores) { <option value="@t.TrabajadorId">@t.Nombres @t.Apellidos</option> }
+            </select>
+        </div>
+        <div class="row g-2">
+            <div class="col-6"><label class="form-label">Entrada</label><input type="datetime-local" class="form-control" @bind="manualEntrada" /></div>
+            <div class="col-6"><label class="form-label">Salida</label><input type="datetime-local" class="form-control" @bind="manualSalida" /></div>
+        </div>
+        <div class="mt-2"><label class="form-label">Motivo (obligatorio)</label><InputText class="form-control" @bind-Value="manual.Motivo" /></div>
+        <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => manualVisible = false">Cancelar</button>
+        <button class="btn btn-primary" @onclick="GuardarManual" disabled="@guardando">Guardar</button>
+    </Footer>
+</Modal>
+
+@code {
+    [Inject] private AsistenciaClient Api { get; set; } = default!;
+    [Inject] private TrabajadoresClient TrabApi { get; set; } = default!;
+
+    private readonly AsistenciaFiltro filtro = new() { PageSize = 20 };
+    private PagedResult<RegistroAsistenciaDto>? datos;
+    private List<TrabajadorResumenDto> trabajadores = new();
+    private RegistroAsistenciaDto? seleccionado;
+    private CrearRegistroManualRequest manual = new();
+    private DateTime? desde, hasta, nuevaEntrada, nuevaSalida, manualEntrada, manualSalida;
+    private string? motivo, error, exito, errorForm;
+    private bool cargando = true, guardando, detalleVisible, corregirVisible, manualVisible;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var t = await TrabApi.ListarAsync(new TrabajadorFiltro { PageSize = 200 });
+        if (t.Ok) trabajadores = t.Data?.Items.ToList() ?? new();
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        cargando = true;
+        filtro.Desde = desde is null ? null : DateOnly.FromDateTime(desde.Value);
+        filtro.Hasta = hasta is null ? null : DateOnly.FromDateTime(hasta.Value);
+        var r = await Api.ListarAsync(filtro);
+        if (r.Ok) datos = r.Data; else error = r.Error;
+        cargando = false;
+    }
+
+    private async Task Buscar() { error = null; filtro.Page = 1; await Cargar(); }
+    private async Task IrAPagina(int p) { filtro.Page = p; await Cargar(); }
+
+    private void Detalle(RegistroAsistenciaDto r) { seleccionado = r; detalleVisible = true; }
+
+    private static DateTime? ALocal(DateTime? utc) => utc is null ? null : DateTime.SpecifyKind(utc.Value, DateTimeKind.Utc).ToLocalTime();
+
+    private void Corregir(RegistroAsistenciaDto r)
+    {
+        seleccionado = r; motivo = null; errorForm = null;
+        nuevaEntrada = ALocal(r.EntradaUtc); nuevaSalida = ALocal(r.SalidaUtc);
+        corregirVisible = true;
+    }
+
+    private async Task GuardarCorreccion()
+    {
+        if (seleccionado is null) return;
+        errorForm = null; guardando = true;
+        try
+        {
+            var original = seleccionado;
+            // Solo se envía lo que cambió, para que la corrección deje claro qué se modificó.
+            var entrada = FormatoAsistencia.AUtc(nuevaEntrada); var salida = FormatoAsistencia.AUtc(nuevaSalida);
+            var r = await Api.CorregirAsync(original.RegistroAsistenciaId, new CorregirAsistenciaRequest
+            {
+                EntradaUtc = Cambio(entrada, original.EntradaUtc), SalidaUtc = Cambio(salida, original.SalidaUtc), Motivo = motivo ?? ""
+            });
+            if (!r.Ok) { errorForm = r.Error; return; }
+            corregirVisible = false; exito = "Corrección guardada; el registro original se conserva en el historial.";
+            await Cargar();
+        }
+        finally { guardando = false; }
+    }
+
+    private static DateTime? Cambio(DateTime? nuevo, DateTime? actual) =>
+        nuevo is null || (actual is not null && Math.Abs((nuevo.Value - actual.Value).TotalSeconds) < 60) ? null : nuevo;
+
+    private async Task Anular()
+    {
+        if (seleccionado is null) return;
+        errorForm = null; guardando = true;
+        try
+        {
+            var r = await Api.AnularAsync(seleccionado.RegistroAsistenciaId, new AnularAsistenciaRequest { Motivo = motivo ?? "" });
+            if (!r.Ok) { errorForm = r.Error; return; }
+            corregirVisible = false; exito = "Registro anulado; la evidencia original se conserva.";
+            await Cargar();
+        }
+        finally { guardando = false; }
+    }
+
+    private void NuevoManual() { manual = new(); manualEntrada = manualSalida = null; errorForm = null; manualVisible = true; }
+
+    private async Task GuardarManual()
+    {
+        errorForm = null;
+        if (manualEntrada is null) { errorForm = "Indique la hora de entrada."; return; }
+        guardando = true;
+        try
+        {
+            manual.EntradaUtc = FormatoAsistencia.AUtc(manualEntrada)!.Value;
+            manual.SalidaUtc = FormatoAsistencia.AUtc(manualSalida);
+            var r = await Api.ManualAsync(manual);
+            if (!r.Ok) { errorForm = r.Error; return; }
+            manualVisible = false; exito = "Registro agregado con su justificación.";
+            await Cargar();
+        }
+        finally { guardando = false; }
+    }
+}

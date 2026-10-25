@@ -1,0 +1,462 @@
+@page "/horarios"
+@attribute [Authorize]
+
+<PageTitle>Horarios y turnos - Registro de Trabajo</PageTitle>
+
+<SoloConPermiso Codigo="@Permisos.HorariosConsultar">
+    <h1 class="h3 mb-3">Horarios y turnos</h1>
+
+    <Alerta Mensaje="@error" Tipo="danger" />
+    <Alerta Mensaje="@exito" Tipo="success" />
+
+    <ul class="nav nav-tabs mb-3">
+        @foreach (var (clave, titulo) in Pestanas)
+        {
+            <li class="nav-item"><button class="nav-link @(pestana == clave ? "active" : "")" @onclick="() => pestana = clave">@titulo</button></li>
+        }
+    </ul>
+
+    @if (cargando) { <Cargando /> }
+    else if (pestana == "turnos")
+    {
+        @if (puedeConfigurar)
+        {
+            <div class="mb-2 d-flex gap-2">
+                <button class="btn btn-primary" @onclick="NuevoTurno">Nuevo turno</button>
+                <button class="btn btn-outline-secondary" @onclick="SembrarTurnos">Crear matutino, vespertino y nocturno</button>
+            </div>
+        }
+        <div class="table-responsive"><table class="table table-sm align-middle">
+            <thead><tr><th>Turno</th><th>Horario</th><th>Tolerancia</th><th>Estado</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var t in turnos)
+                {
+                    <tr>
+                        <td>@t.Nombre</td>
+                        <td>@t.HoraInicio.ToString("HH\\:mm") – @t.HoraFin.ToString("HH\\:mm") @(t.CruzaMedianoche ? "(termina al día siguiente)" : "")</td>
+                        <td>@t.ToleranciaMinutos min</td>
+                        <td><span class="badge @(t.Estado ? "text-bg-success" : "text-bg-secondary")">@(t.Estado ? "Activo" : "Inactivo")</span></td>
+                        <td class="text-end text-nowrap">
+                            @if (puedeConfigurar)
+                            {
+                                <button class="btn btn-sm btn-outline-primary" @onclick="() => EditarTurno(t)">Editar</button>
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => EstadoTurno(t)">@(t.Estado ? "Desactivar" : "Activar")</button>
+                            }
+                        </td>
+                    </tr>
+                }
+                @if (turnos.Count == 0) { <tr><td colspan="5" class="text-muted">Aún no hay turnos.</td></tr> }
+            </tbody>
+        </table></div>
+    }
+    else if (pestana == "horarios")
+    {
+        @if (puedeConfigurar) { <div class="mb-2"><button class="btn btn-primary" @onclick="NuevoHorario">Nuevo horario</button></div> }
+        @foreach (var h in horarios)
+        {
+            <div class="tarjeta p-3 mb-3">
+                <div class="d-flex flex-wrap justify-content-between gap-2">
+                    <div>
+                        <h2 class="h6 mb-1">@h.Nombre <span class="badge @(h.Estado ? "text-bg-success" : "text-bg-secondary")">@(h.Estado ? "Activo" : "Inactivo")</span></h2>
+                        <div class="small text-muted">
+                            Vigencia @FormatoLaboral.Fecha(h.FechaVigenciaDesde) – @(h.FechaVigenciaHasta is null ? "sin fin" : FormatoLaboral.Fecha(h.FechaVigenciaHasta))
+                            @if (h.Turno is not null) { <span> · Turno @h.Turno</span> }
+                            @if (h.Puesto is not null) { <span> · Puesto @h.Puesto</span> }
+                            @if (h.Departamento is not null) { <span> · Departamento @h.Departamento</span> }
+                        </div>
+                    </div>
+                    @if (puedeConfigurar)
+                    {
+                        <div class="text-nowrap">
+                            <button class="btn btn-sm btn-outline-primary" @onclick="() => EditarHorario(h, false)">Editar</button>
+                            <button class="btn btn-sm btn-outline-primary" @onclick="() => EditarHorario(h, true)">Nueva versión</button>
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => EstadoHorario(h)">@(h.Estado ? "Desactivar" : "Activar")</button>
+                        </div>
+                    }
+                </div>
+                <div class="small mt-2">
+                    @foreach (var d in h.Detalle) { <span class="me-3 d-inline-block"><strong>@FormatoAsistencia.Dia(d.DiaSemana).Substring(0, 3)</strong> @FormatoAsistencia.Horario(d)</span> }
+                </div>
+            </div>
+        }
+        @if (horarios.Count == 0) { <div class="alert alert-info">Aún no hay horarios.</div> }
+    }
+    else if (pestana == "asignaciones")
+    {
+        @if (puedeConfigurar) { <div class="mb-2"><button class="btn btn-primary" @onclick="NuevaAsignacion">Asignar horario</button></div> }
+        <div class="table-responsive"><table class="table table-sm align-middle">
+            <thead><tr><th>Trabajador</th><th>Horario</th><th>Desde</th><th>Hasta</th><th>Tipo</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var a in asignaciones)
+                {
+                    <tr>
+                        <td>@a.Trabajador</td><td>@a.Horario</td><td>@FormatoLaboral.Fecha(a.FechaDesde)</td>
+                        <td>@(a.FechaHasta is null ? "Vigente" : FormatoLaboral.Fecha(a.FechaHasta))</td>
+                        <td>@(a.MotivoExcepcion is null ? "Habitual" : "Excepción: " + a.MotivoExcepcion)</td>
+                        <td class="text-end">
+                            @if (puedeConfigurar && (a.FechaHasta is null || a.FechaHasta >= Hoy))
+                            {
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => CerrarAsignacion(a)">Terminar hoy</button>
+                            }
+                        </td>
+                    </tr>
+                }
+                @if (asignaciones.Count == 0) { <tr><td colspan="6" class="text-muted">Sin asignaciones. Sin horario asignado se asume lunes a viernes.</td></tr> }
+            </tbody>
+        </table></div>
+    }
+    else if (pestana == "descansos")
+    {
+        @if (puedeConfigurar) { <div class="mb-2"><button class="btn btn-primary" @onclick="NuevoDescanso">Registrar descanso</button></div> }
+        <div class="table-responsive"><table class="table table-sm align-middle">
+            <thead><tr><th>Trabajador</th><th>Desde</th><th>Hasta</th><th>Tipo</th><th>Descripción</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var d in descansos)
+                {
+                    <tr>
+                        <td>@d.Trabajador</td><td>@FormatoLaboral.Fecha(d.FechaDesde)</td><td>@FormatoLaboral.Fecha(d.FechaHasta)</td>
+                        <td>@(d.Tipo == TipoDescanso.Habitual ? "Habitual" : "Excepción temporal")</td><td>@d.Descripcion</td>
+                        <td class="text-end">
+                            @if (puedeConfigurar && d.FechaHasta >= Hoy)
+                            {
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => TerminarDescanso(d)">Terminar</button>
+                            }
+                        </td>
+                    </tr>
+                }
+                @if (descansos.Count == 0) { <tr><td colspan="6" class="text-muted">Sin descansos registrados.</td></tr> }
+            </tbody>
+        </table></div>
+    }
+    else if (pestana == "festivos")
+    {
+        @if (puedeConfigurar) { <div class="mb-2"><button class="btn btn-primary" @onclick="NuevoFestivo">Nuevo festivo</button></div> }
+        <div class="table-responsive"><table class="table table-sm align-middle">
+            <thead><tr><th>Fecha</th><th>Nombre</th><th>Se repite cada año</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var f in festivos)
+                {
+                    <tr>
+                        <td>@FormatoLaboral.Fecha(f.Fecha)</td><td>@f.Nombre</td><td>@(f.EsRecurrenteAnual ? "Sí" : "No")</td>
+                        <td class="text-end">@if (puedeConfigurar) { <button class="btn btn-sm btn-outline-danger" @onclick="() => EliminarFestivo(f)">Quitar</button> }</td>
+                    </tr>
+                }
+                @if (festivos.Count == 0) { <tr><td colspan="4" class="text-muted">Sin festivos configurados.</td></tr> }
+            </tbody>
+        </table></div>
+    }
+</SoloConPermiso>
+
+<Modal @bind-Visible="turnoVisible" Titulo="@(turnoId is null ? "Nuevo turno" : "Editar turno")">
+    <ChildContent>
+        <div class="mb-2"><label class="form-label">Nombre</label><InputText class="form-control" @bind-Value="turno.Nombre" /></div>
+        <div class="row g-2">
+            <div class="col-4"><label class="form-label">Inicio</label><input type="time" class="form-control" @bind="turno.HoraInicio" /></div>
+            <div class="col-4"><label class="form-label">Fin</label><input type="time" class="form-control" @bind="turno.HoraFin" /></div>
+            <div class="col-4"><label class="form-label">Tolerancia (min)</label><input type="number" min="0" max="720" class="form-control" @bind="turno.ToleranciaMinutos" /></div>
+        </div>
+        <div class="form-text">Si el fin es menor o igual al inicio, el turno termina al día siguiente (p. ej. nocturno).</div>
+        <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => turnoVisible = false">Cancelar</button>
+        <button class="btn btn-primary" @onclick="GuardarTurno" disabled="@guardando">Guardar</button>
+    </Footer>
+</Modal>
+
+<Modal @bind-Visible="horarioVisible" Titulo="@(versionNueva ? "Nueva versión del horario" : horarioId is null ? "Nuevo horario" : "Editar horario")">
+    <ChildContent>
+        <div class="mb-2"><label class="form-label">Nombre</label><InputText class="form-control" @bind-Value="horario.Nombre" /></div>
+        <div class="row g-2 mb-2">
+            <div class="col-6"><label class="form-label">Vigente desde</label><input type="date" class="form-control" @bind="vigDesde" /></div>
+            <div class="col-6"><label class="form-label">Vigente hasta</label><input type="date" class="form-control" @bind="vigHasta" /></div>
+            <div class="col-md-4"><label class="form-label">Turno</label>
+                <select class="form-select" @bind="horario.TurnoId"><option value="">—</option>@foreach (var t in turnos) { <option value="@t.TurnoId">@t.Nombre</option> }</select></div>
+            <div class="col-md-4"><label class="form-label">Departamento</label>
+                <select class="form-select" @bind="horario.DepartamentoId"><option value="">—</option>@foreach (var d in departamentos) { <option value="@d.Id">@d.Nombre</option> }</select></div>
+            <div class="col-md-4"><label class="form-label">Puesto</label>
+                <select class="form-select" @bind="horario.PuestoId"><option value="">—</option>@foreach (var p in puestos) { <option value="@p.Id">@p.Nombre</option> }</select></div>
+        </div>
+        <div class="form-text mb-2">Sin departamento ni puesto, el horario se asigna trabajador por trabajador.</div>
+        <table class="table table-sm align-middle mb-0">
+            <thead><tr><th>Día</th><th>Labora</th><th>Entrada</th><th>Salida</th></tr></thead>
+            <tbody>
+                @foreach (var d in horario.Detalle)
+                {
+                    <tr>
+                        <td>@FormatoAsistencia.Dia(d.DiaSemana)</td>
+                        <td><input type="checkbox" class="form-check-input" @bind="d.EsDiaLaboral" /></td>
+                        <td><input type="time" class="form-control form-control-sm" @bind="d.HoraEntrada" disabled="@(!d.EsDiaLaboral)" /></td>
+                        <td><input type="time" class="form-control form-control-sm" @bind="d.HoraSalida" disabled="@(!d.EsDiaLaboral)" /></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (versionNueva) { <div class="form-text">La versión anterior termina el día previo y las asignaciones vigentes pasan a esta; el historial no cambia.</div> }
+        <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => horarioVisible = false">Cancelar</button>
+        <button class="btn btn-primary" @onclick="GuardarHorario" disabled="@guardando">Guardar</button>
+    </Footer>
+</Modal>
+
+<Modal @bind-Visible="asignacionVisible" Titulo="Asignar horario">
+    <ChildContent>
+        <div class="mb-2"><label class="form-label">Trabajador</label>
+            <select class="form-select" @bind="asignacion.TrabajadorId"><option value="@Guid.Empty">Seleccione…</option>@foreach (var t in trabajadores) { <option value="@t.TrabajadorId">@t.Nombres @t.Apellidos</option> }</select></div>
+        <div class="mb-2"><label class="form-label">Horario</label>
+            <select class="form-select" @bind="asignacion.HorarioLaboralId"><option value="@Guid.Empty">Seleccione…</option>@foreach (var h in horarios.Where(x => x.Estado)) { <option value="@h.HorarioLaboralId">@h.Nombre (@FormatoLaboral.Fecha(h.FechaVigenciaDesde))</option> }</select></div>
+        <div class="row g-2">
+            <div class="col-6"><label class="form-label">Desde</label><input type="date" class="form-control" @bind="asigDesde" /></div>
+            <div class="col-6"><label class="form-label">Hasta</label><input type="date" class="form-control" @bind="asigHasta" /></div>
+        </div>
+        <div class="mt-2"><label class="form-label">Motivo de excepción (opcional)</label><InputText class="form-control" @bind-Value="asignacion.MotivoExcepcion" /></div>
+        <div class="form-text">Con motivo, es una excepción temporal (requiere fecha final) que prevalece sobre el horario habitual sin reemplazarlo.</div>
+        <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => asignacionVisible = false">Cancelar</button>
+        <button class="btn btn-primary" @onclick="GuardarAsignacion" disabled="@guardando">Guardar</button>
+    </Footer>
+</Modal>
+
+<Modal @bind-Visible="descansoVisible" Titulo="Registrar descanso">
+    <ChildContent>
+        <div class="mb-2"><label class="form-label">Trabajador</label>
+            <select class="form-select" @bind="descanso.TrabajadorId"><option value="@Guid.Empty">Seleccione…</option>@foreach (var t in trabajadores) { <option value="@t.TrabajadorId">@t.Nombres @t.Apellidos</option> }</select></div>
+        <div class="row g-2">
+            <div class="col-6"><label class="form-label">Desde</label><input type="date" class="form-control" @bind="desDesde" /></div>
+            <div class="col-6"><label class="form-label">Hasta</label><input type="date" class="form-control" @bind="desHasta" /></div>
+        </div>
+        <div class="mt-2"><label class="form-label">Tipo</label>
+            <select class="form-select" @bind="descanso.Tipo"><option value="@TipoDescanso.Habitual">Habitual</option><option value="@TipoDescanso.Excepcion">Excepción temporal</option></select></div>
+        <div class="mt-2"><label class="form-label">Descripción</label><InputText class="form-control" @bind-Value="descanso.Descripcion" /></div>
+        <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => descansoVisible = false">Cancelar</button>
+        <button class="btn btn-primary" @onclick="GuardarDescanso" disabled="@guardando">Guardar</button>
+    </Footer>
+</Modal>
+
+<Modal @bind-Visible="festivoVisible" Titulo="Nuevo festivo">
+    <ChildContent>
+        <div class="mb-2"><label class="form-label">Fecha</label><input type="date" class="form-control" @bind="festFecha" /></div>
+        <div class="mb-2"><label class="form-label">Nombre</label><InputText class="form-control" @bind-Value="festivo.Nombre" /></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" id="rec" @bind="festivo.EsRecurrenteAnual" /><label class="form-check-label" for="rec">Se repite cada año</label></div>
+        <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => festivoVisible = false">Cancelar</button>
+        <button class="btn btn-primary" @onclick="GuardarFestivo" disabled="@guardando">Guardar</button>
+    </Footer>
+</Modal>
+
+@code {
+    [Inject] private HorariosClient Api { get; set; } = default!;
+    [Inject] private TrabajadoresClient TrabApi { get; set; } = default!;
+    [Inject] private CatalogosClient CatApi { get; set; } = default!;
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = default!;
+
+    private static readonly (string, string)[] Pestanas =
+    {
+        ("turnos", "Turnos"), ("horarios", "Horarios"), ("asignaciones", "Asignaciones"), ("descansos", "Descansos"), ("festivos", "Festivos")
+    };
+
+    private static DateOnly Hoy => DateOnly.FromDateTime(DateTime.Now);
+
+    private string pestana = "turnos";
+    private bool cargando = true, guardando, puedeConfigurar;
+    private string? error, exito, errorForm;
+
+    private List<TurnoDto> turnos = new();
+    private List<HorarioLaboralDto> horarios = new();
+    private List<AsignacionHorarioDto> asignaciones = new();
+    private List<DescansoTrabajadorDto> descansos = new();
+    private List<DiaFestivoDto> festivos = new();
+    private List<TrabajadorResumenDto> trabajadores = new();
+    private List<CatalogoItemDto> departamentos = new(), puestos = new();
+
+    private bool turnoVisible, horarioVisible, asignacionVisible, descansoVisible, festivoVisible;
+    private Guid? turnoId, horarioId;
+    private bool versionNueva;
+    private GuardarTurnoRequest turno = new();
+    private GuardarHorarioRequest horario = new();
+    private AsignarHorarioRequest asignacion = new();
+    private GuardarDescansoRequest descanso = new();
+    private GuardarDiaFestivoRequest festivo = new();
+    private DateTime? vigDesde, vigHasta, asigDesde, asigHasta, desDesde, desHasta, festFecha;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState;
+        puedeConfigurar = auth.User.TienePermiso(Permisos.HorariosConfigurar);
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        cargando = true;
+        var t = await Api.TurnosAsync(); if (t.Ok) turnos = t.Data ?? new(); else error = t.Error;
+        var h = await Api.ListarAsync(); if (h.Ok) horarios = h.Data ?? new();
+        var a = await Api.AsignacionesAsync(); if (a.Ok) asignaciones = a.Data ?? new();
+        var d = await Api.DescansosAsync(); if (d.Ok) descansos = d.Data ?? new();
+        var f = await Api.FestivosAsync(); if (f.Ok) festivos = f.Data ?? new();
+        if (puedeConfigurar && trabajadores.Count == 0)
+        {
+            var tr = await TrabApi.ListarAsync(new TrabajadorFiltro { PageSize = 200 });
+            if (tr.Ok) trabajadores = tr.Data?.Items.ToList() ?? new();
+        }
+        cargando = false;
+    }
+
+    private async Task<bool> Resultado(ApiResult r, string mensaje)
+    {
+        error = exito = null;
+        if (!r.Ok) { errorForm = r.Error; error = r.Error; return false; }
+        exito = mensaje;
+        await Cargar();
+        return true;
+    }
+
+    // ---- Turnos
+    private void NuevoTurno() { turnoId = null; turno = new() { HoraInicio = new TimeOnly(9, 0), HoraFin = new TimeOnly(17, 0), ToleranciaMinutos = 10 }; errorForm = null; turnoVisible = true; }
+    private void EditarTurno(TurnoDto t) { turnoId = t.TurnoId; turno = new() { Nombre = t.Nombre, HoraInicio = t.HoraInicio, HoraFin = t.HoraFin, ToleranciaMinutos = t.ToleranciaMinutos }; errorForm = null; turnoVisible = true; }
+
+    private async Task GuardarTurno()
+    {
+        guardando = true; errorForm = null;
+        try
+        {
+            var r = turnoId is { } id ? await Api.ActualizarTurnoAsync(id, turno) : await Api.CrearTurnoAsync(turno);
+            if (!r.Ok) { errorForm = r.Error; return; }
+            turnoVisible = false; exito = "Turno guardado."; await Cargar();
+        }
+        finally { guardando = false; }
+    }
+
+    private async Task EstadoTurno(TurnoDto t) { var r = await Api.EstadoTurnoAsync(t.TurnoId, !t.Estado); if (!r.Ok) error = r.Error; else await Cargar(); }
+
+    private async Task SembrarTurnos()
+    {
+        var r = await Api.TurnosInicialesAsync();
+        if (!r.Ok) { error = r.Error; return; }
+        exito = "Turnos iniciales creados."; await Cargar();
+    }
+
+    // ---- Horarios
+    private static GuardarHorarioRequest HorarioBase()
+    {
+        var h = new GuardarHorarioRequest();
+        for (byte d = 1; d <= 7; d++)
+            h.Detalle.Add(new HorarioDetalleDiaDto { DiaSemana = d, EsDiaLaboral = d <= 5, HoraEntrada = d <= 5 ? new TimeOnly(9, 0) : null, HoraSalida = d <= 5 ? new TimeOnly(17, 0) : null });
+        return h;
+    }
+
+    private async Task CargarCatalogos()
+    {
+        if (departamentos.Count == 0) { var d = await CatApi.DepartamentosAsync(); if (d.Ok) departamentos = d.Data?.Where(x => x.Estado).ToList() ?? new(); }
+        if (puestos.Count == 0) { var p = await CatApi.PuestosAsync(); if (p.Ok) puestos = p.Data?.Where(x => x.Estado).ToList() ?? new(); }
+    }
+
+    private async Task NuevoHorario()
+    {
+        await CargarCatalogos();
+        horarioId = null; versionNueva = false; horario = HorarioBase(); vigDesde = DateTime.Today; vigHasta = null; errorForm = null; horarioVisible = true;
+    }
+
+    private async Task EditarHorario(HorarioLaboralDto h, bool nuevaVersion)
+    {
+        await CargarCatalogos();
+        horarioId = h.HorarioLaboralId; versionNueva = nuevaVersion; errorForm = null;
+        horario = HorarioBase();
+        horario.Nombre = h.Nombre; horario.TurnoId = h.TurnoId; horario.DepartamentoId = h.DepartamentoId; horario.PuestoId = h.PuestoId;
+        foreach (var d in h.Detalle)
+        {
+            var x = horario.Detalle.First(y => y.DiaSemana == d.DiaSemana);
+            x.EsDiaLaboral = d.EsDiaLaboral; x.HoraEntrada = d.HoraEntrada; x.HoraSalida = d.HoraSalida; x.InicioDescanso = d.InicioDescanso; x.FinDescanso = d.FinDescanso;
+        }
+        vigDesde = nuevaVersion ? DateTime.Today.AddDays(1) : h.FechaVigenciaDesde.ToDateTime(TimeOnly.MinValue);
+        vigHasta = nuevaVersion || h.FechaVigenciaHasta is null ? null : h.FechaVigenciaHasta.Value.ToDateTime(TimeOnly.MinValue);
+        horarioVisible = true;
+    }
+
+    private async Task GuardarHorario()
+    {
+        guardando = true; errorForm = null;
+        try
+        {
+            if (vigDesde is null) { errorForm = "Indique desde cuándo rige el horario."; return; }
+            horario.FechaVigenciaDesde = DateOnly.FromDateTime(vigDesde.Value);
+            horario.FechaVigenciaHasta = vigHasta is null ? null : DateOnly.FromDateTime(vigHasta.Value);
+            ApiResult<HorarioLaboralDto> r;
+            if (horarioId is { } id) r = versionNueva ? await Api.NuevaVersionAsync(id, horario) : await Api.ActualizarAsync(id, horario);
+            else r = await Api.CrearAsync(horario);
+            if (!r.Ok) { errorForm = r.Error; return; }
+            horarioVisible = false; exito = "Horario guardado."; await Cargar();
+        }
+        finally { guardando = false; }
+    }
+
+    private async Task EstadoHorario(HorarioLaboralDto h) { var r = await Api.EstadoAsync(h.HorarioLaboralId, !h.Estado); if (!r.Ok) error = r.Error; else await Cargar(); }
+
+    // ---- Asignaciones
+    private void NuevaAsignacion() { asignacion = new(); asigDesde = DateTime.Today; asigHasta = null; errorForm = null; asignacionVisible = true; }
+
+    private async Task GuardarAsignacion()
+    {
+        guardando = true; errorForm = null;
+        try
+        {
+            if (asigDesde is null) { errorForm = "Indique la fecha de inicio."; return; }
+            asignacion.FechaDesde = DateOnly.FromDateTime(asigDesde.Value);
+            asignacion.FechaHasta = asigHasta is null ? null : DateOnly.FromDateTime(asigHasta.Value);
+            var r = await Api.AsignarAsync(asignacion);
+            if (!r.Ok) { errorForm = r.Error; return; }
+            asignacionVisible = false; exito = "Horario asignado."; await Cargar();
+        }
+        finally { guardando = false; }
+    }
+
+    private async Task CerrarAsignacion(AsignacionHorarioDto a) =>
+        await Resultado(await Api.CerrarAsignacionAsync(a.AsignacionHorarioId, a.FechaDesde > Hoy ? a.FechaDesde : Hoy), "Asignación terminada.");
+
+    // ---- Descansos
+    private void NuevoDescanso() { descanso = new() { Tipo = TipoDescanso.Habitual }; desDesde = desHasta = DateTime.Today; errorForm = null; descansoVisible = true; }
+
+    private async Task GuardarDescanso()
+    {
+        guardando = true; errorForm = null;
+        try
+        {
+            if (desDesde is null || desHasta is null) { errorForm = "Indique las fechas."; return; }
+            descanso.FechaDesde = DateOnly.FromDateTime(desDesde.Value); descanso.FechaHasta = DateOnly.FromDateTime(desHasta.Value);
+            var r = await Api.CrearDescansoAsync(descanso);
+            if (!r.Ok) { errorForm = r.Error; return; }
+            descansoVisible = false; exito = "Descanso registrado."; await Cargar();
+        }
+        finally { guardando = false; }
+    }
+
+    private async Task TerminarDescanso(DescansoTrabajadorDto d) { var r = await Api.TerminarDescansoAsync(d.DescansoTrabajadorId); if (!r.Ok) error = r.Error; else await Cargar(); }
+
+    // ---- Festivos
+    private void NuevoFestivo() { festivo = new(); festFecha = DateTime.Today; errorForm = null; festivoVisible = true; }
+
+    private async Task GuardarFestivo()
+    {
+        guardando = true; errorForm = null;
+        try
+        {
+            if (festFecha is null) { errorForm = "Indique la fecha."; return; }
+            festivo.Fecha = DateOnly.FromDateTime(festFecha.Value);
+            var r = await Api.CrearFestivoAsync(festivo);
+            if (!r.Ok) { errorForm = r.Error; return; }
+            festivoVisible = false; exito = "Festivo guardado."; await Cargar();
+        }
+        finally { guardando = false; }
+    }
+
+    private async Task EliminarFestivo(DiaFestivoDto f) => await Resultado(await Api.EliminarFestivoAsync(f.DiaFestivoId), "Festivo eliminado.");
+}

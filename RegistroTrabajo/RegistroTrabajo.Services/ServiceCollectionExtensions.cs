@@ -51,6 +51,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISolicitudesPermisoService, SolicitudesPermisoService>();
         services.AddScoped<IAprobacionesPermisoService, AprobacionesPermisoService>();
         services.AddScoped<ISaldosPermisoService, SaldosPermisoService>();
+        services.AddScoped<ITurnosService, TurnosService>();
+        services.AddScoped<IHorariosService, HorariosService>();
+        services.AddScoped<ICalendarioLaboralService, CalendarioLaboralService>();
+        services.AddScoped<IAsistenciaService, AsistenciaService>();
+        services.AddScoped<ICorreccionesAsistenciaService, CorreccionesAsistenciaService>();
         return services;
     }
 }

@@ -1,5 +1,5 @@
-﻿Usuarios demo (solo desarrollo). Contraseña común a los cuatro:
-Rt-hHL8v9lnOPhwDQgl9a
+Usuarios demo (solo desarrollo). Contraseña común a los cuatro (restablecida):
+Rt-BJKMFufvsadbn94976
 
 admin@registrotrabajo.local       (Administrador)
 rh@registrotrabajo.local          (Recursos Humanos)
@@ -8,7 +8,5 @@ trabajador@registrotrabajo.local  (Trabajador)
 
 Borra este archivo cuando la hayas copiado.
 
-Administrador de plataforma (contraseña ya cambiada):
+Administrador de plataforma: sin cambios.
 plataforma@registrotrabajo.local
-Pn-lWlNL5v2NwueKxWJ8c
-

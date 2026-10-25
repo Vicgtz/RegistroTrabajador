@@ -78,6 +78,24 @@ public static class TipoMovimientoSaldo
     public const byte Ajuste = 4;
 }
 
+// Bloque 5. La BD solo limita RegistroAsistencia.Estado a 1..3 y DescansoTrabajador.Tipo a 1..2; el significado es de la aplicación.
+public static class EstadoAsistencia
+{
+    /// <summary>Entrada registrada, todavía sin salida (jornada incompleta).</summary>
+    public const byte Abierta = 1;
+    public const byte Completa = 2;
+    /// <summary>Invalidada por un supervisor con motivo; no cuenta como jornada.</summary>
+    public const byte Anulada = 3;
+}
+
+public static class TipoDescanso
+{
+    /// <summary>Descanso semanal o habitual del trabajador.</summary>
+    public const byte Habitual = 1;
+    /// <summary>Excepción temporal (cambio de descanso en un periodo).</summary>
+    public const byte Excepcion = 2;
+}
+
 public static class TipoCambioLaboral
 {
     public const string Ingreso = "Ingreso";
@@ -157,6 +175,23 @@ public static class Permisos
     public const string SaldosConsultar = "saldos.consultar";
     public const string SaldosAjustar = "saldos.ajustar";
 
+    // Bloque 5
+    public const string AsistenciaRegistrar = "asistencia.registrar";
+    public const string AsistenciaConsultarPropia = "asistencia.consultar_propia";
+    public const string AsistenciaConsultar = "asistencia.consultar";
+    public const string AsistenciaConsultarTodos = "asistencia.consultar_todos";
+    public const string AsistenciaCorregir = "asistencia.corregir";
+    public const string AsistenciaCorregirTodos = "asistencia.corregir_todos";
+    public const string HorariosConsultar = "horarios.consultar";
+    public const string HorariosConfigurar = "horarios.configurar";
+
+    /// <summary>Permisos del Bloque 5 (catálogo insertado por el script 006).</summary>
+    public static readonly string[] Bloque5 =
+    {
+        AsistenciaRegistrar, AsistenciaConsultarPropia, AsistenciaConsultar, AsistenciaConsultarTodos,
+        AsistenciaCorregir, AsistenciaCorregirTodos, HorariosConsultar, HorariosConfigurar
+    };
+
     /// <summary>Permisos del Bloque 4 (catálogo insertado por el script 005).</summary>
     public static readonly string[] Bloque4 =
     {
@@ -181,7 +216,9 @@ public static class Permisos
         DepartamentosConsultar, DepartamentosGestionar, PuestosConsultar, PuestosGestionar,
         SupervisoresGestionar, PerfilSolicitar, PerfilResolverSolicitudes,
         PermisosConfigurar, PermisosSolicitar, PermisosConsultarTodos, PermisosAprobar, PermisosAprobarTodos,
-        PermisosVerMotivoPrivado, SaldosConsultar, SaldosAjustar
+        PermisosVerMotivoPrivado, SaldosConsultar, SaldosAjustar,
+        AsistenciaRegistrar, AsistenciaConsultarPropia, AsistenciaConsultar, AsistenciaConsultarTodos,
+        AsistenciaCorregir, AsistenciaCorregirTodos, HorariosConsultar, HorariosConfigurar
     };
 }
 /// <summary>Permisos exclusivos de la empresa de plataforma (nunca se asignan a roles de empresas normales).</summary>
@@ -210,18 +247,24 @@ public static class PermisosPorDefecto
             Permisos.SupervisoresGestionar, Permisos.PerfilSolicitar, Permisos.PerfilResolverSolicitudes,
             Permisos.PermisosConfigurar, Permisos.PermisosSolicitar, Permisos.PermisosConsultarTodos,
             Permisos.PermisosAprobar, Permisos.PermisosAprobarTodos, Permisos.PermisosVerMotivoPrivado,
-            Permisos.SaldosConsultar, Permisos.SaldosAjustar
+            Permisos.SaldosConsultar, Permisos.SaldosAjustar,
+            Permisos.AsistenciaRegistrar, Permisos.AsistenciaConsultarPropia, Permisos.AsistenciaConsultar,
+            Permisos.AsistenciaConsultarTodos, Permisos.AsistenciaCorregir, Permisos.AsistenciaCorregirTodos,
+            Permisos.HorariosConsultar, Permisos.HorariosConfigurar
         },
         [NombresRol.Supervisor] = new[]
         {
             Permisos.EmpresaConsultar, Permisos.UsuariosConsultar, Permisos.TrabajadoresConsultar,
             Permisos.DepartamentosConsultar, Permisos.PuestosConsultar, Permisos.PerfilSolicitar,
-            Permisos.PermisosSolicitar, Permisos.PermisosAprobar, Permisos.SaldosConsultar
+            Permisos.PermisosSolicitar, Permisos.PermisosAprobar, Permisos.SaldosConsultar,
+            Permisos.AsistenciaRegistrar, Permisos.AsistenciaConsultarPropia, Permisos.AsistenciaConsultar,
+            Permisos.AsistenciaCorregir, Permisos.HorariosConsultar
         },
         [NombresRol.Trabajador] = new[]
         {
             Permisos.EmpresaConsultar, Permisos.TrabajadoresConsultar, Permisos.DepartamentosConsultar,
-            Permisos.PuestosConsultar, Permisos.PerfilSolicitar, Permisos.PermisosSolicitar
+            Permisos.PuestosConsultar, Permisos.PerfilSolicitar, Permisos.PermisosSolicitar,
+            Permisos.AsistenciaRegistrar, Permisos.AsistenciaConsultarPropia
         }
     };
 }

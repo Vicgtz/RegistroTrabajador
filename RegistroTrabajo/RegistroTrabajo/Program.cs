@@ -50,5 +50,7 @@ builder.Services.AddScoped<SolicitudesPerfilClient>();
 builder.Services.AddScoped<TiposPermisoClient>();
 builder.Services.AddScoped<SolicitudesPermisoClient>();
 builder.Services.AddScoped<SaldosPermisoClient>();
+builder.Services.AddScoped<AsistenciaClient>();
+builder.Services.AddScoped<HorariosClient>();
 
 await builder.Build().RunAsync();

@@ -67,6 +67,22 @@
                     </NavLink>
                 </div>
             }
+            @if (context.User.TienePermiso(Permisos.AsistenciaConsultar) || context.User.TienePermiso(Permisos.AsistenciaConsultarTodos))
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="asistencia/historial">
+                        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3a9 9 0 0 0-9 9H1l4 4 4-4H6a7 7 0 1 1 2.1 5l-1.4 1.4A9 9 0 1 0 13 3Zm-1 5v5l4.3 2.5.7-1.2-3.5-2V8H12Z" /></svg> Historial de asistencia
+                    </NavLink>
+                </div>
+            }
+            @if (context.User.TienePermiso(Permisos.HorariosConsultar))
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="horarios">
+                        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm1 5h-2v6l5.2 3.1 1-1.7-4.2-2.5V7Z" /></svg> Horarios y turnos
+                    </NavLink>
+                </div>
+            }
             @if (context.User.TienePermiso(Permisos.RolesConsultar))
             {
                 <div class="nav-item px-3">
@@ -123,6 +139,14 @@
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="cuenta/perfil">
                         <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5Z" /></svg> Mi perfil
+                    </NavLink>
+                </div>
+            }
+            @if (context.User.TienePermiso(Permisos.AsistenciaRegistrar))
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="asistencia" Match="NavLinkMatch.All">
+                        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm-1.3 14.7-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4-7 7Z" /></svg> Registrar asistencia
                     </NavLink>
                 </div>
             }

@@ -40,6 +40,11 @@ El usuario creó 40 tablas laborales en la BD (Trabajadores, Departamentos, Pues
 - Servicios: `TiposPermisoService`, `CalculoDuracionService`, `SolicitudesPermisoService`, `AprobacionesPermisoService`, `SaldosPermisoService` (+ helpers en `PermisosCore.cs`). Controladores en `Bloque4Controllers.cs`; pantallas Blazor: SolicitarPermiso, AprobacionesPermisos, SaldosPermisos, ConfigPermisos.
 - Significado de códigos numéricos (Estado 1..5, Decision 1..3, TipoMovimiento 1..4, UnidadBase 1..2) en `Constantes.cs`. La BD exige `Cantidad > 0` en movimientos: el signo lo da el tipo.
 
+## Bloque 5 (hecho en código; falta aplicar el script 006 a la BD de desarrollo)
+- Asistencia, horarios y turnos: entrada/salida con hora del servidor, turnos, horarios con vigencia y versiones, asignaciones y excepciones individuales, descansos, festivos, GPS opcional por empresa y correcciones que conservan el original. Detalle, endpoints, significado de estados y límites en `BLOQUE5.md`.
+- Servicios: `TurnosService`, `HorariosService`, `CalendarioLaboralService` (`HorariosServices.cs`), `AsistenciaService`, `CorreccionesAsistenciaService` (`AsistenciaServices.cs`). Controladores en `Bloque5Controllers.cs`; pantallas Blazor: Asistencia, HistorialAsistencia, Horarios.
+- Significado: `RegistroAsistencia.Estado` 1 Abierta/2 Completa/3 Anulada; `DescansoTrabajador.Tipo` 1 Habitual/2 Excepción (ver `Constantes.cs`). La fecha laboral usa la zona horaria de la empresa.
+
 ## Comandos útiles
 ```powershell
 dotnet build RegistroTrabajo.sln
@@ -58,6 +63,7 @@ Puertos de desarrollo: API `http://localhost:5265`, cliente `http://localhost:51
   - `003_bloque1_faltantes.sql`: **aplicado** a la BD de desarrollo (EsPlataforma, CorreoConfirmadoUtc, tokens de confirmación, 5 permisos).
   - `004_bloque3_permisos.sql`: **aplicado** (12 permisos del Bloque 3 + asignación a roles de sistema existentes).
   - `005_bloque4.sql`: **pendiente de aplicar** a la BD de desarrollo (RowVersion y ClaveIdempotencia en SolicitudesPermiso, 2 índices únicos filtrados, 8 permisos del Bloque 4 + asignación a roles). Aplicar con `sqlcmd ... -I -i` (ver `BLOQUE4.md`). Las pruebas de SQL Server lo validan dentro de una transacción revertida.
+- `006_bloque5.sql`: **pendiente de aplicar** a la BD de desarrollo (índice único de jornada abierta + 8 permisos del Bloque 5 con su asignación a roles). Aplicar con `sqlcmd ... -I -i` (ver `BLOQUE5.md`).
 - `001_auditoria_solo_insercion.sql`: **pendiente** (requiere DBA y un usuario de la API que no sea db_owner).
 - Las pruebas de SQL Server aplican los scripts dentro de una transacción que siempre se revierte y comprueban que cada tabla/columna de la BD esté mapeada (y al revés): mantenerlas verdes al cambiar el modelo.
 - Para regenerar entidades desde la BD se usó `dotnet ef dbcontext scaffold` en una carpeta temporal (fuera del repo) y un script de adaptación; no hay herramienta EF instalada globalmente.
@@ -75,6 +81,6 @@ Puertos de desarrollo: API `http://localhost:5265`, cliente `http://localhost:51
 - `appsettings.json` volvió a contener la clave JWT antigua: considerarla comprometida y moverla a user-secrets o variable de entorno (`RegistroTrabajoApiSettings__JwtSettings__SecretKey`). Los user-secrets solo se cargan en `Development`.
 - `RegistroTrabajo.Api/dev-credenciales.local.txt` guarda contraseñas de desarrollo: borrar cuando se copien.
 - Pruebas HTTP de extremo a extremo (WebApplicationFactory), detección de reutilización del refresh token, MFA y exportaciones: fuera del Bloque 1.
-- Siguiente: resto de módulos del Bloque 2 (Horarios, Asistencia, Proyectos, Tareas...) en Service → API → App, por etapas; usarán las relaciones de supervisión del Bloque 3 para aprobaciones.
+- Siguiente: resto de módulos del Bloque 2 (Proyectos, Tareas...) en Service → API → App, por etapas; usarán las relaciones de supervisión del Bloque 3 para aprobaciones.
 
 Más detalle del Bloque 1 (endpoints, scripts, límites): `BLOQUE1.md`.

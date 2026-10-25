@@ -105,7 +105,8 @@ public class CalculoDuracionService : ICalculoDuracionService
             .Select(x => new { x.FechaDesde, x.FechaHasta }).ToListAsync(ct);
         var asignaciones = await _db.AsignacionesHorario.AsNoTracking()
             .Where(a => a.EmpresaId == empresaId && a.TrabajadorId == trabajadorId && a.FechaDesde <= d1 && (a.FechaHasta == null || a.FechaHasta >= d0))
-            .OrderByDescending(a => a.FechaDesde)
+            .OrderByDescending(a => a.MotivoExcepcion != null) // la excepción individual prevalece sobre el horario habitual
+            .ThenByDescending(a => a.FechaDesde)
             .Select(a => new AsignacionInfo(a.HorarioLaboralId, a.FechaDesde, a.FechaHasta)).ToListAsync(ct);
         var horarioIds = asignaciones.Select(a => a.HorarioId).Distinct().ToList();
         var detalles = horarioIds.Count == 0
