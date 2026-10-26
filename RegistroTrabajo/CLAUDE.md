@@ -49,6 +49,16 @@ El usuario creó 40 tablas laborales en la BD (Trabajadores, Departamentos, Pues
 - Calendario laboral y eventos de la empresa: vista mensual, agenda del día y administración de eventos. Reúne eventos propios, festivos (Bloque 5), permisos aprobados (Bloque 4) y cumpleaños/aniversarios (Bloque 3) sin duplicar catálogos. Detalle, endpoints, permisos y límites en `BLOQUE6.md`.
 - Servicios: `EventosEmpresaService` y `CalendarioService` (`CalendarioServices.cs`). Controladores en `Bloque6Controllers.cs`; pantallas Blazor: Calendario, EventosEmpresa.
 - Fechas: los DTO usan siempre hora local de la empresa; día completo se guarda como fecha local sin zona, con hora se guarda en UTC. `EventoEmpresa.Estado` 1 Activo/2 Cancelado; `Visibilidad` 1 Empresa/2 Departamento; `Tipo` 1..5 (el script 007 amplía ese CHECK).
+## Servidor de pruebas (entorno `Pruebas`)
+- API `http://192.168.68.124:5002` (`C:\inetpub\RegistroTrabajo\api`), cliente `http://192.168.68.124:5003` (`C:\inetpub\RegistroTrabajo\client`).
+- Configuración por entorno: `RegistroTrabajo.Api/appsettings.json` (base: sin orígenes CORS), `appsettings.Development.json` (localhost:5118/7097) y `appsettings.Pruebas.json` (CORS solo para `http://192.168.68.124:5003`, `ClientBaseUrl` de los correos y `RedirigirAHttps=false` porque el servidor sirve solo HTTP). Cliente: `wwwroot/appsettings.Development.json` (API local) y `wwwroot/appsettings.Pruebas.json` (API del servidor).
+- Los orígenes CORS deben coincidir exactamente (esquema, host y puerto). Los arreglos de configuración se mezclan por índice entre archivos: por eso la base los deja vacíos.
+- Publicar (los perfiles `Pruebas.pubxml` fijan el entorno; salida en `bin\publish\pruebas`, luego copiar al servidor):
+```powershell
+dotnet publish RegistroTrabajo.Api -p:PublishProfile=Pruebas      # web.config con ASPNETCORE_ENVIRONMENT=Pruebas
+dotnet publish RegistroTrabajo -p:PublishProfile=Pruebas          # cliente con entorno Pruebas (carga appsettings.Pruebas.json)
+```
+- En el servidor: la identidad del grupo de aplicaciones de IIS necesita acceso a SQL Server (o usar `UserId`/`Password` en `DbSettings`), y la clave JWT debe venir de la variable de entorno `RegistroTrabajoApiSettings__JwtSettings__SecretKey` (la del `appsettings.json` se considera comprometida). Aplicar antes los scripts SQL pendientes (hasta el 007).
 ## Comandos útiles
 ```powershell
 dotnet build RegistroTrabajo.sln

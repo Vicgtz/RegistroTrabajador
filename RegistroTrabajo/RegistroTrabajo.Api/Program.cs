@@ -1,4 +1,4 @@
-﻿using System.Threading.RateLimiting;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -128,8 +128,8 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-// En desarrollo el cliente usa http://localhost:5265; una redirección rompería el preflight de CORS.
-if (!app.Environment.IsDevelopment()) app.UseHttpsRedirection();
+// En desarrollo el cliente usa http://localhost:5265; una redirección rompería el preflight de CORS (igual en pruebas con RedirigirAHttps=false).
+if (!app.Environment.IsDevelopment() && settings.RedirigirAHttps) app.UseHttpsRedirection();
 app.UseCors();
 app.UseRateLimiter();
 app.UseAuthentication();

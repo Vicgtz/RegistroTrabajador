@@ -1,4 +1,4 @@
-﻿using Microsoft.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using RegistroTrabajo.Services;
 
 namespace RegistroTrabajo.Api.Settings;
@@ -14,6 +14,8 @@ public class RegistroTrabajoApiSettings
     public string AllowedHosts { get; set; } = "*";
     /// <summary>Orígenes (clientes Blazor) autorizados por CORS.</summary>
     public string[] AllowedOrigins { get; set; } = Array.Empty<string>();
+    /// <summary>Redirige HTTP a HTTPS (fuera de Development). Desactívelo solo en un servidor de pruebas que sirva únicamente HTTP.</summary>
+    public bool RedirigirAHttps { get; set; } = true;
 }
 
 public class DbSettings
