@@ -1,4 +1,4 @@
-/*
+﻿/*
   RegistroTrabajo - Bloque 6: calendario laboral y eventos de la empresa.
   Idempotente y aditivo: no elimina tablas ni datos. Aplicar ANTES de ejecutar la versión nueva de la API
   (la inicialización de empresas exige que el catálogo PermisosSistema esté completo).
@@ -83,7 +83,8 @@ FROM (VALUES
     (N'calendario.consultar',             N'Calendario', N'Consultar',          N'Consultar el calendario de la empresa'),
     (N'calendario.gestionar_eventos',     N'Calendario', N'GestionarEventos',   N'Crear, editar y cancelar eventos de la empresa'),
     (N'calendario.configurar',            N'Calendario', N'Configurar',         N'Configurar qué fechas relevantes muestra el calendario'),
-    (N'calendario.ver_fechas_relevantes', N'Calendario', N'VerFechasRelevantes', N'Ver cumpleaños y aniversarios laborales en el calendario')
+    (N'calendario.ver_fechas_relevantes', N'Calendario', N'VerFechasRelevantes', N'Ver cumpleaños y aniversarios laborales en el calendario'),
+    (N'calendario.ver_ausencias_todos',   N'Calendario', N'VerAusenciasTodos',  N'Ver en el calendario las ausencias aprobadas de toda la empresa')
 ) AS v (Codigo, Modulo, Accion, Descripcion)
 WHERE NOT EXISTS (SELECT 1 FROM dbo.PermisosSistema p WHERE p.Codigo = v.Codigo);
 
@@ -92,11 +93,11 @@ SELECT r.EmpresaId, r.RolId, p.PermisoId, 1
 FROM dbo.Roles r
 JOIN (VALUES
     (N'Administrador',    N'calendario.consultar'), (N'Administrador',    N'calendario.gestionar_eventos'),
-    (N'Administrador',    N'calendario.configurar'), (N'Administrador',   N'calendario.ver_fechas_relevantes'),
+    (N'Administrador',    N'calendario.configurar'), (N'Administrador',   N'calendario.ver_fechas_relevantes'), (N'Administrador', N'calendario.ver_ausencias_todos'),
     (N'Recursos Humanos', N'calendario.consultar'), (N'Recursos Humanos', N'calendario.gestionar_eventos'),
-    (N'Recursos Humanos', N'calendario.configurar'), (N'Recursos Humanos', N'calendario.ver_fechas_relevantes'),
-    (N'Supervisor',       N'calendario.consultar'), (N'Supervisor',       N'calendario.ver_fechas_relevantes'),
-    (N'Trabajador',       N'calendario.consultar'), (N'Trabajador',       N'calendario.ver_fechas_relevantes')
+    (N'Recursos Humanos', N'calendario.configurar'), (N'Recursos Humanos', N'calendario.ver_fechas_relevantes'), (N'Recursos Humanos', N'calendario.ver_ausencias_todos'),
+    (N'Supervisor',       N'calendario.consultar'), (N'Supervisor',       N'calendario.ver_fechas_relevantes'), (N'Supervisor', N'calendario.ver_ausencias_todos'),
+    (N'Trabajador',       N'calendario.consultar'), (N'Trabajador',       N'calendario.ver_fechas_relevantes'), (N'Trabajador', N'calendario.ver_ausencias_todos')
 ) AS m (Rol, Codigo) ON m.Rol = r.Nombre
 JOIN dbo.PermisosSistema p ON p.Codigo = m.Codigo
 WHERE r.EsSistema = 1

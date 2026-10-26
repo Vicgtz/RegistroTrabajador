@@ -404,7 +404,7 @@ public class Bloque6Tests : IDisposable
     }
 
     [Fact]
-    public async Task Cada_usuario_ve_las_ausencias_que_su_alcance_permite()
+    public async Task Por_defecto_todos_ven_las_ausencias_de_la_empresa_pero_solo_abren_las_de_su_alcance()
     {
         var s = await EscenarioAsync();
         Como(s, s.E.AdminId);
@@ -413,16 +413,51 @@ public class Bloque6Tests : IDisposable
         await PermisoAsync(s, tipo, s.Otro, new DateTime(2026, 5, 12), new DateTime(2026, 5, 12, 23, 59, 59), EstadoSolicitudPermiso.Aprobada);
         await PermisoAsync(s, tipo, s.Sara, new DateTime(2026, 5, 13), new DateTime(2026, 5, 13, 23, 59, 59), EstadoSolicitudPermiso.Aprobada);
 
-        Como(s, s.E.AdminId);
-        Assert.Equal(3, (await Mes(2026, 5)).Items.Count);                                          // administrador: toda la empresa
-        Como(s, s.UsuarioSara);
-        Assert.Equal(new[] { "Luis Mora", "Sara Sup" }, (await Mes(2026, 5)).Items.Select(i => i.Titulo)); // supervisora: supervisados + propia
+        foreach (var usuario in new[] { s.E.AdminId, s.UsuarioSara, s.UsuarioLuis, s.UsuarioOtro })
+        {
+            Como(s, usuario);
+            Assert.Equal(new[] { "Luis Mora", "Otro Ruiz", "Sara Sup" }, (await Mes(2026, 5)).Items.Select(i => i.Titulo));
+        }
+
+        // Ver una ausencia ajena no da acceso a su solicitud: solo se puede abrir la propia o las del alcance de permisos.
         Como(s, s.UsuarioLuis);
-        Assert.Equal("Luis Mora", Assert.Single((await Mes(2026, 5)).Items).Titulo);                // trabajador: solo las propias
+        var items = (await Mes(2026, 5)).Items;
+        Assert.NotNull(items.Single(i => i.Titulo == "Luis Mora").RecursoId);
+        Assert.Null(items.Single(i => i.Titulo == "Otro Ruiz").RecursoId);
+        Como(s, s.UsuarioSara);
+        items = (await Mes(2026, 5)).Items;
+        Assert.NotNull(items.Single(i => i.Titulo == "Luis Mora").RecursoId);   // supervisada
+        Assert.Null(items.Single(i => i.Titulo == "Otro Ruiz").RecursoId);
+        Como(s, s.E.AdminId);
+        Assert.All((await Mes(2026, 5)).Items, i => Assert.NotNull(i.RecursoId));
+    }
+
+    [Fact]
+    public async Task Sin_el_permiso_ver_ausencias_todos_cada_quien_ve_solo_su_alcance()
+    {
+        var s = await EscenarioAsync();
+        Como(s, s.E.AdminId);
+        var tipo = await TipoPermisoAsync(s.E.EmpresaId);
+        await PermisoAsync(s, tipo, s.Luis, new DateTime(2026, 5, 11), new DateTime(2026, 5, 11, 23, 59, 59), EstadoSolicitudPermiso.Aprobada);
+        await PermisoAsync(s, tipo, s.Otro, new DateTime(2026, 5, 12), new DateTime(2026, 5, 12, 23, 59, 59), EstadoSolicitudPermiso.Aprobada);
+        await PermisoAsync(s, tipo, s.Sara, new DateTime(2026, 5, 13), new DateTime(2026, 5, 13, 23, 59, 59), EstadoSolicitudPermiso.Aprobada);
+
+        // La empresa retira el permiso a los roles de supervisor y trabajador.
+        var permisoId = await _t.Db.PermisosSistema.Where(p => p.Codigo == Permisos.CalendarioVerAusenciasTodos).Select(p => p.PermisoId).SingleAsync();
+        var quitar = await _t.Db.RolPermisos.Where(rp => rp.PermisoId == permisoId
+            && (rp.RolId == s.E.Roles[NombresRol.Supervisor] || rp.RolId == s.E.Roles[NombresRol.Trabajador])).ToListAsync();
+        _t.Db.RolPermisos.RemoveRange(quitar);
+        await _t.Db.SaveChangesAsync();
+
+        Como(s, s.E.AdminId);
+        Assert.Equal(3, (await Mes(2026, 5)).Items.Count);                                                 // RH/admin conservan toda la empresa
+        Como(s, s.UsuarioSara);
+        Assert.Equal(new[] { "Luis Mora", "Sara Sup" }, (await Mes(2026, 5)).Items.Select(i => i.Titulo)); // supervisados + propia
+        Como(s, s.UsuarioLuis);
+        Assert.Equal("Luis Mora", Assert.Single((await Mes(2026, 5)).Items).Titulo);
         Como(s, s.UsuarioOtro);
         Assert.Equal("Otro Ruiz", Assert.Single((await Mes(2026, 5)).Items).Titulo);
     }
-
     [Fact]
     public async Task Las_ausencias_por_horas_aparecen_en_su_dia_con_la_hora_y_sin_datos_privados()
     {

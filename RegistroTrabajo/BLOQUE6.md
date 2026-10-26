@@ -12,7 +12,7 @@ Contenido:
 - `EventosEmpresa` (la tabla ya existía con 10 columnas): `Estado`, `Visibilidad`, `DepartamentoId` (FK compuesta), `ModificadoPorUsuarioId`/`FechaModificacionUtc`, `CanceladoPorUsuarioId`/`FechaCancelacionUtc`/`MotivoCancelacion` y `RowVersion`; CHECK de coherencia visibilidad↔departamento; índice `(EmpresaId, FechaInicio)`.
 - **El CHECK de `Tipo` se amplía de 1..2 a 1..5** (se reemplaza la restricción original; los valores 1 y 2 siguen siendo válidos).
 - `ConfiguracionEmpresa`: `MostrarCumpleanos` y `MostrarAniversarios` (apagados por defecto).
-- 4 permisos nuevos en `PermisosSistema` y su asignación a los roles de sistema existentes.
+- 5 permisos nuevos en `PermisosSistema` y su asignación a los roles de sistema existentes.
 
 La tabla del diseño usa `TipoEvento`, `Estado`… pero el esquema real ya tenía `Tipo` y no tenía `Estado`; se respetó el nombre real (`Tipo`).
 
@@ -31,6 +31,7 @@ La tabla del diseño usa `TipoEvento`, `Estado`… pero el esquema real ya tení
 | `calendario.gestionar_eventos` | Admin, RH | Crear, editar, cancelar y listar eventos (incluidos los cancelados) |
 | `calendario.configurar` | Admin, RH | Activar/desactivar cumpleaños y aniversarios |
 | `calendario.ver_fechas_relevantes` | Todos los roles | Ver cumpleaños y aniversarios (si la empresa los habilitó) |
+| `calendario.ver_ausencias_todos` | Todos los roles | Ver las ausencias aprobadas de toda la empresa (sin él, solo las propias y las del alcance de permisos) |
 
 ## Endpoints (todos filtran por la empresa del token)
 - `GET api/calendario?desde&hasta[&incluirCancelados]` (máx. 93 días) y `GET api/calendario/dia?fecha` — `calendario.consultar`.
@@ -41,7 +42,7 @@ La tabla del diseño usa `TipoEvento`, `Estado`… pero el esquema real ya tení
 - **Fuentes (sin catálogos duplicados):** eventos propios; festivos de `DiasFestivo` del Bloque 5 (incluidos recurrentes; el 29 de febrero recurrente solo existe en bisiestos, igual que en el cálculo de permisos); permisos aprobados de `SolicitudesPermiso` del Bloque 4; fechas de `Trabajadores` del Bloque 3.
 - **Fechas y zonas horarias:** los DTO hablan siempre en hora local de la empresa. Evento de día completo → se guarda la fecha local (sin zona), no se desplaza. Evento con hora → se guarda en UTC con `ConfiguracionEmpresa.ZonaHorariaId` y se devuelve en hora local. Una hora inexistente por cambio de horario se rechaza. Un evento con hora que termina justo a medianoche no invade el día siguiente. Los periodos de varios días funcionan entre meses y años (máx. 366 días por evento).
 - **Visibilidad de eventos:** quien tiene `gestionar_eventos` ve todos (también cancelados); los demás solo los activos de toda la empresa o de su departamento.
-- **Ausencias:** solo permisos aprobados (pendientes, rechazados y cancelados no aparecen; un permiso cancelado deja de mostrarse al consultar de nuevo). Cada quien ve las propias; el supervisor, las de sus supervisados vigentes (con `permisos.aprobar`); RH/admin, toda la empresa (`permisos.consultar_todos`/`aprobar_todos`). Las ausencias por horas se muestran en su día con la hora. Nunca se expone tipo ni motivo.
+- **Ausencias:** solo permisos aprobados (pendientes, rechazados y cancelados no aparecen; un permiso cancelado deja de mostrarse al consultar de nuevo). Con `calendario.ver_ausencias_todos` (por defecto en todos los roles) se ve a toda la empresa; si una empresa lo retira de un rol, ese rol ve solo las propias, y los supervisores las de sus supervisados. Las ausencias por horas se muestran en su día con la hora. Nunca se expone tipo ni motivo, y el vínculo «Abrir» solo existe para solicitudes propias o dentro del alcance de permisos.
 - **Fechas relevantes:** requieren que la empresa las habilite **y** el permiso `calendario.ver_fechas_relevantes`. Solo trabajadores activos; solo nombre y día (sin edad). Aniversarios de 1 año en adelante; 29 de febrero se celebra el 28 en años no bisiestos.
 - **Cancelación e historial:** cancelar exige motivo y conserva el evento (quién, cuándo, por qué); un evento cancelado no se edita. Crear/editar/cancelar/configurar quedan en `Auditoria`. `RowVersion` evita ediciones concurrentes (409).
 - **Aislamiento:** todo filtra por `EmpresaId` del token; un evento de otra empresa responde 404.

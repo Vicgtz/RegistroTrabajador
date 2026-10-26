@@ -409,8 +409,8 @@ public class CalendarioService : ICalendarioService
         });
 
     /// <summary>
-    /// Solo permisos aprobados (una solicitud pendiente, rechazada o cancelada no es una ausencia). Cada quien ve las propias;
-    /// los supervisores las de sus supervisados y RH/administradores las de toda la empresa. Nunca tipo ni motivo.
+    /// Solo permisos aprobados (una solicitud pendiente, rechazada o cancelada no es una ausencia). Con calendario.ver_ausencias_todos
+    /// se ve a toda la empresa; sin él, cada quien ve las propias y los supervisores las de sus supervisados. Nunca tipo ni motivo.
     /// </summary>
     private async Task AgregarAusenciasAsync(CalendarioDto dto, Guid empresaId, CancellationToken ct)
     {
@@ -419,7 +419,9 @@ public class CalendarioService : ICalendarioService
         var fin = dto.Hasta.ToDateTime(new TimeOnly(23, 59, 59));
         var q = _db.SolicitudesPermiso.AsNoTracking()
             .Where(s => s.EmpresaId == empresaId && s.Estado == EstadoSolicitudPermiso.Aprobada && s.FechaInicio <= fin && s.FechaFin >= ini);
-        if (!alcance.Todos)
+        // Con calendario.ver_ausencias_todos (por defecto, todos los roles) se ve a toda la empresa; sin él, solo el alcance de permisos.
+        var veTodos = alcance.Todos || await _permisos.TienePermisoAsync(Permisos.CalendarioVerAusenciasTodos, ct);
+        if (!veTodos)
         {
             var ids = alcance.Supervisados.ToList();
             if (alcance.MiTrabajadorId is { } m) ids.Add(m);
@@ -442,7 +444,9 @@ public class CalendarioService : ICalendarioService
                 FechaInicio = d0, FechaFin = d1, TodoElDia = !s.EsPorHoras,
                 HoraInicio = s.EsPorHoras ? TimeOnly.FromDateTime(s.FechaInicio) : null,
                 HoraFin = s.EsPorHoras ? TimeOnly.FromDateTime(s.FechaFin) : null,
-                RecursoId = s.SolicitudPermisoId, TrabajadorId = s.TrabajadorId
+                // Solo se puede abrir la solicitud propia o las del alcance de permisos; ver la ausencia no da acceso a su detalle.
+                RecursoId = s.TrabajadorId == alcance.MiTrabajadorId || alcance.Incluye(s.TrabajadorId) ? s.SolicitudPermisoId : null,
+                TrabajadorId = s.TrabajadorId
             });
         }
     }

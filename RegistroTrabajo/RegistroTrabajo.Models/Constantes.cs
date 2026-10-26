@@ -1,4 +1,4 @@
-﻿namespace RegistroTrabajo.Models;
+namespace RegistroTrabajo.Models;
 
 // Valores permitidos por los CHECK de la base de datos (Estado 1..3, Resultado 1..5).
 public static class EstadoEmpresa
@@ -224,11 +224,12 @@ public static class Permisos
     public const string CalendarioGestionarEventos = "calendario.gestionar_eventos";
     public const string CalendarioConfigurar = "calendario.configurar";
     public const string CalendarioVerFechasRelevantes = "calendario.ver_fechas_relevantes";
+    public const string CalendarioVerAusenciasTodos = "calendario.ver_ausencias_todos";
 
     /// <summary>Permisos del Bloque 6 (catálogo insertado por el script 007).</summary>
     public static readonly string[] Bloque6 =
     {
-        CalendarioConsultar, CalendarioGestionarEventos, CalendarioConfigurar, CalendarioVerFechasRelevantes
+        CalendarioConsultar, CalendarioGestionarEventos, CalendarioConfigurar, CalendarioVerFechasRelevantes, CalendarioVerAusenciasTodos
     };
 
     /// <summary>Permisos del Bloque 5 (catálogo insertado por el script 006).</summary>
@@ -265,7 +266,7 @@ public static class Permisos
         PermisosVerMotivoPrivado, SaldosConsultar, SaldosAjustar,
         AsistenciaRegistrar, AsistenciaConsultarPropia, AsistenciaConsultar, AsistenciaConsultarTodos,
         AsistenciaCorregir, AsistenciaCorregirTodos, HorariosConsultar, HorariosConfigurar,
-        CalendarioConsultar, CalendarioGestionarEventos, CalendarioConfigurar, CalendarioVerFechasRelevantes
+        CalendarioConsultar, CalendarioGestionarEventos, CalendarioConfigurar, CalendarioVerFechasRelevantes, CalendarioVerAusenciasTodos
     };
 }
 /// <summary>Permisos exclusivos de la empresa de plataforma (nunca se asignan a roles de empresas normales).</summary>
@@ -298,7 +299,7 @@ public static class PermisosPorDefecto
             Permisos.AsistenciaRegistrar, Permisos.AsistenciaConsultarPropia, Permisos.AsistenciaConsultar,
             Permisos.AsistenciaConsultarTodos, Permisos.AsistenciaCorregir, Permisos.AsistenciaCorregirTodos,
             Permisos.HorariosConsultar, Permisos.HorariosConfigurar,
-            Permisos.CalendarioConsultar, Permisos.CalendarioGestionarEventos, Permisos.CalendarioConfigurar, Permisos.CalendarioVerFechasRelevantes
+            Permisos.CalendarioConsultar, Permisos.CalendarioGestionarEventos, Permisos.CalendarioConfigurar, Permisos.CalendarioVerFechasRelevantes, Permisos.CalendarioVerAusenciasTodos
         },
         [NombresRol.Supervisor] = new[]
         {
@@ -307,14 +308,14 @@ public static class PermisosPorDefecto
             Permisos.PermisosSolicitar, Permisos.PermisosAprobar, Permisos.SaldosConsultar,
             Permisos.AsistenciaRegistrar, Permisos.AsistenciaConsultarPropia, Permisos.AsistenciaConsultar,
             Permisos.AsistenciaCorregir, Permisos.HorariosConsultar,
-            Permisos.CalendarioConsultar, Permisos.CalendarioVerFechasRelevantes
+            Permisos.CalendarioConsultar, Permisos.CalendarioVerFechasRelevantes, Permisos.CalendarioVerAusenciasTodos
         },
         [NombresRol.Trabajador] = new[]
         {
             Permisos.EmpresaConsultar, Permisos.TrabajadoresConsultar, Permisos.DepartamentosConsultar,
             Permisos.PuestosConsultar, Permisos.PerfilSolicitar, Permisos.PermisosSolicitar,
             Permisos.AsistenciaRegistrar, Permisos.AsistenciaConsultarPropia,
-            Permisos.CalendarioConsultar, Permisos.CalendarioVerFechasRelevantes
+            Permisos.CalendarioConsultar, Permisos.CalendarioVerFechasRelevantes, Permisos.CalendarioVerAusenciasTodos
         }
     };
 }
