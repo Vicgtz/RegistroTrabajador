@@ -19,6 +19,22 @@
                 </NavLink>
             </div>
 
+            @if (context.User.TienePermiso(Permisos.CalendarioConsultar))
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="calendario" Match="NavLinkMatch.All">
+                        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm0 16H5V10h14v10ZM7 12h4v4H7v-4Z" /></svg> Calendario
+                    </NavLink>
+                </div>
+            }
+            @if (context.User.TienePermiso(Permisos.CalendarioGestionarEventos) || context.User.TienePermiso(Permisos.CalendarioConfigurar))
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="calendario/eventos">
+                        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.1 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8L12 2Z" /></svg> Eventos de la empresa
+                    </NavLink>
+                </div>
+            }
             @if (context.User.TienePermiso(Permisos.UsuariosConsultar))
             {
                 <div class="nav-item px-3">

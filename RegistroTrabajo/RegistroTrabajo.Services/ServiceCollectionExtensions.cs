@@ -56,6 +56,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICalendarioLaboralService, CalendarioLaboralService>();
         services.AddScoped<IAsistenciaService, AsistenciaService>();
         services.AddScoped<ICorreccionesAsistenciaService, CorreccionesAsistenciaService>();
+        services.AddScoped<IEventosEmpresaService, EventosEmpresaService>();
+        services.AddScoped<ICalendarioService, CalendarioService>();
         return services;
     }
 }

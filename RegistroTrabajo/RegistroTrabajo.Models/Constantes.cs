@@ -96,6 +96,40 @@ public static class TipoDescanso
     public const byte Excepcion = 2;
 }
 
+// Bloque 6. La BD limita EstadoEvento a 1..2, Visibilidad a 1..2 y Tipo a 1..5 (script 007); el significado es de la aplicación.
+public static class EstadoEventoEmpresa
+{
+    public const byte Activo = 1;
+    /// <summary>Se conserva para el historial pero no aparece en el calendario habitual.</summary>
+    public const byte Cancelado = 2;
+}
+
+public static class TipoEventoEmpresa
+{
+    public const byte ReunionGeneral = 1;
+    public const byte Capacitacion = 2;
+    public const byte ActividadInterna = 3;
+    public const byte FechaImportante = 4;
+    public const byte Otro = 5;
+}
+
+public static class VisibilidadEvento
+{
+    public const byte Empresa = 1;
+    /// <summary>Solo los trabajadores del departamento indicado (y quienes administran eventos).</summary>
+    public const byte Departamento = 2;
+}
+
+/// <summary>Origen de cada elemento que el calendario reúne en una misma vista.</summary>
+public static class CategoriaCalendario
+{
+    public const byte Evento = 1;
+    public const byte Festivo = 2;
+    public const byte Ausencia = 3;
+    public const byte Cumpleanos = 4;
+    public const byte Aniversario = 5;
+}
+
 public static class TipoCambioLaboral
 {
     public const string Ingreso = "Ingreso";
@@ -185,6 +219,18 @@ public static class Permisos
     public const string HorariosConsultar = "horarios.consultar";
     public const string HorariosConfigurar = "horarios.configurar";
 
+    // Bloque 6
+    public const string CalendarioConsultar = "calendario.consultar";
+    public const string CalendarioGestionarEventos = "calendario.gestionar_eventos";
+    public const string CalendarioConfigurar = "calendario.configurar";
+    public const string CalendarioVerFechasRelevantes = "calendario.ver_fechas_relevantes";
+
+    /// <summary>Permisos del Bloque 6 (catálogo insertado por el script 007).</summary>
+    public static readonly string[] Bloque6 =
+    {
+        CalendarioConsultar, CalendarioGestionarEventos, CalendarioConfigurar, CalendarioVerFechasRelevantes
+    };
+
     /// <summary>Permisos del Bloque 5 (catálogo insertado por el script 006).</summary>
     public static readonly string[] Bloque5 =
     {
@@ -218,7 +264,8 @@ public static class Permisos
         PermisosConfigurar, PermisosSolicitar, PermisosConsultarTodos, PermisosAprobar, PermisosAprobarTodos,
         PermisosVerMotivoPrivado, SaldosConsultar, SaldosAjustar,
         AsistenciaRegistrar, AsistenciaConsultarPropia, AsistenciaConsultar, AsistenciaConsultarTodos,
-        AsistenciaCorregir, AsistenciaCorregirTodos, HorariosConsultar, HorariosConfigurar
+        AsistenciaCorregir, AsistenciaCorregirTodos, HorariosConsultar, HorariosConfigurar,
+        CalendarioConsultar, CalendarioGestionarEventos, CalendarioConfigurar, CalendarioVerFechasRelevantes
     };
 }
 /// <summary>Permisos exclusivos de la empresa de plataforma (nunca se asignan a roles de empresas normales).</summary>
@@ -250,7 +297,8 @@ public static class PermisosPorDefecto
             Permisos.SaldosConsultar, Permisos.SaldosAjustar,
             Permisos.AsistenciaRegistrar, Permisos.AsistenciaConsultarPropia, Permisos.AsistenciaConsultar,
             Permisos.AsistenciaConsultarTodos, Permisos.AsistenciaCorregir, Permisos.AsistenciaCorregirTodos,
-            Permisos.HorariosConsultar, Permisos.HorariosConfigurar
+            Permisos.HorariosConsultar, Permisos.HorariosConfigurar,
+            Permisos.CalendarioConsultar, Permisos.CalendarioGestionarEventos, Permisos.CalendarioConfigurar, Permisos.CalendarioVerFechasRelevantes
         },
         [NombresRol.Supervisor] = new[]
         {
@@ -258,13 +306,15 @@ public static class PermisosPorDefecto
             Permisos.DepartamentosConsultar, Permisos.PuestosConsultar, Permisos.PerfilSolicitar,
             Permisos.PermisosSolicitar, Permisos.PermisosAprobar, Permisos.SaldosConsultar,
             Permisos.AsistenciaRegistrar, Permisos.AsistenciaConsultarPropia, Permisos.AsistenciaConsultar,
-            Permisos.AsistenciaCorregir, Permisos.HorariosConsultar
+            Permisos.AsistenciaCorregir, Permisos.HorariosConsultar,
+            Permisos.CalendarioConsultar, Permisos.CalendarioVerFechasRelevantes
         },
         [NombresRol.Trabajador] = new[]
         {
             Permisos.EmpresaConsultar, Permisos.TrabajadoresConsultar, Permisos.DepartamentosConsultar,
             Permisos.PuestosConsultar, Permisos.PerfilSolicitar, Permisos.PermisosSolicitar,
-            Permisos.AsistenciaRegistrar, Permisos.AsistenciaConsultarPropia
+            Permisos.AsistenciaRegistrar, Permisos.AsistenciaConsultarPropia,
+            Permisos.CalendarioConsultar, Permisos.CalendarioVerFechasRelevantes
         }
     };
 }

@@ -430,11 +430,39 @@ public partial class RegistroTrabajoDbContext
             entity.Property(e => e.FechaInicio).HasPrecision(0);
             entity.Property(e => e.Tipo).HasDefaultValue((byte)1);
             entity.Property(e => e.Titulo).HasMaxLength(180);
+            entity.Property(e => e.Estado).HasDefaultValue((byte)1);
+            entity.Property(e => e.Visibilidad).HasDefaultValue((byte)1);
+            entity.Property(e => e.FechaModificacionUtc).HasPrecision(0);
+            entity.Property(e => e.FechaCancelacionUtc).HasPrecision(0);
+            entity.Property(e => e.MotivoCancelacion).HasMaxLength(300);
+            entity.Property(e => e.RowVersion)
+                .IsRowVersion()
+                .IsConcurrencyToken();
+
+            entity.HasIndex(e => new { e.EmpresaId, e.FechaInicio }, "IX_EventosEmpresa_Empresa_Fechas");
 
             entity.HasOne(d => d.Empresa).WithMany()
                 .HasForeignKey(d => d.EmpresaId)
                 .OnDelete(DeleteBehavior.NoAction)
                 .HasConstraintName("FK__EventosEm__Empre__27C3E46E");
+
+            entity.HasOne(d => d.Departamento).WithMany()
+                .HasPrincipalKey(p => new { p.EmpresaId, p.DepartamentoId })
+                .HasForeignKey(d => new { d.EmpresaId, d.DepartamentoId })
+                .OnDelete(DeleteBehavior.NoAction)
+                .HasConstraintName("FK_EventosEmpresa_Departamento");
+
+            entity.HasOne<Usuario>().WithMany()
+                .HasPrincipalKey(p => new { p.EmpresaId, p.UsuarioId })
+                .HasForeignKey(d => new { d.EmpresaId, d.ModificadoPorUsuarioId })
+                .OnDelete(DeleteBehavior.NoAction)
+                .HasConstraintName("FK_EventosEmpresa_ModificadoPor");
+
+            entity.HasOne<Usuario>().WithMany()
+                .HasPrincipalKey(p => new { p.EmpresaId, p.UsuarioId })
+                .HasForeignKey(d => new { d.EmpresaId, d.CanceladoPorUsuarioId })
+                .OnDelete(DeleteBehavior.NoAction)
+                .HasConstraintName("FK_EventosEmpresa_CanceladoPor");
 
             entity.HasOne(d => d.Usuario).WithMany()
                 .HasPrincipalKey(p => new { p.EmpresaId, p.UsuarioId })

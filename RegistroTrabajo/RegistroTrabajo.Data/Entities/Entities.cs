@@ -31,6 +31,10 @@ public class ConfiguracionEmpresa
     public short CierreSesionInactividadMinutos { get; set; }
     public short DuracionSesionMaximaHoras { get; set; }
     public bool PermitirValidacionGps { get; set; }
+    /// <summary>Bloque 6 (script 007): mostrar cumpleaños en el calendario.</summary>
+    public bool MostrarCumpleanos { get; set; }
+    /// <summary>Bloque 6 (script 007): mostrar aniversarios laborales en el calendario.</summary>
+    public bool MostrarAniversarios { get; set; }
     public DateTime FechaCreacionUtc { get; set; }
     public DateTime? FechaActualizacionUtc { get; set; }
 

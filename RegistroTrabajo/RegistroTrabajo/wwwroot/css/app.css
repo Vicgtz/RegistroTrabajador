@@ -142,3 +142,39 @@ code {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+/* ---------- Bloque 6: calendario ---------- */
+.cal-cat-1 { --c: #1f6fa8; }   /* evento de la empresa */
+.cal-cat-2 { --c: #c0392b; }   /* festivo */
+.cal-cat-3 { --c: #d98200; }   /* ausencia aprobada */
+.cal-cat-4 { --c: #c2185b; }   /* cumpleaños */
+.cal-cat-5 { --c: #6f42c1; }   /* aniversario laboral */
+
+.cal-punto { display: inline-block; width: .7rem; height: .7rem; border-radius: 50%; background: var(--c); margin-right: .35rem; }
+
+.cal-rejilla { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+.cal-cabecera { text-align: center; font-weight: 600; color: var(--rt-texto-suave); padding: .35rem 0; }
+
+.cal-dia { display: block; width: 100%; min-height: 5.6rem; padding: .3rem .35rem; text-align: left; background: #fff; border: 1px solid #e3e9ef; border-radius: .5rem; }
+.cal-dia:hover { background: var(--rt-azul-claro); }
+.cal-dia.fuera { opacity: .5; }
+.cal-dia.hoy .cal-num { background: var(--rt-azul); color: #fff; }
+.cal-dia.sel { border-color: var(--rt-azul); box-shadow: 0 0 0 2px #5aa2d0; }
+.cal-num { display: inline-block; min-width: 1.6rem; height: 1.6rem; line-height: 1.6rem; text-align: center; border-radius: 50%; font-weight: 600; }
+
+.cal-chip { display: block; margin-top: 2px; padding: 0 .3rem; font-size: .72rem; line-height: 1.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    border-left: 3px solid var(--c); border-radius: .25rem; background: color-mix(in srgb, var(--c) 14%, white); color: #1c2a36; }
+.cal-chip.cancelado { text-decoration: line-through; opacity: .65; }
+.cal-mas { display: block; margin-top: 2px; font-size: .7rem; color: var(--rt-texto-suave); }
+
+.cal-barras { display: none; gap: 3px; flex-wrap: wrap; margin-top: .25rem; justify-content: center; }
+.cal-barra { width: 1rem; height: .3rem; border-radius: .2rem; background: var(--c); }
+
+.cal-item { border-left: 4px solid var(--c); padding: .4rem .75rem; margin-bottom: .6rem; background: color-mix(in srgb, var(--c) 8%, white); border-radius: .4rem; }
+.cal-item.cancelado .cal-item-titulo { text-decoration: line-through; }
+.cal-etiqueta { display: inline-block; font-size: .72rem; padding: .05rem .5rem; border-radius: 1rem; color: #fff; background: var(--c); }
+
+@media (max-width: 767.98px) {
+    .cal-dia { min-height: 3.4rem; text-align: center; padding: .2rem; }
+    .cal-chip, .cal-mas { display: none; }
+    .cal-barras { display: flex; }
+}

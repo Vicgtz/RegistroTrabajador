@@ -1,0 +1,278 @@
+﻿@page "/calendario"
+@attribute [Authorize]
+@using System.Security.Claims
+@inject NavigationManager Nav
+
+<PageTitle>Calendario - Registro de Trabajo</PageTitle>
+
+<SoloConPermiso Codigo="@Permisos.CalendarioConsultar">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <h1 class="h3 mb-0">Calendario</h1>
+        <div class="d-flex flex-wrap gap-2">
+            @if (Puede(Permisos.CalendarioGestionarEventos) || Puede(Permisos.CalendarioConfigurar))
+            {
+                <a class="btn btn-outline-primary" href="calendario/eventos">Administrar eventos</a>
+            }
+            @if (Puede(Permisos.HorariosConfigurar))
+            {
+                <a class="btn btn-outline-secondary" href="horarios" title="Los festivos se mantienen en Horarios y turnos">Festivos</a>
+            }
+        </div>
+    </div>
+
+    <Alerta Mensaje="@error" Tipo="danger" />
+
+    <div class="tarjeta p-3 mb-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-outline-primary btn-sm" aria-label="Mes anterior" @onclick="() => CambiarMes(-1)">&lsaquo;</button>
+                <h2 class="h5 mb-0 text-center" style="min-width: 10rem;" aria-live="polite">@FormatoCalendario.Mes(mes)</h2>
+                <button class="btn btn-outline-primary btn-sm" aria-label="Mes siguiente" @onclick="() => CambiarMes(1)">&rsaquo;</button>
+                <button class="btn btn-outline-secondary btn-sm" @onclick="IrAHoy">Hoy</button>
+            </div>
+            <div class="btn-group btn-group-sm" role="group" aria-label="Tipo de vista">
+                <button class="btn @(vistaLista ? "btn-outline-primary" : "btn-primary")" @onclick="() => vistaLista = false">Vista mensual</button>
+                <button class="btn @(vistaLista ? "btn-primary" : "btn-outline-primary")" @onclick="() => vistaLista = true">Lista</button>
+            </div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 align-items-center small mb-3">
+            @foreach (var c in Categorias)
+            {
+                var oculta = ocultas.Contains(c);
+                <button type="button" class="btn btn-sm btn-light border @FormatoCalendario.ClaseCategoria(c) @(oculta ? "text-muted" : "")"
+                        aria-pressed="@(!oculta)" title="Mostrar u ocultar" @onclick="() => AlternarCategoria(c)">
+                    <span class="cal-punto" style="@(oculta ? "opacity:.3" : "")"></span>@(oculta ? $"{FormatoCalendario.Categoria(c)} (oculto)" : FormatoCalendario.Categoria(c))
+                </button>
+            }
+            @if (Puede(Permisos.CalendarioGestionarEventos))
+            {
+                <div class="form-check ms-2">
+                    <input class="form-check-input" type="checkbox" id="canc" checked="@verCancelados" @onchange="AlternarCancelados" />
+                    <label class="form-check-label" for="canc">Mostrar cancelados</label>
+                </div>
+            }
+        </div>
+
+        @if (cargando) { <Cargando /> }
+        else if (datos is not null)
+        {
+            @if (!vistaLista)
+            {
+                <div class="cal-rejilla" role="grid" aria-label="@FormatoCalendario.Mes(mes)">
+                    @foreach (var n in FormatoCalendario.DiasCortos) { <div class="cal-cabecera" role="columnheader">@n</div> }
+                    @for (var d = inicioRejilla; d <= finRejilla; d = d.AddDays(1))
+                    {
+                        var dia = d;
+                        var items = ItemsDe(dia);
+                        <button type="button" role="gridcell"
+                                class="cal-dia @(dia.Month != mes.Month ? "fuera" : "") @(dia == hoy ? "hoy" : "") @(dia == seleccionado ? "sel" : "")"
+                                aria-label="@FormatoCalendario.FechaCompleta(dia), @items.Count elemento(s)" aria-pressed="@(dia == seleccionado)"
+                                @onclick="() => Seleccionar(dia)">
+                            <span class="cal-num">@dia.Day</span>
+                            @foreach (var i in items.Take(3))
+                            {
+                                <span class="cal-chip @FormatoCalendario.ClaseCategoria(i.Categoria) @(i.Cancelado ? "cancelado" : "")" title="@i.Titulo">@Rotulo(i)</span>
+                            }
+                            @if (items.Count > 3) { <span class="cal-mas">+@(items.Count - 3) más</span> }
+                            <span class="cal-barras">
+                                @foreach (var c in items.Select(x => x.Categoria).Distinct()) { <span class="cal-barra @FormatoCalendario.ClaseCategoria(c)"></span> }
+                            </span>
+                        </button>
+                    }
+                </div>
+            }
+            else
+            {
+                @foreach (var dia in DiasConElementos())
+                {
+                    <h3 class="h6 mt-3">@FormatoCalendario.FechaCompleta(dia)</h3>
+                    @foreach (var i in ItemsDe(dia)) { @Tarjeta(i) }
+                }
+                @if (!DiasConElementos().Any()) { <div class="text-muted">No hay elementos en este mes.</div> }
+            }
+            <div class="form-text mt-2">Hora local de la empresa (@datos.ZonaHoraria).</div>
+        }
+    </div>
+
+    @if (datos is not null && !vistaLista)
+    {
+        <div class="tarjeta p-3">
+            <h2 class="h5">@FormatoCalendario.FechaCompleta(seleccionado)</h2>
+            @{ var delDia = ItemsDe(seleccionado); }
+            @if (delDia.Count == 0) { <div class="text-muted">No hay eventos, festivos ni ausencias este día.</div> }
+            @foreach (var i in delDia) { @Tarjeta(i) }
+        </div>
+    }
+</SoloConPermiso>
+
+<Modal @bind-Visible="detalleVisible" Titulo="@(detalle?.Titulo ?? "Evento")">
+    <ChildContent>
+        @if (errorDetalle is not null) { <Alerta Mensaje="@errorDetalle" Tipo="danger" /> }
+        else if (detalle is { } e)
+        {
+            <p class="mb-1"><span class="cal-etiqueta cal-cat-1">@FormatoCalendario.TipoEvento(e.Tipo)</span>
+                @if (e.Estado == EstadoEventoEmpresa.Cancelado) { <span class="badge text-bg-secondary ms-1">Cancelado</span> }</p>
+            <p class="mb-1"><strong>Cuándo:</strong> @FormatoCalendario.Periodo(e)</p>
+            <p class="mb-1"><strong>Visible para:</strong> @FormatoCalendario.Visibilidad(e)</p>
+            <p class="mb-1"><strong>Organiza:</strong> @e.CreadoPor</p>
+            @if (!string.IsNullOrWhiteSpace(e.Descripcion)) { <p class="mt-2 mb-0" style="white-space: pre-line;">@e.Descripcion</p> }
+            @if (e.Estado == EstadoEventoEmpresa.Cancelado)
+            {
+                <div class="alert alert-secondary mt-3 py-2 mb-0">Cancelado por @e.CanceladoPor el @e.FechaCancelacionUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm"): @e.MotivoCancelacion</div>
+            }
+        }
+        else { <Cargando /> }
+    </ChildContent>
+    <Footer>
+        @if (Puede(Permisos.CalendarioGestionarEventos)) { <a class="btn btn-outline-primary" href="calendario/eventos">Administrar eventos</a> }
+        <button class="btn btn-secondary" @onclick="() => detalleVisible = false">Cerrar</button>
+    </Footer>
+</Modal>
+
+@code {
+    [Inject] private CalendarioClient Api { get; set; } = default!;
+    [Inject] private EventosEmpresaClient Eventos { get; set; } = default!;
+    [CascadingParameter] private Task<AuthenticationState>? Estado { get; set; }
+
+    private static readonly byte[] Categorias =
+    {
+        CategoriaCalendario.Evento, CategoriaCalendario.Festivo, CategoriaCalendario.Ausencia, CategoriaCalendario.Cumpleanos, CategoriaCalendario.Aniversario
+    };
+
+    private ClaimsPrincipal? user;
+    private CalendarioDto? datos;
+    private Dictionary<DateOnly, List<CalendarioItemDto>> porDia = new();
+    private readonly HashSet<byte> ocultas = new();
+    private DateOnly hoy, mes, seleccionado, inicioRejilla, finRejilla;
+    private bool cargando = true, vistaLista, verCancelados, detalleVisible;
+    private string? error, errorDetalle;
+    private EventoEmpresaDto? detalle;
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = Estado is null ? null : (await Estado).User;
+        hoy = DateOnly.FromDateTime(DateTime.Today);
+        seleccionado = hoy;
+        mes = new DateOnly(hoy.Year, hoy.Month, 1);
+        if (Puede(Permisos.CalendarioConsultar)) await Cargar();
+        else cargando = false;
+    }
+
+    private bool Puede(string permiso) => user?.TienePermiso(permiso) == true;
+
+    private static string Rotulo(CalendarioItemDto i) => i.HoraInicio is { } h && i.FechaInicio == i.FechaFin ? $"{h:HH\\:mm} {i.Titulo}" : i.Titulo;
+
+    /// <summary>La rejilla empieza en lunes y cubre semanas completas, así que también muestra los días vecinos del mes.</summary>
+    private void CalcularRejilla()
+    {
+        var desfase = ((int)mes.DayOfWeek + 6) % 7;
+        inicioRejilla = mes.AddDays(-desfase);
+        var semanas = (int)Math.Ceiling((desfase + DateTime.DaysInMonth(mes.Year, mes.Month)) / 7.0);
+        finRejilla = inicioRejilla.AddDays(semanas * 7 - 1);
+    }
+
+    private async Task Cargar()
+    {
+        cargando = true;
+        error = null;
+        CalcularRejilla();
+        var r = await Api.ConsultarAsync(inicioRejilla, finRejilla, verCancelados);
+        if (r.Ok) { datos = r.Data; Indexar(); }
+        else error = r.Error;
+        cargando = false;
+    }
+
+    /// <summary>Reparte cada elemento (que puede durar varios días) en los días de la rejilla que ocupa.</summary>
+    private void Indexar()
+    {
+        porDia = new();
+        if (datos is null) return;
+        foreach (var i in datos.Items.Where(x => !ocultas.Contains(x.Categoria)))
+        {
+            var a = i.FechaInicio < inicioRejilla ? inicioRejilla : i.FechaInicio;
+            var b = i.FechaFin > finRejilla ? finRejilla : i.FechaFin;
+            for (var d = a; d <= b; d = d.AddDays(1))
+            {
+                if (!porDia.TryGetValue(d, out var lista)) porDia[d] = lista = new();
+                lista.Add(i);
+            }
+        }
+    }
+
+    private List<CalendarioItemDto> ItemsDe(DateOnly d) => porDia.TryGetValue(d, out var l) ? l : new();
+
+    private IEnumerable<DateOnly> DiasConElementos() =>
+        porDia.Keys.Where(d => d.Year == mes.Year && d.Month == mes.Month).OrderBy(d => d);
+
+    private async Task CambiarMes(int delta)
+    {
+        mes = mes.AddMonths(delta);
+        seleccionado = mes.Year == hoy.Year && mes.Month == hoy.Month ? hoy : mes;
+        await Cargar();
+    }
+
+    private async Task IrAHoy()
+    {
+        seleccionado = hoy;
+        if (mes.Year != hoy.Year || mes.Month != hoy.Month)
+        {
+            mes = new DateOnly(hoy.Year, hoy.Month, 1);
+            await Cargar();
+        }
+    }
+
+    private async Task Seleccionar(DateOnly d)
+    {
+        seleccionado = d;
+        if (d.Month != mes.Month || d.Year != mes.Year)
+        {
+            mes = new DateOnly(d.Year, d.Month, 1);
+            await Cargar();
+        }
+    }
+
+    private void AlternarCategoria(byte c)
+    {
+        if (!ocultas.Remove(c)) ocultas.Add(c);
+        Indexar();
+    }
+
+    private async Task AlternarCancelados(ChangeEventArgs e)
+    {
+        verCancelados = e.Value is true;
+        await Cargar();
+    }
+
+    private async Task Abrir(CalendarioItemDto i)
+    {
+        if (i.RecursoId is not { } id) return;
+        if (i.Categoria == CategoriaCalendario.Evento)
+        {
+            detalle = null; errorDetalle = null; detalleVisible = true;
+            var r = await Eventos.ObtenerAsync(id);   // la API valida de nuevo que el usuario pueda ver este evento
+            if (r.Ok) detalle = r.Data; else errorDetalle = r.Error;
+        }
+        else if (i.Categoria == CategoriaCalendario.Ausencia)
+        {
+            var verOtros = Puede(Permisos.PermisosAprobar) || Puede(Permisos.PermisosAprobarTodos) || Puede(Permisos.PermisosConsultarTodos);
+            Nav.NavigateTo(verOtros ? "permisos/saldos" : "permisos");
+        }
+    }
+
+    private RenderFragment Tarjeta(CalendarioItemDto i) => @<div class="cal-item @FormatoCalendario.ClaseCategoria(i.Categoria) @(i.Cancelado ? "cancelado" : "")">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+            <div>
+                <span class="cal-etiqueta">@(i.TipoEvento is { } t ? FormatoCalendario.TipoEvento(t) : FormatoCalendario.Categoria(i.Categoria))</span>
+                @if (i.Cancelado) { <span class="badge text-bg-secondary ms-1">Cancelado</span> }
+                <div class="fw-semibold cal-item-titulo mt-1">@i.Titulo</div>
+                <div class="small text-muted">@FormatoCalendario.Periodo(i)</div>
+                @if (!string.IsNullOrWhiteSpace(i.Descripcion)) { <div class="small mt-1" style="white-space: pre-line;">@i.Descripcion</div> }
+            </div>
+            @if (i.RecursoId is not null && i.Categoria is CategoriaCalendario.Evento or CategoriaCalendario.Ausencia)
+            {
+                <button class="btn btn-sm btn-outline-primary" @onclick="() => Abrir(i)">Abrir</button>
+            }
+        </div>
+    </div>;
+}

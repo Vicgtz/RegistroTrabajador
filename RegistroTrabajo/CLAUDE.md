@@ -1,4 +1,4 @@
-﻿# Registro de Trabajo — contexto del proyecto
+# Registro de Trabajo — contexto del proyecto
 
 Aplicación web multiempresa para administrar trabajadores, permisos, asistencia, proyectos y tareas. Se construye por bloques; este archivo resume lo hecho hasta ahora (Bloque 1 cerrado) y las reglas para seguir.
 
@@ -10,7 +10,7 @@ Aplicación web multiempresa para administrar trabajadores, permisos, asistencia
   - `RegistroTrabajo.Services`: lógica de negocio, validaciones, autorización, sesiones, auditoría, correo. Interfaces + implementaciones, DI con `AddRegistroTrabajoServices()`.
   - `RegistroTrabajo.Api`: controladores, JWT, middlewares, límite de intentos, comandos de inicialización.
   - `RegistroTrabajo` (cliente Blazor WASM): login, inicio y pantallas de administración.
-  - `RegistroTrabajo.Tests`: xUnit (100 pruebas).
+  - `RegistroTrabajo.Tests`: xUnit (143 pruebas).
 - Base de datos: SQL Server local `RegistroTrabajo` (autenticación integrada). Sección de configuración de la API: `RegistroTrabajoApiSettings` (`DbSettings`, `JwtSettings`, `Security`, `Email`, `AllowedOrigins`).
 
 ## Bloque 1 (hecho): seguridad y administración
@@ -45,6 +45,10 @@ El usuario creó 40 tablas laborales en la BD (Trabajadores, Departamentos, Pues
 - Servicios: `TurnosService`, `HorariosService`, `CalendarioLaboralService` (`HorariosServices.cs`), `AsistenciaService`, `CorreccionesAsistenciaService` (`AsistenciaServices.cs`). Controladores en `Bloque5Controllers.cs`; pantallas Blazor: Asistencia, HistorialAsistencia, Horarios.
 - Significado: `RegistroAsistencia.Estado` 1 Abierta/2 Completa/3 Anulada; `DescansoTrabajador.Tipo` 1 Habitual/2 Excepción (ver `Constantes.cs`). La fecha laboral usa la zona horaria de la empresa.
 
+## Bloque 6 (hecho en código; falta aplicar el script 007 a la BD de desarrollo)
+- Calendario laboral y eventos de la empresa: vista mensual, agenda del día y administración de eventos. Reúne eventos propios, festivos (Bloque 5), permisos aprobados (Bloque 4) y cumpleaños/aniversarios (Bloque 3) sin duplicar catálogos. Detalle, endpoints, permisos y límites en `BLOQUE6.md`.
+- Servicios: `EventosEmpresaService` y `CalendarioService` (`CalendarioServices.cs`). Controladores en `Bloque6Controllers.cs`; pantallas Blazor: Calendario, EventosEmpresa.
+- Fechas: los DTO usan siempre hora local de la empresa; día completo se guarda como fecha local sin zona, con hora se guarda en UTC. `EventoEmpresa.Estado` 1 Activo/2 Cancelado; `Visibilidad` 1 Empresa/2 Departamento; `Tipo` 1..5 (el script 007 amplía ese CHECK).
 ## Comandos útiles
 ```powershell
 dotnet build RegistroTrabajo.sln
@@ -64,6 +68,7 @@ Puertos de desarrollo: API `http://localhost:5265`, cliente `http://localhost:51
   - `004_bloque3_permisos.sql`: **aplicado** (12 permisos del Bloque 3 + asignación a roles de sistema existentes).
   - `005_bloque4.sql`: **pendiente de aplicar** a la BD de desarrollo (RowVersion y ClaveIdempotencia en SolicitudesPermiso, 2 índices únicos filtrados, 8 permisos del Bloque 4 + asignación a roles). Aplicar con `sqlcmd ... -I -i` (ver `BLOQUE4.md`). Las pruebas de SQL Server lo validan dentro de una transacción revertida.
 - `006_bloque5.sql`: **pendiente de aplicar** a la BD de desarrollo (índice único de jornada abierta + 8 permisos del Bloque 5 con su asignación a roles). Aplicar con `sqlcmd ... -I -i` (ver `BLOQUE5.md`).
+- `007_bloque6.sql`: **pendiente de aplicar** a la BD de desarrollo (estado, visibilidad, cancelación y RowVersion en EventosEmpresa, interruptores de fechas relevantes en ConfiguracionEmpresa, 4 permisos del Bloque 6 con su asignación a roles). Aplicar con `sqlcmd ... -I -i` (ver `BLOQUE6.md`).
 - `001_auditoria_solo_insercion.sql`: **pendiente** (requiere DBA y un usuario de la API que no sea db_owner).
 - Las pruebas de SQL Server aplican los scripts dentro de una transacción que siempre se revierte y comprueban que cada tabla/columna de la BD esté mapeada (y al revés): mantenerlas verdes al cambiar el modelo.
 - Para regenerar entidades desde la BD se usó `dotnet ef dbcontext scaffold` en una carpeta temporal (fuera del repo) y un script de adaptación; no hay herramienta EF instalada globalmente.

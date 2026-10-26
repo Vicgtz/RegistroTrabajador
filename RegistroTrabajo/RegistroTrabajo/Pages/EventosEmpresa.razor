@@ -1,0 +1,329 @@
+@page "/calendario/eventos"
+@attribute [Authorize]
+@using System.Security.Claims
+
+<PageTitle>Eventos de la empresa - Registro de Trabajo</PageTitle>
+
+@if (user is not null && !Puede(Permisos.CalendarioGestionarEventos) && !Puede(Permisos.CalendarioConfigurar))
+{
+    <div class="tarjeta p-4 text-center">
+        <h1 class="h5">Sin permiso</h1>
+        <p class="text-muted mb-0">Tu cuenta no tiene autorización para ver esta sección.</p>
+    </div>
+}
+else
+{
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <h1 class="h3 mb-0">Eventos de la empresa</h1>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" href="calendario">Ver calendario</a>
+            @if (Puede(Permisos.CalendarioGestionarEventos)) { <button class="btn btn-primary" @onclick="Nuevo">Nuevo evento</button> }
+        </div>
+    </div>
+
+    <Alerta Mensaje="@error" Tipo="danger" />
+    <Alerta Mensaje="@exito" Tipo="success" />
+
+    @if (Puede(Permisos.CalendarioConfigurar))
+    {
+        <div class="tarjeta p-3 mb-3">
+            <h2 class="h6">Fechas relevantes de los trabajadores</h2>
+            <p class="small text-muted mb-2">Solo se muestran el nombre y el día, y únicamente a quienes tengan el permiso «Ver cumpleaños y aniversarios laborales». Los trabajadores inactivos no aparecen.</p>
+            <div class="d-flex flex-wrap align-items-center gap-3">
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="cfgCumple" @bind="config.MostrarCumpleanos" /><label class="form-check-label" for="cfgCumple">Mostrar cumpleaños</label></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="cfgAniv" @bind="config.MostrarAniversarios" /><label class="form-check-label" for="cfgAniv">Mostrar aniversarios laborales</label></div>
+                <button class="btn btn-sm btn-primary" disabled="@guardandoConfig" @onclick="GuardarConfig">Guardar</button>
+            </div>
+        </div>
+    }
+
+    @if (Puede(Permisos.CalendarioGestionarEventos))
+    {
+        <div class="tarjeta p-3 mb-3">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">Estado</label>
+                    <select class="form-select" @bind="filtro.Estado">
+                        <option value="">Activos y cancelados</option>
+                        <option value="@EstadoEventoEmpresa.Activo">Solo activos</option>
+                        <option value="@EstadoEventoEmpresa.Cancelado">Solo cancelados</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Tipo</label>
+                    <select class="form-select" @bind="filtro.Tipo">
+                        <option value="">Todos</option>
+                        @foreach (var t in Tipos) { <option value="@t">@FormatoCalendario.TipoEvento(t)</option> }
+                    </select>
+                </div>
+                <div class="col-md-2"><label class="form-label">Desde</label><input type="date" class="form-control" @bind="filtro.Desde" /></div>
+                <div class="col-md-2"><label class="form-label">Hasta</label><input type="date" class="form-control" @bind="filtro.Hasta" /></div>
+                <div class="col-md-2"><button class="btn btn-primary w-100" @onclick="Buscar">Buscar</button></div>
+            </div>
+        </div>
+
+        @if (cargando) { <Cargando /> }
+        else if (datos is not null)
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>Evento</th><th>Tipo</th><th>Cuándo</th><th>Visible para</th><th>Estado</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var e in datos.Items)
+                        {
+                            <tr class="@(e.Estado == EstadoEventoEmpresa.Cancelado ? "text-muted" : "")">
+                                <td>
+                                    <div class="@(e.Estado == EstadoEventoEmpresa.Cancelado ? "text-decoration-line-through" : "fw-semibold")">@e.Titulo</div>
+                                    <div class="small text-muted">Creado por @e.CreadoPor @(e.ModificadoPor is null ? "" : $"· editado por {e.ModificadoPor}")</div>
+                                </td>
+                                <td>@FormatoCalendario.TipoEvento(e.Tipo)</td>
+                                <td class="small">@FormatoCalendario.Periodo(e)</td>
+                                <td class="small">@FormatoCalendario.Visibilidad(e)</td>
+                                <td>
+                                    @if (e.Estado == EstadoEventoEmpresa.Cancelado)
+                                    {
+                                        <span class="badge text-bg-secondary" title="@e.MotivoCancelacion">Cancelado</span>
+                                        <div class="small">@e.MotivoCancelacion</div>
+                                    }
+                                    else { <span class="badge text-bg-success">Activo</span> }
+                                </td>
+                                <td class="text-nowrap text-end">
+                                    @if (e.Estado == EstadoEventoEmpresa.Activo)
+                                    {
+                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => Editar(e)">Editar</button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => PedirCancelar(e)">Cancelar</button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        @if (datos.Items.Count == 0) { <tr><td colspan="6" class="text-muted">Sin eventos para los filtros indicados.</td></tr> }
+                    </tbody>
+                </table>
+            </div>
+            <Paginador Page="datos.Page" PageSize="datos.PageSize" Total="datos.Total" OnPage="IrAPagina" />
+        }
+    }
+}
+
+<Modal @bind-Visible="formVisible" Titulo="@(editandoId is null ? "Nuevo evento" : "Editar evento")" Tamano="modal-lg">
+    <ChildContent>
+        <Alerta Mensaje="@errorForm" Tipo="danger" />
+        <div class="row g-3">
+            <div class="col-12">
+                <label class="form-label" for="evTitulo">Título</label>
+                <input id="evTitulo" class="form-control" maxlength="180" @bind="form.Titulo" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="evTipo">Tipo</label>
+                <select id="evTipo" class="form-select" @bind="form.Tipo">
+                    @foreach (var t in Tipos) { <option value="@t">@FormatoCalendario.TipoEvento(t)</option> }
+                </select>
+            </div>
+            <div class="col-md-6 d-flex align-items-end">
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="evDia" checked="@form.TodoElDia" @onchange="CambiarTodoElDia" />
+                    <label class="form-check-label" for="evDia">Todo el día</label>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="evIni">@(form.TodoElDia ? "Fecha de inicio" : "Inicio")</label>
+                @if (form.TodoElDia) { <input id="evIni" type="date" class="form-control" @bind="form.Inicio" /> }
+                else { <input id="evIni" type="datetime-local" class="form-control" @bind="form.Inicio" /> }
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="evFin">@(form.TodoElDia ? "Fecha de fin (opcional)" : "Fin (opcional)")</label>
+                @if (form.TodoElDia) { <input id="evFin" type="date" class="form-control" @bind="form.Fin" /> }
+                else { <input id="evFin" type="datetime-local" class="form-control" @bind="form.Fin" /> }
+            </div>
+            <div class="col-12 form-text mt-0">Las horas son las de la zona horaria configurada para la empresa.</div>
+            <div class="col-md-6">
+                <label class="form-label" for="evVis">Visible para</label>
+                <select id="evVis" class="form-select" @bind="form.Visibilidad">
+                    <option value="@VisibilidadEvento.Empresa">Toda la empresa</option>
+                    <option value="@VisibilidadEvento.Departamento">Un departamento</option>
+                </select>
+            </div>
+            @if (form.Visibilidad == VisibilidadEvento.Departamento)
+            {
+                <div class="col-md-6">
+                    <label class="form-label" for="evDep">Departamento</label>
+                    <select id="evDep" class="form-select" @bind="form.DepartamentoId">
+                        <option value="">Seleccione…</option>
+                        @foreach (var d in departamentos) { <option value="@d.Id">@d.Nombre</option> }
+                    </select>
+                </div>
+            }
+            <div class="col-12">
+                <label class="form-label" for="evDesc">Descripción</label>
+                <textarea id="evDesc" class="form-control" rows="3" maxlength="1000" @bind="form.Descripcion"></textarea>
+            </div>
+        </div>
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-secondary" @onclick="() => formVisible = false">Cerrar</button>
+        <button class="btn btn-primary" disabled="@guardando" @onclick="Guardar">Guardar</button>
+    </Footer>
+</Modal>
+
+<Modal @bind-Visible="cancelarVisible" Titulo="Cancelar evento">
+    <ChildContent>
+        <Alerta Mensaje="@errorForm" Tipo="danger" />
+        @if (porCancelar is { } c)
+        {
+            <p>El evento <strong>@c.Titulo</strong> dejará de mostrarse en el calendario. Se conserva en el historial con el motivo.</p>
+            <label class="form-label" for="evMotivo">Motivo de la cancelación</label>
+            <input id="evMotivo" class="form-control" maxlength="300" @bind="motivoCancelacion" />
+        }
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-secondary" @onclick="() => cancelarVisible = false">Volver</button>
+        <button class="btn btn-danger" disabled="@guardando" @onclick="Cancelar">Cancelar evento</button>
+    </Footer>
+</Modal>
+
+@code {
+    [Inject] private EventosEmpresaClient Api { get; set; } = default!;
+    [Inject] private CalendarioClient CalApi { get; set; } = default!;
+    [Inject] private CatalogosClient Catalogos { get; set; } = default!;
+    [CascadingParameter] private Task<AuthenticationState>? Estado { get; set; }
+
+    private static readonly byte[] Tipos =
+    {
+        TipoEventoEmpresa.ReunionGeneral, TipoEventoEmpresa.Capacitacion, TipoEventoEmpresa.ActividadInterna, TipoEventoEmpresa.FechaImportante, TipoEventoEmpresa.Otro
+    };
+
+    private ClaimsPrincipal? user;
+    private PagedResult<EventoEmpresaDto>? datos;
+    private readonly EventoEmpresaFiltro filtro = new() { PageSize = 15 };
+    private List<CatalogoItemDto> departamentos = new();
+    private ConfiguracionCalendarioDto config = new();
+    private bool cargando = true, guardando, guardandoConfig, formVisible, cancelarVisible;
+    private string? error, exito, errorForm, motivoCancelacion;
+    private Guid? editandoId;
+    private EventoEmpresaDto? porCancelar;
+    private FormModel form = new();
+
+    private sealed class FormModel
+    {
+        public string Titulo { get; set; } = "";
+        public string? Descripcion { get; set; }
+        public byte Tipo { get; set; } = TipoEventoEmpresa.ReunionGeneral;
+        public bool TodoElDia { get; set; } = true;
+        public DateTime Inicio { get; set; } = DateTime.Today;
+        public DateTime? Fin { get; set; }
+        public byte Visibilidad { get; set; } = VisibilidadEvento.Empresa;
+        public Guid? DepartamentoId { get; set; }
+        public string? RowVersion { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = Estado is null ? null : (await Estado).User;
+        if (Puede(Permisos.CalendarioConfigurar))
+        {
+            var c = await CalApi.ConfiguracionAsync();
+            if (c.Ok && c.Data is not null) config = c.Data; else error = c.Error;
+        }
+        if (Puede(Permisos.CalendarioGestionarEventos))
+        {
+            if (Puede(Permisos.DepartamentosConsultar))
+            {
+                var d = await Catalogos.DepartamentosAsync(soloActivos: true);
+                if (d.Ok) departamentos = d.Data ?? new();
+            }
+            await Cargar();
+        }
+        cargando = false;
+    }
+
+    private bool Puede(string permiso) => user?.TienePermiso(permiso) == true;
+
+    private async Task Cargar()
+    {
+        cargando = true;
+        var r = await Api.ListarAsync(filtro);
+        if (r.Ok) datos = r.Data; else error = r.Error;
+        cargando = false;
+    }
+
+    private async Task Buscar() { filtro.Page = 1; await Cargar(); }
+    private async Task IrAPagina(int p) { filtro.Page = p; await Cargar(); }
+
+    private async Task GuardarConfig()
+    {
+        error = exito = null;
+        guardandoConfig = true;
+        var r = await CalApi.GuardarConfiguracionAsync(config);
+        if (r.Ok) exito = "Configuración del calendario guardada."; else error = r.Error;
+        guardandoConfig = false;
+    }
+
+    private void Nuevo()
+    {
+        editandoId = null; errorForm = null;
+        form = new FormModel();
+        formVisible = true;
+    }
+
+    private void Editar(EventoEmpresaDto e)
+    {
+        editandoId = e.EventoEmpresaId; errorForm = null;
+        form = new FormModel
+        {
+            Titulo = e.Titulo, Descripcion = e.Descripcion, Tipo = e.Tipo, TodoElDia = e.TodoElDia, Inicio = e.FechaInicio, Fin = e.FechaFin,
+            Visibilidad = e.Visibilidad, DepartamentoId = e.DepartamentoId, RowVersion = e.RowVersion
+        };
+        formVisible = true;
+    }
+
+    private void CambiarTodoElDia(ChangeEventArgs e)
+    {
+        form.TodoElDia = e.Value is true;
+        // Al pasar a un evento con hora se propone una hora de oficina; al volver a día completo se descartan las horas.
+        if (!form.TodoElDia && form.Inicio.TimeOfDay == TimeSpan.Zero) form.Inicio = form.Inicio.Date.AddHours(9);
+        if (form.TodoElDia) { form.Inicio = form.Inicio.Date; form.Fin = form.Fin?.Date; }
+    }
+
+    private async Task Guardar()
+    {
+        errorForm = error = exito = null;
+        guardando = true;
+        try
+        {
+            var req = new GuardarEventoEmpresaRequest
+            {
+                Titulo = form.Titulo, Descripcion = form.Descripcion, Tipo = form.Tipo, TodoElDia = form.TodoElDia, FechaInicio = form.Inicio,
+                FechaFin = form.Fin, Visibilidad = form.Visibilidad,
+                DepartamentoId = form.Visibilidad == VisibilidadEvento.Departamento ? form.DepartamentoId : null, RowVersion = form.RowVersion
+            };
+            var r = editandoId is { } id ? await Api.ActualizarAsync(id, req) : await Api.CrearAsync(req);
+            if (!r.Ok) { errorForm = r.Error; return; }
+            formVisible = false;
+            exito = editandoId is null ? "Evento creado." : "Evento actualizado.";
+            await Cargar();
+        }
+        finally { guardando = false; }
+    }
+
+    private void PedirCancelar(EventoEmpresaDto e)
+    {
+        porCancelar = e; motivoCancelacion = null; errorForm = null;
+        cancelarVisible = true;
+    }
+
+    private async Task Cancelar()
+    {
+        if (porCancelar is not { } e) return;
+        errorForm = error = exito = null;
+        guardando = true;
+        try
+        {
+            var r = await Api.CancelarAsync(e.EventoEmpresaId, new CancelarEventoEmpresaRequest { Motivo = motivoCancelacion ?? "", RowVersion = e.RowVersion });
+            if (!r.Ok) { errorForm = r.Error; return; }
+            cancelarVisible = false;
+            exito = "Evento cancelado. Se conserva en el historial.";
+            await Cargar();
+        }
+        finally { guardando = false; }
+    }
+}
