@@ -92,7 +92,7 @@ public class SolicitudesPermisoService : ISolicitudesPermisoService
         {
             var revisores = await PermisosHelper.UsuariosSupervisoresAsync(_db, empresaId, t.TrabajadorId, _clock, ct);
             await PermisosHelper.NotificarAsync(_db, empresaId, revisores, "permiso.solicitud_pendiente", "Solicitud de permiso pendiente",
-                $"{t.Nombres} {t.Apellidos} registró una solicitud de permiso que requiere su revisión.", s.SolicitudPermisoId, now, ct);
+                $"{t.Nombres} {t.Apellidos} registró una solicitud de permiso que requiere su revisión.", s.SolicitudPermisoId, now, ct, $"sp:{s.SolicitudPermisoId}");
         }
         await _db.SaveSafeAsync(ct);
         return await DtoAsync(empresaId, s.SolicitudPermisoId, t.TrabajadorId, ct);

@@ -159,20 +159,41 @@ internal static class NotificacionesHelper
     /// Agrega notificaciones internas (se guardan con el SaveChanges de la operación) y respeta las preferencias del usuario.
     /// Los textos son genéricos a propósito: no copian descripciones ni comentarios.
     /// </summary>
+    /// <remarks>
+    /// Los tipos obligatorios (<see cref="CatalogoNotificaciones"/>) ignoran las preferencias; los opcionales se silencian por tipo o por categoría.
+    /// Con <paramref name="clave"/> el mismo evento no avisa dos veces al mismo usuario (índice único filtrado en BD y comprobación previa).
+    /// </remarks>
     public static async Task NotificarAsync(RegistroTrabajoDbContext db, Guid empresaId, IEnumerable<Guid> destinatarios, string tipo,
-        string titulo, string mensaje, string entidadTipo, string entidadId, DateTime now, CancellationToken ct)
+        string titulo, string mensaje, string entidadTipo, string entidadId, DateTime now, CancellationToken ct, string? clave = null)
     {
         var ids = destinatarios.Distinct().ToList();
         if (ids.Count == 0) return;
-        var silenciados = await db.PreferenciasNotificacion.AsNoTracking()
-            .Where(p => p.EmpresaId == empresaId && p.TipoNotificacion == tipo && !p.Habilitada && ids.Contains(p.UsuarioId))
-            .Select(p => p.UsuarioId).ToListAsync(ct);
-        foreach (var u in ids.Except(silenciados))
+
+        if (!CatalogoNotificaciones.EsObligatoria(tipo))
+        {
+            var categoria = CatalogoNotificaciones.CategoriaDe(tipo);
+            var silenciados = await db.PreferenciasNotificacion.AsNoTracking()
+                .Where(p => p.EmpresaId == empresaId && (p.TipoNotificacion == tipo || p.TipoNotificacion == categoria) && !p.Habilitada && ids.Contains(p.UsuarioId))
+                .Select(p => p.UsuarioId).ToListAsync(ct);
+            ids = ids.Except(silenciados).ToList();
+        }
+
+        if (clave is not null)
+        {
+            clave = ProyectoHelper.Recortar(clave, 200);
+            var yaAvisados = await db.Notificaciones.AsNoTracking()
+                .Where(n => n.EmpresaId == empresaId && n.ClaveDeduplicacion == clave && ids.Contains(n.UsuarioDestinoId))
+                .Select(n => n.UsuarioDestinoId).ToListAsync(ct);
+            var pendientes = db.Notificaciones.Local.Where(n => n.EmpresaId == empresaId && n.ClaveDeduplicacion == clave).Select(n => n.UsuarioDestinoId);
+            ids = ids.Except(yaAvisados).Except(pendientes).ToList();
+        }
+
+        foreach (var u in ids)
             db.Notificaciones.Add(new Notificacion
             {
                 NotificacionId = Guid.NewGuid(), EmpresaId = empresaId, UsuarioDestinoId = u, Tipo = tipo,
                 Titulo = ProyectoHelper.Recortar(titulo, 180), Mensaje = ProyectoHelper.Recortar(mensaje, 1000),
-                EntidadTipo = entidadTipo, EntidadId = entidadId, CreadaUtc = now
+                EntidadTipo = entidadTipo, EntidadId = entidadId, CreadaUtc = now, ClaveDeduplicacion = clave
             });
     }
 }
@@ -294,6 +315,8 @@ public class ProyectosService : IProyectosService
         await EstadosProyectoService.AsegurarAsync(_db, a.EmpresaId, ct);
         var hoy = await ProyectoHelper.HoyAsync(_db, a.EmpresaId, _clock, ct);
         var limite = hoy.AddDays(ProyectoHelper.DiasAvisoVencimiento);
+        var cal = await CalendarioHabil.CargarAsync(_db, a.EmpresaId, ct);
+        var ultimoHabil = cal.UltimoHabilAnterior(hoy);
 
         var estados = await _db.EstadosProyecto.AsNoTracking().Where(e => e.EmpresaId == a.EmpresaId && e.Estado).OrderBy(e => e.Orden).ToListAsync(ct);
         var porEstado = await ProyectoHelper.Visibles(_db, a).GroupBy(p => p.EstadoProyectoId).Select(g => new { Id = g.Key, N = g.Count() }).ToListAsync(ct);
@@ -307,7 +330,7 @@ public class ProyectosService : IProyectosService
         res.Vencidos = await abiertos.CountAsync(p => p.FechaFinPrevista < hoy, ct);
         if (a.MiTrabajadorId is { } mi)
             res.TareasVencidasMias = await _db.Tareas.AsNoTracking().CountAsync(t => t.EmpresaId == a.EmpresaId && t.Estado != EstadoTarea.Completada && t.Estado != EstadoTarea.Cancelada
-                && t.FechaVencimiento != null && t.FechaVencimiento < hoy
+                && t.FechaVencimiento != null && t.FechaVencimiento <= ultimoHabil
                 && _db.AsignacionesTarea.Any(x => x.EmpresaId == a.EmpresaId && x.TareaId == t.TareaId && x.TrabajadorId == mi && x.FechaRetiroUtc == null), ct);
         return res;
     }
@@ -424,11 +447,14 @@ public class ProyectosService : IProyectosService
         ProyectoHelper.AplicarRowVersion(_db, p, p.RowVersion, r.RowVersion, "el proyecto");
 
         var antes = Resumen(p);
+        var fechaAnterior = p.FechaFinPrevista;
         p.Nombre = Helpers.Limpiar(r.Nombre) ?? throw ServiceException.Validation("El nombre es obligatorio.");
         p.Descripcion = Helpers.Limpiar(r.Descripcion);
         p.FechaInicio = r.FechaInicio; p.FechaFinPrevista = r.FechaFinPrevista; p.Prioridad = r.Prioridad;
-        p.FechaActualizacionUtc = Ahora;
+        var now = Ahora;
+        p.FechaActualizacionUtc = now;
         _auditoria.Registrar("Proyectos", nameof(Proyecto), p.ProyectoId.ToString(), "Actualizar", antes, Resumen(p));
+        if (fechaAnterior != r.FechaFinPrevista) await NotificarFechaAsync(a, p, now, ct);
         await _db.SaveSafeAsync(ct);
         return await DetalleAsync(p, a, ct);
     }
@@ -482,7 +508,13 @@ public class ProyectosService : IProyectosService
         var abiertas = await _db.AsignacionesTarea.Where(x => x.EmpresaId == a.EmpresaId && x.TrabajadorId == trabajadorId && x.FechaRetiroUtc == null
             && _db.Tareas.Any(t => t.EmpresaId == a.EmpresaId && t.TareaId == x.TareaId && t.ProyectoId == proyectoId
                 && t.Estado != EstadoTarea.Completada && t.Estado != EstadoTarea.Cancelada)).ToListAsync(ct);
-        foreach (var x in abiertas) x.FechaRetiroUtc = now < x.FechaAsignacionUtc ? x.FechaAsignacionUtc : now;
+        foreach (var x in abiertas)
+        {
+            x.FechaRetiroUtc = now < x.FechaAsignacionUtc ? x.FechaAsignacionUtc : now;
+            SeguimientoHelper.Evento(_db, a.EmpresaId, x.TareaId, TipoEventoTarea.AsignacionRetirada, a.UsuarioId, now,
+                anterior: (await ProyectoHelper.NombresTrabajadoresAsync(_db, a.EmpresaId, new[] { trabajadorId }, ct)).GetValueOrDefault(trabajadorId, "—"),
+                detalle: "Retirado del proyecto");
+        }
         p.FechaActualizacionUtc = now;
         _auditoria.Registrar("Proyectos", nameof(Proyecto), p.ProyectoId.ToString(), "RetirarTrabajador", new { TrabajadorId = trabajadorId }, new { TareasLiberadas = abiertas.Count });
         await _db.SaveSafeAsync(ct);
@@ -512,7 +544,7 @@ public class ProyectosService : IProyectosService
             });
         _auditoria.Registrar("Proyectos", nameof(Proyecto), p.ProyectoId.ToString(), "CambiarResponsable",
             new { ResponsableTrabajadorId = anterior }, new { p.ResponsableTrabajadorId });
-        await NotificarNuevosAsync(a, p, new[] { r.ResponsableTrabajadorId }, now, ct);
+        await NotificarResponsableAsync(a, p, anterior, r.ResponsableTrabajadorId, now, ct);
         await _db.SaveSafeAsync(ct);
         return await DetalleAsync(p, a, ct);
     }
@@ -574,6 +606,28 @@ public class ProyectosService : IProyectosService
             throw ServiceException.Conflict("El proyecto está cerrado. Solo la administración puede reabrirlo.");
     }
 
+    /// <summary>Avisa al nuevo responsable y al resto del equipo (incluido el anterior responsable). Los textos no incluyen descripciones.</summary>
+    private async Task NotificarResponsableAsync(AccesoProyectos a, Proyecto p, Guid anterior, Guid nuevo, DateTime now, CancellationToken ct)
+    {
+        var participantes = await ProyectoHelper.ParticipantesAsync(_db, p, ct);
+        participantes.Add(anterior);
+        var usuarios = await ProyectoHelper.UsuariosDeTrabajadoresAsync(_db, a.EmpresaId, participantes.Distinct().ToList(), ct);
+        if (usuarios.TryGetValue(nuevo, out var uNuevo) && uNuevo != a.UsuarioId)
+            await NotificacionesHelper.NotificarAsync(_db, a.EmpresaId, new[] { uNuevo }, TipoNotificacionTrabajo.ProyectoResponsable,
+                "Eres responsable de un proyecto", $"Ahora eres el responsable del proyecto «{p.Nombre}».", nameof(Proyecto), p.ProyectoId.ToString(), now, ct);
+        await NotificacionesHelper.NotificarAsync(_db, a.EmpresaId, usuarios.Where(x => x.Key != nuevo).Select(x => x.Value).Where(u => u != a.UsuarioId),
+            TipoNotificacionTrabajo.ProyectoResponsable, "Cambió el responsable de un proyecto", $"Cambió el responsable del proyecto «{p.Nombre}».",
+            nameof(Proyecto), p.ProyectoId.ToString(), now, ct);
+    }
+
+    private async Task NotificarFechaAsync(AccesoProyectos a, Proyecto p, DateTime now, CancellationToken ct)
+    {
+        var participantes = await ProyectoHelper.ParticipantesAsync(_db, p, ct);
+        var usuarios = await ProyectoHelper.UsuariosDeTrabajadoresAsync(_db, a.EmpresaId, participantes, ct);
+        await NotificacionesHelper.NotificarAsync(_db, a.EmpresaId, usuarios.Values.Where(u => u != a.UsuarioId), TipoNotificacionTrabajo.ProyectoFecha,
+            "Cambió la fecha de término", $"Se modificó la fecha de término del proyecto «{p.Nombre}».", nameof(Proyecto), p.ProyectoId.ToString(), now, ct);
+    }
+
     private async Task NotificarNuevosAsync(AccesoProyectos a, Proyecto p, IEnumerable<Guid> trabajadores, DateTime now, CancellationToken ct)
     {
         var usuarios = await ProyectoHelper.UsuariosDeTrabajadoresAsync(_db, a.EmpresaId, trabajadores, ct);
@@ -591,6 +645,7 @@ public class ProyectosService : IProyectosService
         var ids = proyectos.Select(p => p.ProyectoId).ToList();
         var estados = await _db.EstadosProyecto.AsNoTracking().Where(e => e.EmpresaId == empresaId).ToDictionaryAsync(e => e.EstadoProyectoId, ct);
         var nombres = await ProyectoHelper.NombresTrabajadoresAsync(_db, empresaId, proyectos.Select(p => p.ResponsableTrabajadorId), ct);
+        var ultimoHabil = (await CalendarioHabil.CargarAsync(_db, empresaId, ct)).UltimoHabilAnterior(hoy);
         var stats = await _db.Tareas.AsNoTracking().Where(t => t.EmpresaId == empresaId && ids.Contains(t.ProyectoId))
             .GroupBy(t => t.ProyectoId)
             .Select(g => new
@@ -598,7 +653,7 @@ public class ProyectosService : IProyectosService
                 Id = g.Key,
                 Total = g.Count(x => x.Estado != EstadoTarea.Cancelada),
                 Completadas = g.Count(x => x.Estado == EstadoTarea.Completada),
-                Vencidas = g.Count(x => x.Estado != EstadoTarea.Completada && x.Estado != EstadoTarea.Cancelada && x.FechaVencimiento != null && x.FechaVencimiento < hoy),
+                Vencidas = g.Count(x => x.Estado != EstadoTarea.Completada && x.Estado != EstadoTarea.Cancelada && x.FechaVencimiento != null && x.FechaVencimiento <= ultimoHabil),
                 Suma = g.Sum(x => x.Estado != EstadoTarea.Cancelada ? (int)x.PorcentajeAvance : 0)
             }).ToListAsync(ct);
         var equipo = await _db.AsignacionesProyecto.AsNoTracking().Where(x => x.EmpresaId == empresaId && ids.Contains(x.ProyectoId) && x.FechaSalida == null)

@@ -92,6 +92,7 @@
                     }
                     <div class="d-grid gap-2">
                         <button class="btn btn-primary" @onclick="Enviar" disabled="@(guardando || preview is null)">@(editId is null ? "Enviar solicitud" : "Guardar cambios")</button>
+                        @if (editId is null) { <button class="btn btn-outline-secondary" @onclick="GuardarBorrador" disabled="@guardando">Guardar borrador</button> }
                         <button class="btn btn-outline-primary" @onclick="Limpiar" disabled="@guardando">@(editId is null ? "Limpiar" : "Cancelar edición")</button>
                     </div>
                 </div>
@@ -153,6 +154,8 @@
 @code {
     [Inject] private TiposPermisoClient TiposApi { get; set; } = default!;
     [Inject] private SolicitudesPermisoClient Api { get; set; } = default!;
+    [Inject] private BorradoresClient BorradoresApi { get; set; } = default!;
+    [Parameter, SupplyParameterFromQuery(Name = "borrador")] public Guid? BorradorId { get; set; }
 
     private List<TipoPermisoDto> tipos = new();
     private PagedResult<SolicitudPermisoDto>? mias;
@@ -172,6 +175,10 @@
     private string? errorCalculo, error, exito, errorForm, motivoCancelacion;
     private bool cargando = true, calculando, guardando, cancelacionVisible;
     private SolicitudPermisoDto? paraCancelar;
+    private Guid? borradorActual;   // borrador del que se partió; se elimina al enviar la solicitud
+
+    /// <summary>Datos del formulario que se guardan como borrador (el motivo es privado: solo su creador lo ve).</summary>
+    private sealed record DatosBorrador(string Titulo, Guid? TipoPermisoId, DateTime? Inicio, DateTime? Fin, string? HoraInicio, string? HoraFin, bool PorHoras, string? Motivo);
 
     private TipoPermisoDto? Tipo => tipos.FirstOrDefault(t => t.TipoPermisoId == tipoId);
     private bool PermiteHoras => Tipo is { } t && (t.UnidadBase == UnidadPermiso.Horas || t.PermiteFraccionar);
@@ -183,7 +190,47 @@
         var t = await TiposApi.ListarAsync(true);
         if (t.Ok) tipos = t.Data ?? new(); else error = t.Error;
         await CargarMias();
+        if (BorradorId is { } bid) await CargarBorrador(bid);
         cargando = false;
+    }
+
+    private static readonly System.Text.Json.JsonSerializerOptions JsonBorrador = new(System.Text.Json.JsonSerializerDefaults.Web);
+
+    private async Task CargarBorrador(Guid id)
+    {
+        var r = await BorradoresApi.ObtenerAsync(id);
+        if (!r.Ok || r.Data is null) { error = r.Error ?? "No se encontró el borrador."; return; }
+        try
+        {
+            var d = System.Text.Json.JsonSerializer.Deserialize<DatosBorrador>(r.Data.DatosJson, JsonBorrador);
+            if (d is null) return;
+            tipoId = d.TipoPermisoId; inicio = d.Inicio; fin = d.Fin; porHoras = d.PorHoras; motivo = d.Motivo;
+            if (TimeOnly.TryParse(d.HoraInicio, out var h1)) horaInicio = h1;
+            if (TimeOnly.TryParse(d.HoraFin, out var h2)) horaFin = h2;
+            borradorActual = id;
+            exito = "Borrador cargado. Revísalo y envía la solicitud cuando esté lista.";
+            await Recalcular();
+        }
+        catch (System.Text.Json.JsonException) { error = "El borrador no se pudo leer."; }
+    }
+
+    private async Task GuardarBorrador()
+    {
+        error = exito = null; guardando = true;
+        try
+        {
+            var titulo = $"{Tipo?.Nombre ?? "Permiso"}{(inicio is { } i ? $" · {i:dd/MM/yyyy}" : "")}";
+            var datos = new DatosBorrador(titulo, tipoId, inicio, fin, horaInicio?.ToString("HH:mm"), horaFin?.ToString("HH:mm"), porHoras, motivo);
+            var req = new GuardarBorradorRequest
+            {
+                Modulo = ModuloBorrador.Permisos, TipoFormulario = "SolicitudPermiso", DatosJson = System.Text.Json.JsonSerializer.Serialize(datos, JsonBorrador)
+            };
+            var r = borradorActual is { } actual ? await BorradoresApi.ActualizarAsync(actual, req) : await BorradoresApi.CrearAsync(req);
+            if (!r.Ok) { error = r.Error; return; }
+            borradorActual = r.Data?.BorradorId;
+            exito = "Borrador guardado. Puedes continuar más tarde desde «Mis borradores»; aún no es una solicitud.";
+        }
+        finally { guardando = false; }
     }
 
     private async Task CargarMias()
@@ -254,6 +301,7 @@
             exito = editId is null
                 ? (r.Data?.Estado == EstadoSolicitudPermiso.Aprobada ? "Permiso registrado y aprobado." : "Solicitud enviada. Tu responsable la revisará.")
                 : "Solicitud actualizada.";
+            if (borradorActual is { } bd) { await BorradoresApi.EliminarAsync(bd); }
             Limpiar();
             await CargarMias();
         }
@@ -264,7 +312,7 @@
     {
         tipoId = null; inicio = fin = null; porHoras = false; motivo = null; editId = null; editRowVersion = null;
         horaInicio = new TimeOnly(9, 0); horaFin = new TimeOnly(10, 0);
-        preview = null; errorCalculo = null; claveIdempotencia = NuevaClave();
+        preview = null; errorCalculo = null; claveIdempotencia = NuevaClave(); borradorActual = null;
     }
 
     private async Task Editar(SolicitudPermisoDto s)

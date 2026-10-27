@@ -1,0 +1,25 @@
+@* Barra horizontal apilada con leyenda numérica. *@
+@{
+    var total = Segmentos.Sum(s => s.Valor);
+}
+<div class="barra-apilada" role="img" aria-label="@Descripcion">
+    @if (total == 0) { <div class="barra-segmento" style="width:100%;background:#e3e8ef"></div> }
+    else
+    {
+        @foreach (var s in Segmentos.Where(x => x.Valor > 0))
+        {
+            <div class="barra-segmento" style="width:@((100.0 * s.Valor / total).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%;background:@s.Color" title="@s.Etiqueta: @s.Valor"></div>
+        }
+    }
+</div>
+<ul class="list-inline small mt-2 mb-0">
+    @foreach (var s in Segmentos)
+    {
+        <li class="list-inline-item me-3"><span class="leyenda-punto" style="background:@s.Color"></span>@s.Etiqueta: <strong>@s.Valor</strong></li>
+    }
+</ul>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<SegmentoGrafica> Segmentos { get; set; } = Array.Empty<SegmentoGrafica>();
+    private string Descripcion => string.Join(", ", Segmentos.Select(s => $"{s.Etiqueta} {s.Valor}"));
+}

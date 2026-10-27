@@ -35,6 +35,10 @@ public class ConfiguracionEmpresa
     public bool MostrarCumpleanos { get; set; }
     /// <summary>Bloque 6 (script 007): mostrar aniversarios laborales en el calendario.</summary>
     public bool MostrarAniversarios { get; set; }
+    /// <summary>Bloque 8 (script 009): días hábiles previos al vencimiento en que una tarea cuenta como "próxima a vencer".</summary>
+    public byte DiasAlertaVencimiento { get; set; } = 3;
+    /// <summary>Bloque 8 (script 009): días hábiles sin actualización para alertar; null desactiva la alerta.</summary>
+    public short? DiasSinActualizacion { get; set; }
     public DateTime FechaCreacionUtc { get; set; }
     public DateTime? FechaActualizacionUtc { get; set; }
 

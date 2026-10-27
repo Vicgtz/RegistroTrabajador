@@ -24,6 +24,125 @@ else
         }
     </div>
 
+    <Alerta Mensaje="@errorDashboard" Tipo="warning" />
+    @if (dashboard is not null)
+    {
+        <div class="small text-muted mb-2">Panel de @dashboard.Perfil · @(dashboard.Ambito switch { "empresa" => "información de toda la empresa", "equipo" => "información de tu equipo", _ => "tu información personal" })</div>
+        <div class="row g-3 mb-3">
+            @if (dashboard.Trabajadores is { } tr)
+            {
+                <div class="col-6 col-lg-3">
+                    <div class="tarjeta p-3 h-100">
+                        <div class="dato-etiqueta">Trabajadores activos</div>
+                        <div class="indicador-valor">@tr.Activos</div>
+                        <div class="indicador-nota">@tr.Inactivos inactivos · @tr.Baja de baja · @tr.AltasUltimos30Dias altas en 30 días</div>
+                    </div>
+                </div>
+            }
+            @if (dashboard.Permisos is { } pe)
+            {
+                <div class="col-6 col-lg-3">
+                    <div class="tarjeta p-3 h-100">
+                        <div class="dato-etiqueta">@(pe.PendientesPorRevisar is null ? "Mis permisos pendientes" : "Permisos por revisar")</div>
+                        <div class="indicador-valor">@(pe.PendientesPorRevisar ?? pe.MisPendientes)</div>
+                        <div class="indicador-nota">
+                            @if (pe.PendientesPorRevisar is not null) { <text>@pe.MisPendientes propios pendientes · </text> }
+                            @pe.ProximosAprobados aprobados por comenzar (14 días)
+                        </div>
+                        @if (pe.PendientesPorRevisar is not null) { <a class="small" href="permisos/aprobaciones">Ir a aprobaciones</a> }
+                    </div>
+                </div>
+            }
+            @if (dashboard.Asistencia is { } asi)
+            {
+                <div class="col-6 col-lg-3">
+                    <div class="tarjeta p-3 h-100">
+                        <div class="dato-etiqueta">@(dashboard.Ambito == "propio" ? "Asistencia de hoy" : "Con asistencia hoy")</div>
+                        <div class="indicador-valor">@asi.ConRegistroHoy</div>
+                        <div class="indicador-nota">@asi.IncompletasAnteriores jornadas anteriores sin salida</div>
+                    </div>
+                </div>
+            }
+            <div class="col-6 col-lg-3">
+                <div class="tarjeta p-3 h-100">
+                    <div class="dato-etiqueta">Notificaciones sin leer</div>
+                    <div class="indicador-valor">@dashboard.NotificacionesNoLeidas</div>
+                    <div class="indicador-nota">@dashboard.NotificacionesPrioritarias prioritarias</div>
+                    <a class="small" href="notificaciones">Abrir centro</a>
+                </div>
+            </div>
+            @if (dashboard.UsuariosActivos is { } ua)
+            {
+                <div class="col-6 col-lg-3">
+                    <div class="tarjeta p-3 h-100">
+                        <div class="dato-etiqueta">Usuarios activos</div>
+                        <div class="indicador-valor">@ua</div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="row g-3 mb-3">
+            @if (dashboard.Tareas is { } ta)
+            {
+                <div class="col-12 col-lg-7">
+                    <div class="tarjeta p-3 h-100">
+                        <h2 class="h6">@(dashboard.Ambito == "propio" ? "Mis tareas" : "Tareas de los proyectos")</h2>
+                        <BarraApilada Segmentos="@(new SegmentoGrafica[] {
+                            new("Pendientes", ta.Pendientes, "#7a8aa0"), new("En proceso", ta.EnProceso, "#2f6fb2"), new("En revisión", ta.EnRevision, "#e0a030"),
+                            new("Reabiertas", ta.Reabiertas, "#c0392b"), new("Completadas", ta.Completadas, "#2e9e6b") })" />
+                        <div class="mt-3 d-flex flex-wrap gap-3 small">
+                            <span><strong class="@(ta.Vencidas > 0 ? "text-danger" : "")">@ta.Vencidas</strong> vencidas</span>
+                            <span><strong>@ta.ProximasAVencer</strong> próximas a vencer</span>
+                            <a href="seguimiento">Ver seguimiento</a>
+                        </div>
+                    </div>
+                </div>
+            }
+            @if (dashboard.Proyectos is { } pr)
+            {
+                <div class="col-12 col-lg-5">
+                    <div class="tarjeta p-3 h-100">
+                        <h2 class="h6">Proyectos</h2>
+                        <Dona Segmentos="@(new SegmentoGrafica[] { new("Activos", pr.Activos, "#2f6fb2"), new("Pausados", pr.Pausados, "#e0a030"), new("Finalizados", pr.Finalizados, "#2e9e6b") })" />
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-lg-7">
+                <div class="tarjeta p-3 h-100">
+                    <h2 class="h6">Actividad reciente</h2>
+                    @if (dashboard.Actividad.Count == 0) { <div class="text-muted small">Sin actividad reciente.</div> }
+                    else
+                    {
+                        <ul class="list-unstyled small mb-0">
+                            @foreach (var a in dashboard.Actividad)
+                            {
+                                <li class="py-1 border-bottom d-flex justify-content-between gap-2">
+                                    <span>@if (a.Ruta is not null) { <a class="text-decoration-none" href="@a.Ruta">@a.Texto</a> } else { @a.Texto }</span>
+                                    <span class="text-muted text-nowrap">@Local(a.FechaUtc)</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+            <div class="col-12 col-lg-5">
+                <div class="tarjeta p-3 h-100">
+                    <h2 class="h6">Accesos rápidos</h2>
+                    <div class="d-flex flex-wrap gap-2">
+                        @foreach (var a in dashboard.Accesos)
+                        {
+                            <a class="btn btn-sm btn-outline-primary acceso-rapido" href="@a.Ruta">@a.Titulo</a>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
     @if (cargando)
     {
         <div class="text-muted"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Cargando resumen...</div>

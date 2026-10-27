@@ -1,0 +1,73 @@
+@page "/borradores"
+@attribute [Authorize]
+
+<PageTitle>Mis borradores - Registro de Trabajo</PageTitle>
+
+<div class="mb-3">
+    <h1 class="h3 mb-0">Mis borradores</h1>
+    <div class="small text-muted">Capturas sin enviar. Solo tú las ves y no cuentan como solicitudes ni eventos hasta que las envíes; vencen a los @DiasVigencia días sin cambios.</div>
+</div>
+
+<Alerta Mensaje="@error" Tipo="danger" />
+<Alerta Mensaje="@exito" Tipo="success" />
+
+@if (cargando) { <Cargando /> }
+else if (datos is not null)
+{
+    <div class="list-group">
+        @foreach (var b in datos.Items)
+        {
+            <div class="list-group-item d-flex justify-content-between align-items-start gap-2">
+                <div>
+                    <div class="fw-semibold">@(b.Resumen ?? b.TipoFormulario)</div>
+                    <div class="small text-muted">
+                        <span class="badge text-bg-light border">@b.Modulo</span> · actualizado @FormatoProyectos.FechaHora(b.FechaActualizacionUtc)
+                        @if (b.ExpiraUtc is { } ex) { <text> · vence @FormatoProyectos.FechaHora(ex)</text> }
+                    </div>
+                </div>
+                <div class="d-flex gap-2 text-nowrap">
+                    @if (Ruta(b) is { } ruta) { <a class="btn btn-sm btn-outline-primary" href="@ruta">Continuar</a> }
+                    <button class="btn btn-sm btn-outline-danger" @onclick="() => Eliminar(b)">Descartar</button>
+                </div>
+            </div>
+        }
+        @if (datos.Items.Count == 0) { <div class="list-group-item text-muted">No tienes borradores guardados.</div> }
+    </div>
+    <Paginador Page="datos.Page" PageSize="datos.PageSize" Total="datos.Total" OnPage="IrAPagina" />
+}
+
+@code {
+    [Inject] private BorradoresClient Api { get; set; } = default!;
+
+    private const int DiasVigencia = 30;
+    private PagedResult<BorradorDto>? datos;
+    private readonly BorradorFiltro filtro = new() { PageSize = 20 };
+    private bool cargando = true;
+    private string? error, exito;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Cargar();
+        cargando = false;
+    }
+
+    private async Task Cargar()
+    {
+        var r = await Api.ListarAsync(filtro);
+        if (r.Ok) datos = r.Data; else error = r.Error;
+    }
+
+    private async Task IrAPagina(int p) { filtro.Page = p; await Cargar(); }
+
+    // Solo los permisos tienen formulario que retoma el borrador en esta versión; el resto se reabre desde su módulo.
+    private static string? Ruta(BorradorDto b) => b.Modulo == ModuloBorrador.Permisos ? $"permisos?borrador={b.BorradorId}" : null;
+
+    private async Task Eliminar(BorradorDto b)
+    {
+        error = exito = null;
+        var r = await Api.EliminarAsync(b.BorradorId);
+        if (!r.Ok) { error = r.Error; return; }
+        exito = "Borrador descartado.";
+        await Cargar();
+    }
+}

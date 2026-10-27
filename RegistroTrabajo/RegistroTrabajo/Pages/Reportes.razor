@@ -1,0 +1,279 @@
+@page "/reportes"
+@attribute [Authorize]
+@using System.Security.Claims
+
+<PageTitle>Reportes - Registro de Trabajo</PageTitle>
+
+@if (user is not null && !Puede(Permisos.ReportesConsultar))
+{
+    <div class="tarjeta p-4 text-center">
+        <h1 class="h5">Sin permiso</h1>
+        <p class="text-muted mb-0">Tu cuenta no tiene autorización para ver esta sección.</p>
+    </div>
+}
+else
+{
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h1 class="h3 mb-0">Reportes</h1>
+            <div class="small text-muted">Consulta dentro de tu alcance; la exportación @(Puede(Permisos.ReportesExportar) ? "está disponible para tu perfil" : "solo está disponible para Administración y Recursos Humanos")</div>
+        </div>
+        @if (Puede(Permisos.ReportesExportar) && reporte is not null)
+        {
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-success" disabled="@exportando" @onclick="() => Exportar(FormatoExportacion.Excel)">Exportar Excel</button>
+                <button class="btn btn-outline-danger" disabled="@exportando" @onclick="() => Exportar(FormatoExportacion.Pdf)">Exportar PDF</button>
+            </div>
+        }
+    </div>
+
+    <ul class="nav nav-tabs mb-3" role="tablist">
+        @foreach (var t in TipoReporte.Todos.Where(Visible))
+        {
+            <li class="nav-item" role="presentation">
+                <button class="nav-link @(tipo == t ? "active" : "")" role="tab" aria-selected="@(tipo == t ? "true" : "false")" @onclick="() => CambiarTipo(t)">@TipoReporte.Nombre(t)</button>
+            </li>
+        }
+    </ul>
+
+    <div class="tarjeta p-3 mb-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-6 col-md-3 col-lg-2">
+                <label class="form-label small mb-0" for="rPeriodo">Periodo</label>
+                <select id="rPeriodo" class="form-select form-select-sm" @bind="periodo">
+                    <option value="">Rango de fechas</option>
+                    <option value="mes">Mes</option>
+                    <option value="trimestre">Trimestre</option>
+                    <option value="anio">Año</option>
+                </select>
+            </div>
+            @if (string.IsNullOrEmpty(periodo))
+            {
+                <div class="col-6 col-md-3 col-lg-2"><label class="form-label small mb-0" for="rDesde">Desde</label><input id="rDesde" type="date" class="form-control form-control-sm" @bind="filtro.Desde" /></div>
+                <div class="col-6 col-md-3 col-lg-2"><label class="form-label small mb-0" for="rHasta">Hasta</label><input id="rHasta" type="date" class="form-control form-control-sm" @bind="filtro.Hasta" /></div>
+            }
+            else
+            {
+                <div class="col-6 col-md-3 col-lg-2"><label class="form-label small mb-0" for="rAnio">Año</label><input id="rAnio" type="number" min="2000" max="2100" class="form-control form-control-sm" @bind="filtro.Anio" /></div>
+                @if (periodo != "anio")
+                {
+                    <div class="col-6 col-md-3 col-lg-2">
+                        <label class="form-label small mb-0" for="rNum">@(periodo == "mes" ? "Mes" : "Trimestre")</label>
+                        <select id="rNum" class="form-select form-select-sm" @bind="filtro.Numero">
+                            @for (var i = 1; i <= (periodo == "mes" ? 12 : 4); i++) { <option value="@i">@i</option> }
+                        </select>
+                    </div>
+                }
+            }
+            @if (tipo is TipoReporte.Trabajadores or TipoReporte.Asistencia or TipoReporte.Permisos or TipoReporte.CargaTrabajo or TipoReporte.Movimientos)
+            {
+                <div class="col-6 col-md-3 col-lg-2">
+                    <label class="form-label small mb-0" for="rDep">Departamento</label>
+                    <select id="rDep" class="form-select form-select-sm" @bind="filtro.DepartamentoId">
+                        <option value="">Todos</option>
+                        @foreach (var d in departamentos) { <option value="@d.Id">@d.Nombre</option> }
+                    </select>
+                </div>
+            }
+            @if (tipo is TipoReporte.Trabajadores or TipoReporte.Asistencia)
+            {
+                <div class="col-6 col-md-3 col-lg-2">
+                    <label class="form-label small mb-0" for="rPuesto">Puesto</label>
+                    <select id="rPuesto" class="form-select form-select-sm" @bind="filtro.PuestoId">
+                        <option value="">Todos</option>
+                        @foreach (var p in puestos) { <option value="@p.Id">@p.Nombre</option> }
+                    </select>
+                </div>
+            }
+            @if (tipo == TipoReporte.Permisos)
+            {
+                <div class="col-6 col-md-3 col-lg-2">
+                    <label class="form-label small mb-0" for="rTipoP">Tipo de permiso</label>
+                    <select id="rTipoP" class="form-select form-select-sm" @bind="filtro.TipoPermisoId">
+                        <option value="">Todos</option>
+                        @foreach (var t in tiposPermiso) { <option value="@t.TipoPermisoId">@t.Nombre</option> }
+                    </select>
+                </div>
+            }
+            @if (OpcionesEstado().Count > 0)
+            {
+                <div class="col-6 col-md-3 col-lg-2">
+                    <label class="form-label small mb-0" for="rEstado">Estado</label>
+                    <select id="rEstado" class="form-select form-select-sm" @bind="filtro.Estado">
+                        <option value="">Todos</option>
+                        @foreach (var (valor, texto) in OpcionesEstado()) { <option value="@valor">@texto</option> }
+                    </select>
+                </div>
+            }
+            <div class="col-12 col-md-4 col-lg-3"><label class="form-label small mb-0" for="rBuscar">Buscar</label><input id="rBuscar" class="form-control form-control-sm" maxlength="100" @bind="filtro.Buscar" @onkeydown="Teclear" /></div>
+            @if (tipo == TipoReporte.Asistencia)
+            {
+                <div class="col-auto"><div class="form-check"><input id="rInc" type="checkbox" class="form-check-input" @bind="filtro.SoloIncompletos" /><label class="form-check-label small" for="rInc">Solo incompletos</label></div></div>
+            }
+            @if (tipo == TipoReporte.Tareas)
+            {
+                <div class="col-auto"><div class="form-check"><input id="rVenc" type="checkbox" class="form-check-input" @bind="filtro.SoloVencidas" /><label class="form-check-label small" for="rVenc">Solo vencidas</label></div></div>
+            }
+            <div class="col-auto d-flex gap-2">
+                <button class="btn btn-primary btn-sm" disabled="@cargando" @onclick="Aplicar">Aplicar filtros</button>
+                <button class="btn btn-outline-secondary btn-sm" disabled="@cargando" @onclick="LimpiarFiltros">Limpiar</button>
+            </div>
+        </div>
+    </div>
+
+    <Alerta Mensaje="@error" Tipo="danger" />
+    <Alerta Mensaje="@exito" Tipo="success" />
+
+    @if (cargando) { <Cargando /> }
+    else if (reporte is not null)
+    {
+        @if (reporte.Resumen.Count > 0)
+        {
+            <div class="d-flex flex-wrap gap-2 mb-2">
+                @foreach (var r in reporte.Resumen)
+                {
+                    <span class="badge text-bg-light border fs-6 fw-normal">@r.Etiqueta: <strong>@r.Valor</strong></span>
+                }
+            </div>
+        }
+        @if (!string.IsNullOrWhiteSpace(reporte.Nota)) { <div class="small text-muted fst-italic mb-2">@reporte.Nota</div> }
+
+        <div class="tarjeta p-3">
+            <div class="table-responsive">
+                <table class="table table-sm table-striped align-middle mb-0 reporte-tabla">
+                    <thead>
+                        <tr>
+                            @foreach (var c in reporte.Columnas)
+                            {
+                                @if (c.Ordenable)
+                                {
+                                    <th class="ordenable" scope="col" aria-sort="@(filtro.OrdenarPor == c.Clave ? (filtro.Descendente ? "descending" : "ascending") : "none")" @onclick="() => Ordenar(c.Clave)">
+                                        @c.Titulo @(filtro.OrdenarPor == c.Clave ? (filtro.Descendente ? "▼" : "▲") : "")
+                                    </th>
+                                }
+                                else { <th scope="col">@c.Titulo</th> }
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var fila in reporte.Filas)
+                        {
+                            <tr>
+                                @for (var i = 0; i < fila.Count; i++)
+                                {
+                                    <td class="@(reporte.Columnas[i].Tipo == "numero" ? "text-end" : "")">@fila[i]</td>
+                                }
+                            </tr>
+                        }
+                        @if (reporte.Filas.Count == 0) { <tr><td colspan="@reporte.Columnas.Count" class="text-center text-muted">Sin registros para los filtros indicados.</td></tr> }
+                    </tbody>
+                </table>
+            </div>
+            <Paginador Page="reporte.Page" PageSize="reporte.PageSize" Total="reporte.Total" OnPage="IrAPagina" />
+        </div>
+    }
+}
+
+@code {
+    [Inject] private ReportesClient Api { get; set; } = default!;
+    [Inject] private CatalogosClient Catalogos { get; set; } = default!;
+    [Inject] private TiposPermisoClient TiposApi { get; set; } = default!;
+    [Inject] private IJSRuntime Js { get; set; } = default!;
+    [CascadingParameter] private Task<AuthenticationState>? Sesion { get; set; }
+
+    private ClaimsPrincipal? user;
+    private string tipo = TipoReporte.Trabajadores;
+    private ReporteFiltro filtro = new() { PageSize = 20 };
+    private ReporteDto? reporte;
+    private List<CatalogoItemDto> departamentos = new(), puestos = new();
+    private List<TipoPermisoDto> tiposPermiso = new();
+    private bool cargando = true, exportando;
+    private string? error, exito;
+
+    // Con periodo, las fechas sueltas dejan de aplicar (la API usa uno u otro).
+    private string? periodo
+    {
+        get => filtro.Periodo;
+        set
+        {
+            filtro.Periodo = string.IsNullOrEmpty(value) ? null : value;
+            if (filtro.Periodo is not null) { filtro.Desde = filtro.Hasta = null; filtro.Anio ??= DateTime.Today.Year; filtro.Numero ??= filtro.Periodo == "mes" ? DateTime.Today.Month : (DateTime.Today.Month - 1) / 3 + 1; }
+            else { filtro.Anio = filtro.Numero = null; }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = Sesion is null ? null : (await Sesion).User;
+        if (!Puede(Permisos.ReportesConsultar)) { cargando = false; return; }
+        tipo = TipoReporte.Todos.FirstOrDefault(Visible) ?? TipoReporte.Trabajadores;
+        // Los catálogos solo alimentan los filtros: si el usuario no puede consultarlos, el filtro queda vacío.
+        var d = await Catalogos.DepartamentosAsync(true); if (d.Ok) departamentos = d.Data ?? new();
+        var p = await Catalogos.PuestosAsync(true); if (p.Ok) puestos = p.Data ?? new();
+        var t = await TiposApi.ListarAsync(true); if (t.Ok) tiposPermiso = t.Data ?? new();
+        await Cargar();
+    }
+
+    private bool Puede(string permiso) => user?.TienePermiso(permiso) == true;
+
+    // La API es quien decide el alcance; aquí solo se ocultan pestañas que seguro darían 403.
+    private bool Visible(string t) => t switch
+    {
+        TipoReporte.Trabajadores or TipoReporte.Movimientos => Puede(Permisos.TrabajadoresConsultar),
+        TipoReporte.Permisos => Puede(Permisos.PermisosSolicitar) || Puede(Permisos.PermisosAprobar) || Puede(Permisos.PermisosConsultarTodos),
+        TipoReporte.Asistencia => Puede(Permisos.AsistenciaConsultarPropia) || Puede(Permisos.AsistenciaConsultar) || Puede(Permisos.AsistenciaConsultarTodos),
+        _ => Puede(Permisos.ProyectosConsultar)
+    };
+
+    private List<(byte Valor, string Texto)> OpcionesEstado() => tipo switch
+    {
+        TipoReporte.Trabajadores => new() { (EstadoLaboral.Activo, "Activo"), (EstadoLaboral.Inactivo, "Inactivo"), (EstadoLaboral.Baja, "Baja") },
+        TipoReporte.Permisos => new() { (EstadoSolicitudPermiso.Pendiente, "Pendiente"), (EstadoSolicitudPermiso.Aprobada, "Aprobada"), (EstadoSolicitudPermiso.Rechazada, "Rechazada"), (EstadoSolicitudPermiso.Cancelada, "Cancelada") },
+        TipoReporte.Asistencia => new() { (EstadoAsistencia.Abierta, "Incompleta"), (EstadoAsistencia.Completa, "Completa"), (EstadoAsistencia.Anulada, "Anulada") },
+        TipoReporte.Tareas => FormatoProyectos.EstadosTarea.Select(e => (e, FormatoProyectos.EstadoDeTarea(e))).ToList(),
+        _ => new()
+    };
+
+    private async Task CambiarTipo(string t)
+    {
+        tipo = t;
+        filtro = new ReporteFiltro { PageSize = 20 };
+        reporte = null;
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        cargando = true; error = null;
+        var r = await Api.ConsultarAsync(tipo, filtro);
+        if (r.Ok) reporte = r.Data; else { reporte = null; error = r.Error; }
+        cargando = false;
+    }
+
+    private async Task Aplicar() { filtro.Page = 1; await Cargar(); }
+    private async Task LimpiarFiltros() { filtro = new ReporteFiltro { PageSize = 20 }; await Cargar(); }
+    private async Task IrAPagina(int p) { filtro.Page = p; await Cargar(); }
+    private async Task Teclear(KeyboardEventArgs e) { if (e.Key == "Enter") await Aplicar(); }
+
+    private async Task Ordenar(string clave)
+    {
+        filtro.Descendente = filtro.OrdenarPor == clave && !filtro.Descendente;
+        filtro.OrdenarPor = clave;
+        await Aplicar();
+    }
+
+    private async Task Exportar(string formato)
+    {
+        error = exito = null; exportando = true;
+        try
+        {
+            var r = await Api.ExportarAsync(tipo, formato, filtro);
+            if (!r.Ok || r.Data is null) { error = r.Error ?? "No se pudo generar el archivo."; return; }
+            var tipoContenido = formato == FormatoExportacion.Excel ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : "application/pdf";
+            var nombre = $"reporte-{tipo}-{DateTime.Now:yyyyMMdd-HHmm}.{formato}";
+            var ok = await Js.InvokeAsync<bool>("rtDescarga.guardar", nombre, tipoContenido, r.Data);
+            if (ok) exito = $"Archivo {nombre} generado con los filtros actuales."; else error = "El navegador no pudo guardar el archivo.";
+        }
+        finally { exportando = false; }
+    }
+}

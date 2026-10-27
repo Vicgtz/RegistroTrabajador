@@ -32,15 +32,6 @@ public interface IComentariosTareaService
     Task<IReadOnlyList<UsuarioMencionableDto>> MencionablesAsync(Guid tareaId, CancellationToken ct);
 }
 
-public interface INotificacionesService
-{
-    Task<PagedResult<NotificacionDto>> ListarAsync(NotificacionFiltro filtro, CancellationToken ct);
-    Task<int> ContarNoLeidasAsync(CancellationToken ct);
-    Task MarcarLeidaAsync(Guid notificacionId, CancellationToken ct);
-    Task MarcarTodasLeidasAsync(CancellationToken ct);
-    Task ArchivarAsync(Guid notificacionId, CancellationToken ct);
-}
-
 public class TareasService : ITareasService
 {
     private readonly RegistroTrabajoDbContext _db;
@@ -82,6 +73,7 @@ public class TareasService : ITareasService
         var a = await ProyectoHelper.AccesoAsync(_db, _current, _permisos, _clock, ct);
         await ProyectoHelper.CargarVisibleAsync(_db, a, proyectoId, false, ct);
         var hoy = await ProyectoHelper.HoyAsync(_db, a.EmpresaId, _clock, ct);
+        var ultimoHabil = (await CalendarioHabil.CargarAsync(_db, a.EmpresaId, ct)).UltimoHabilAnterior(hoy);
 
         var q = _db.Tareas.AsNoTracking().Where(t => t.EmpresaId == a.EmpresaId && t.ProyectoId == proyectoId);
         if (!string.IsNullOrWhiteSpace(f.Buscar))
@@ -93,7 +85,7 @@ public class TareasService : ITareasService
         if (!f.IncluirCerradas) q = q.Where(t => t.Estado != EstadoTarea.Completada && t.Estado != EstadoTarea.Cancelada);
         if (f.TrabajadorId is { } w)
             q = q.Where(t => _db.AsignacionesTarea.Any(x => x.EmpresaId == t.EmpresaId && x.TareaId == t.TareaId && x.TrabajadorId == w && x.FechaRetiroUtc == null));
-        if (f.SoloVencidas) q = q.Where(t => t.Estado != EstadoTarea.Completada && t.Estado != EstadoTarea.Cancelada && t.FechaVencimiento != null && t.FechaVencimiento < hoy);
+        if (f.SoloVencidas) q = q.Where(t => t.Estado != EstadoTarea.Completada && t.Estado != EstadoTarea.Cancelada && t.FechaVencimiento != null && t.FechaVencimiento <= ultimoHabil);
         return await PaginarAsync(q, f, a.EmpresaId, hoy, ct);
     }
 
@@ -102,6 +94,7 @@ public class TareasService : ITareasService
         await _permisos.AsegurarPermisoAsync(Permisos.ProyectosConsultar, ct);
         var a = await ProyectoHelper.AccesoAsync(_db, _current, _permisos, _clock, ct);
         var hoy = await ProyectoHelper.HoyAsync(_db, a.EmpresaId, _clock, ct);
+        var ultimoHabil = (await CalendarioHabil.CargarAsync(_db, a.EmpresaId, ct)).UltimoHabilAnterior(hoy);
         if (a.MiTrabajadorId is not { } mi)
             return new PagedResult<TareaResumenDto> { Items = new List<TareaResumenDto>(), Page = 1, PageSize = Math.Clamp(f.PageSize, 1, 200), Total = 0 };
 
@@ -109,7 +102,7 @@ public class TareasService : ITareasService
             && _db.AsignacionesTarea.Any(x => x.EmpresaId == t.EmpresaId && x.TareaId == t.TareaId && x.TrabajadorId == mi && x.FechaRetiroUtc == null));
         if (f.Estado is { } e) q = q.Where(t => t.Estado == e);
         if (!f.IncluirCerradas && f.Estado is null) q = q.Where(t => t.Estado != EstadoTarea.Completada && t.Estado != EstadoTarea.Cancelada);
-        if (f.SoloVencidas) q = q.Where(t => t.Estado != EstadoTarea.Completada && t.Estado != EstadoTarea.Cancelada && t.FechaVencimiento != null && t.FechaVencimiento < hoy);
+        if (f.SoloVencidas) q = q.Where(t => t.Estado != EstadoTarea.Completada && t.Estado != EstadoTarea.Cancelada && t.FechaVencimiento != null && t.FechaVencimiento <= ultimoHabil);
         return await PaginarAsync(q, f, a.EmpresaId, hoy, ct);
     }
 
@@ -165,6 +158,7 @@ public class TareasService : ITareasService
             EmpresaId = a.EmpresaId, TareaId = t.TareaId, PorcentajeAnterior = null, PorcentajeNuevo = 0, EstadoAnterior = null, EstadoNuevo = EstadoTarea.Pendiente,
             ActualizadoPorUsuarioId = a.UsuarioId, FechaUtc = now, Comentario = "Creación de la tarea"
         });
+        await EventosAsignacionAsync(a.EmpresaId, t.TareaId, a.UsuarioId, TipoEventoTarea.AsignacionAgregada, asignados, now, ct);
         _auditoria.Registrar("Tareas", nameof(Tarea), t.TareaId.ToString(), "Crear", null, Resumen(t));
         await NotificarAsignadosAsync(a, t, p, asignados, now, ct);
         await _db.SaveSafeAsync(ct);
@@ -180,10 +174,23 @@ public class TareasService : ITareasService
         ProyectoHelper.AplicarRowVersion(_db, c.T, c.T.RowVersion, r.RowVersion, "la tarea");
 
         var antes = Resumen(c.T);
+        var fechaAnterior = c.T.FechaVencimiento;
+        var prioridadAnterior = c.T.Prioridad;
         c.T.Titulo = Helpers.Limpiar(r.Titulo) ?? throw ServiceException.Validation("El título es obligatorio.");
         c.T.Descripcion = Helpers.Limpiar(r.Descripcion);
         c.T.FechaInicio = r.FechaInicio; c.T.FechaVencimiento = r.FechaVencimiento; c.T.Prioridad = r.Prioridad;
-        c.T.FechaActualizacionUtc = Ahora;
+        var now = Ahora;
+        c.T.FechaActualizacionUtc = now;
+        if (fechaAnterior != r.FechaVencimiento)
+        {
+            SeguimientoHelper.Evento(_db, c.A.EmpresaId, c.T.TareaId, TipoEventoTarea.FechaLimiteCambiada, c.A.UsuarioId, now,
+                SeguimientoHelper.Fecha(fechaAnterior), SeguimientoHelper.Fecha(r.FechaVencimiento));
+            await NotificarAAsignadosAsync(c, TipoNotificacionTrabajo.TareaFechaLimite, "Cambió la fecha límite",
+                $"Se modificó la fecha límite de la tarea «{c.T.Titulo}».", now, ct);
+        }
+        if (prioridadAnterior != r.Prioridad)
+            SeguimientoHelper.Evento(_db, c.A.EmpresaId, c.T.TareaId, TipoEventoTarea.PrioridadCambiada, c.A.UsuarioId, now,
+                prioridadAnterior.ToString(), r.Prioridad.ToString());
         _auditoria.Registrar("Tareas", nameof(Tarea), c.T.TareaId.ToString(), "Actualizar", antes, Resumen(c.T));
         await _db.SaveSafeAsync(ct);
         return await DetalleAsync(c, ct);
@@ -207,6 +214,7 @@ public class TareasService : ITareasService
         foreach (var w in nuevos)
             _db.AsignacionesTarea.Add(new AsignacionTarea { AsignacionTareaId = Guid.NewGuid(), EmpresaId = c.A.EmpresaId, TareaId = tareaId, TrabajadorId = w, FechaAsignacionUtc = now, AsignadoPorUsuarioId = c.A.UsuarioId });
         c.T.FechaActualizacionUtc = now;
+        await EventosAsignacionAsync(c.A.EmpresaId, tareaId, c.A.UsuarioId, TipoEventoTarea.AsignacionAgregada, nuevos, now, ct);
         _auditoria.Registrar("Tareas", nameof(Tarea), tareaId.ToString(), "Asignar", null, new { Trabajadores = nuevos });
         await NotificarAsignadosAsync(c.A, c.T, c.P, nuevos, now, ct);
         await _db.SaveSafeAsync(ct);
@@ -224,6 +232,10 @@ public class TareasService : ITareasService
         var now = Ahora;
         asig.FechaRetiroUtc = now < asig.FechaAsignacionUtc ? asig.FechaAsignacionUtc : now;
         c.T.FechaActualizacionUtc = now;
+        await EventosAsignacionAsync(c.A.EmpresaId, tareaId, c.A.UsuarioId, TipoEventoTarea.AsignacionRetirada, new[] { trabajadorId }, now, ct);
+        var usuarioRetirado = await ProyectoHelper.UsuariosDeTrabajadoresAsync(_db, c.A.EmpresaId, new[] { trabajadorId }, ct);
+        await NotificacionesHelper.NotificarAsync(_db, c.A.EmpresaId, usuarioRetirado.Values.Where(u => u != c.A.UsuarioId), TipoNotificacionTrabajo.TareaRetirada,
+            "Tarea retirada", $"Ya no tiene asignada la tarea «{c.T.Titulo}» del proyecto «{c.P.Nombre}».", nameof(Tarea), tareaId.ToString(), now, ct);
         _auditoria.Registrar("Tareas", nameof(Tarea), tareaId.ToString(), "RetirarAsignado", new { TrabajadorId = trabajadorId }, null);
         await _db.SaveSafeAsync(ct);
         return await DetalleAsync(c, ct);
@@ -245,16 +257,15 @@ public class TareasService : ITareasService
         byte estado;
         if (r.Estado is { } e)
         {
-            var permitidos = revisa
-                ? new[] { EstadoTarea.Pendiente, EstadoTarea.EnProceso, EstadoTarea.EnRevision, EstadoTarea.Completada }
-                : new[] { EstadoTarea.Pendiente, EstadoTarea.EnProceso, EstadoTarea.EnRevision };
-            if (!permitidos.Contains(e)) throw ServiceException.Validation("Ese estado no se puede asignar desde la actualización de avance.");
+            if (!TransicionesTarea.AvancePermitido(c.T.Estado, e, revisa)) throw ServiceException.Validation("Ese estado no se puede asignar desde la actualización de avance.");
             estado = e;
         }
         else
         {
             estado = pct == 0 ? EstadoTarea.Pendiente : pct < 100 ? EstadoTarea.EnProceso : revisa ? EstadoTarea.Completada : EstadoTarea.EnRevision;
         }
+        // La API valida la transición, venga o no el estado en la solicitud.
+        if (!TransicionesTarea.AvancePermitido(c.T.Estado, estado, revisa)) throw ServiceException.Conflict("La tarea no puede pasar a ese estado desde el actual.");
         if (estado is EstadoTarea.EnRevision or EstadoTarea.Completada && pct != 100)
             throw ServiceException.Validation("Una tarea en revisión o completada debe tener 100 % de avance.");
         if (estado == EstadoTarea.EnProceso && pct == 100)
@@ -264,10 +275,13 @@ public class TareasService : ITareasService
         if (pct == c.T.PorcentajeAvance && estado == c.T.Estado) throw ServiceException.Validation("No hay cambios que guardar.");
 
         var now = Ahora;
+        var estadoAnterior = c.T.Estado;
         RegistrarCambio(c, pct, estado, Helpers.Limpiar(r.Comentario), now);
         _auditoria.Registrar("Tareas", nameof(Tarea), tareaId.ToString(), "ActualizarAvance", new { Estado = c.T.Estado, c.T.PorcentajeAvance }, new { Estado = estado, PorcentajeAvance = pct });
         await ApplyAsync(c, pct, estado, now);
 
+        if (estado == EstadoTarea.EnRevision && estadoAnterior != EstadoTarea.EnRevision)
+            SeguimientoHelper.Evento(_db, c.A.EmpresaId, tareaId, TipoEventoTarea.EnviadaARevision, c.A.UsuarioId, now, detalle: Helpers.Limpiar(r.Comentario));
         if (estado == EstadoTarea.EnRevision)
         {
             var destino = await ProyectoHelper.UsuariosDeTrabajadoresAsync(_db, c.A.EmpresaId, new[] { c.P.ResponsableTrabajadorId }, ct);
@@ -292,6 +306,13 @@ public class TareasService : ITareasService
         var now = Ahora;
         var estado = r.Aprobar ? EstadoTarea.Completada : EstadoTarea.Reabierta;
         RegistrarCambio(c, c.T.PorcentajeAvance, estado, comentario ?? "Revisión aprobada", now);
+        _db.RevisionesTarea.Add(new RevisionTarea
+        {
+            EmpresaId = c.A.EmpresaId, TareaId = tareaId, RevisorUsuarioId = c.A.UsuarioId, Resultado = r.Aprobar ? ResultadoRevision.Aprobada : ResultadoRevision.Devuelta,
+            Observacion = comentario, PorcentajeAlRevisar = c.T.PorcentajeAvance, FechaUtc = now
+        });
+        SeguimientoHelper.Evento(_db, c.A.EmpresaId, tareaId, r.Aprobar ? TipoEventoTarea.RevisionAprobada : TipoEventoTarea.RevisionDevuelta, c.A.UsuarioId, now,
+            EstadoTexto(c.T.Estado), EstadoTexto(estado), comentario);
         _auditoria.Registrar("Tareas", nameof(Tarea), tareaId.ToString(), r.Aprobar ? "AprobarRevision" : "DevolverRevision", new { Estado = c.T.Estado }, new { Estado = estado });
         await ApplyAsync(c, c.T.PorcentajeAvance, estado, now);
         await NotificarAAsignadosAsync(c, TipoNotificacionTrabajo.TareaRevisada, "Tarea revisada",
@@ -311,6 +332,7 @@ public class TareasService : ITareasService
 
         var now = Ahora;
         RegistrarCambio(c, c.T.PorcentajeAvance, EstadoTarea.Reabierta, r.Motivo.Trim(), now);
+        SeguimientoHelper.Evento(_db, c.A.EmpresaId, tareaId, TipoEventoTarea.Reabierta, c.A.UsuarioId, now, EstadoTexto(c.T.Estado), EstadoTexto(EstadoTarea.Reabierta), r.Motivo.Trim());
         _auditoria.Registrar("Tareas", nameof(Tarea), tareaId.ToString(), "Reabrir", new { Estado = c.T.Estado }, new { Estado = EstadoTarea.Reabierta });
         await ApplyAsync(c, c.T.PorcentajeAvance, EstadoTarea.Reabierta, now);
         await NotificarAAsignadosAsync(c, TipoNotificacionTrabajo.TareaRevisada, "Tarea reabierta", $"La tarea «{c.T.Titulo}» fue reabierta.", now, ct);
@@ -330,6 +352,7 @@ public class TareasService : ITareasService
 
         var now = Ahora;
         RegistrarCambio(c, c.T.PorcentajeAvance, EstadoTarea.Cancelada, r.Motivo.Trim(), now);
+        SeguimientoHelper.Evento(_db, c.A.EmpresaId, tareaId, TipoEventoTarea.Cancelada, c.A.UsuarioId, now, EstadoTexto(c.T.Estado), EstadoTexto(EstadoTarea.Cancelada), r.Motivo.Trim());
         _auditoria.Registrar("Tareas", nameof(Tarea), tareaId.ToString(), "Cancelar", new { Estado = c.T.Estado }, new { Estado = EstadoTarea.Cancelada });
         await ApplyAsync(c, c.T.PorcentajeAvance, EstadoTarea.Cancelada, now);
         await NotificarAAsignadosAsync(c, TipoNotificacionTrabajo.TareaRevisada, "Tarea cancelada", $"La tarea «{c.T.Titulo}» fue cancelada.", now, ct);
@@ -387,24 +410,28 @@ public class TareasService : ITareasService
         await NotificacionesHelper.NotificarAsync(_db, c.A.EmpresaId, usuarios.Values.Where(u => u != c.A.UsuarioId), tipo, titulo, mensaje, nameof(Tarea), c.T.TareaId.ToString(), now, ct);
     }
 
+    private static string EstadoTexto(byte e) => e switch
+    {
+        EstadoTarea.Pendiente => "Pendiente", EstadoTarea.EnProceso => "En proceso", EstadoTarea.EnRevision => "En revisión",
+        EstadoTarea.Completada => "Completada", EstadoTarea.Reabierta => "Reabierta", EstadoTarea.Cancelada => "Cancelada", _ => e.ToString()
+    };
+
+    private async Task EventosAsignacionAsync(Guid empresaId, Guid tareaId, Guid usuarioId, string tipo, IReadOnlyCollection<Guid> trabajadores, DateTime now, CancellationToken ct)
+    {
+        if (trabajadores.Count == 0) return;
+        var nombres = await ProyectoHelper.NombresTrabajadoresAsync(_db, empresaId, trabajadores, ct);
+        foreach (var w in trabajadores)
+        {
+            var nombre = nombres.GetValueOrDefault(w, "—");
+            SeguimientoHelper.Evento(_db, empresaId, tareaId, tipo, usuarioId, now,
+                anterior: tipo == TipoEventoTarea.AsignacionRetirada ? nombre : null, nuevo: tipo == TipoEventoTarea.AsignacionAgregada ? nombre : null);
+        }
+    }
+
     private static object Resumen(Tarea t) => new { t.Titulo, t.FechaInicio, t.FechaVencimiento, t.Prioridad, t.Estado, t.PorcentajeAvance };
 
-    private async Task<List<TareaResumenDto>> ResumenesAsync(Guid empresaId, IReadOnlyList<Tarea> tareas, DateOnly hoy, CancellationToken ct)
-    {
-        var ids = tareas.Select(t => t.TareaId).ToList();
-        var proyectoIds = tareas.Select(t => t.ProyectoId).Distinct().ToList();
-        var proyectos = await _db.Proyectos.AsNoTracking().Where(p => p.EmpresaId == empresaId && proyectoIds.Contains(p.ProyectoId)).ToDictionaryAsync(p => p.ProyectoId, p => p.Nombre, ct);
-        var asig = await _db.AsignacionesTarea.AsNoTracking().Where(x => x.EmpresaId == empresaId && ids.Contains(x.TareaId) && x.FechaRetiroUtc == null)
-            .Select(x => new { x.TareaId, x.TrabajadorId }).ToListAsync(ct);
-        var nombres = await ProyectoHelper.NombresTrabajadoresAsync(_db, empresaId, asig.Select(x => x.TrabajadorId), ct);
-        return tareas.Select(t => new TareaResumenDto
-        {
-            TareaId = t.TareaId, ProyectoId = t.ProyectoId, Proyecto = proyectos.GetValueOrDefault(t.ProyectoId, "—"), Titulo = t.Titulo, Estado = t.Estado,
-            PorcentajeAvance = t.PorcentajeAvance, Prioridad = t.Prioridad, FechaInicio = t.FechaInicio, FechaVencimiento = t.FechaVencimiento,
-            Vencida = !EstadoTarea.EsCerrada(t.Estado) && t.FechaVencimiento is { } f && f < hoy,
-            Asignados = asig.Where(x => x.TareaId == t.TareaId).Select(x => nombres.GetValueOrDefault(x.TrabajadorId, "—")).OrderBy(n => n).ToList()
-        }).ToList();
-    }
+    private async Task<List<TareaResumenDto>> ResumenesAsync(Guid empresaId, IReadOnlyList<Tarea> tareas, DateOnly hoy, CancellationToken ct) =>
+        await TareaHelper.ResumenesAsync(_db, empresaId, tareas, hoy, await CalendarioHabil.CargarAsync(_db, empresaId, ct), ct);
 
     private async Task<TareaDetalleDto> DetalleAsync(Ctx c, CancellationToken ct)
     {
@@ -419,6 +446,11 @@ public class TareasService : ITareasService
         var asignado = c.A.MiTrabajadorId is { } mi && asig.Any(x => x.TrabajadorId == mi);
         var administra = c.A.Administra(c.P.ResponsableTrabajadorId);
         var abierta = !c.ProyectoCerrado;
+        var puedeEditar = abierta && administra && !EstadoTarea.EsCerrada(c.T.Estado) && await _permisos.TienePermisoAsync(Permisos.TareasGestionar, ct);
+        var puedeAvance = abierta && (asignado || administra) && !EstadoTarea.EsCerrada(c.T.Estado) && await _permisos.TienePermisoAsync(Permisos.TareasActualizarAvance, ct);
+        var puedeRevisar = abierta && administra && await _permisos.TienePermisoAsync(Permisos.TareasRevisar, ct);
+        // Cancelar exige gestionar (no solo editar): una tarea en revisión también se cancela.
+        var puedeCancelar = abierta && administra && await _permisos.TienePermisoAsync(Permisos.TareasGestionar, ct);
 
         return new TareaDetalleDto
         {
@@ -427,10 +459,9 @@ public class TareasService : ITareasService
             Descripcion = c.T.Descripcion, CreadaPor = creador.GetValueOrDefault(c.T.CreadaPorUsuarioId, "—"), FechaCreacionUtc = c.T.FechaCreacionUtc,
             FechaActualizacionUtc = c.T.FechaActualizacionUtc, FechaFinalizacionUtc = c.T.FechaFinalizacionUtc, RowVersion = ProyectoHelper.Version(c.T.RowVersion),
             Equipo = asig.Select(x => new AsignadoTareaDto { TrabajadorId = x.TrabajadorId, Nombre = nombres.GetValueOrDefault(x.TrabajadorId, "—"), FechaAsignacionUtc = x.FechaAsignacionUtc }).ToList(),
-            PuedeEditar = abierta && administra && !EstadoTarea.EsCerrada(c.T.Estado) && await _permisos.TienePermisoAsync(Permisos.TareasGestionar, ct),
-            PuedeActualizarAvance = abierta && (asignado || administra) && !EstadoTarea.EsCerrada(c.T.Estado) && await _permisos.TienePermisoAsync(Permisos.TareasActualizarAvance, ct),
-            PuedeRevisar = abierta && administra && await _permisos.TienePermisoAsync(Permisos.TareasRevisar, ct),
-            PuedeComentar = (asignado || administra) && await _permisos.TienePermisoAsync(Permisos.TareasComentar, ct)
+            PuedeEditar = puedeEditar, PuedeActualizarAvance = puedeAvance, PuedeRevisar = puedeRevisar,
+            PuedeComentar = (asignado || administra) && await _permisos.TienePermisoAsync(Permisos.TareasComentar, ct),
+            TransicionesPermitidas = TransicionesTarea.Destinos(c.T.Estado, puedeAvance, puedeRevisar, puedeCancelar)
         };
     }
 }
@@ -510,15 +541,16 @@ public class ComentariosTareaService : IComentariosTareaService
             _db.MencionesComentario.Add(new MencionComentario { EmpresaId = a.EmpresaId, ComentarioId = c.ComentarioId, UsuarioMencionadoId = u, FechaCreacionUtc = now });
 
         await NotificacionesHelper.NotificarAsync(_db, a.EmpresaId, menciones, TipoNotificacionTrabajo.TareaMencion, "Lo mencionaron en una tarea",
-            $"Lo mencionaron en un comentario de la tarea «{t.Titulo}».", nameof(Tarea), tareaId.ToString(), now, ct);
+            $"Lo mencionaron en un comentario de la tarea «{t.Titulo}».", nameof(Tarea), tareaId.ToString(), now, ct, $"c:{c.ComentarioId}");
 
         // Los asignados se enteran de los comentarios nuevos (salvo quien comenta y quienes ya recibieron la mención).
         var asignados = await _db.AsignacionesTarea.AsNoTracking().Where(x => x.EmpresaId == a.EmpresaId && x.TareaId == tareaId && x.FechaRetiroUtc == null)
             .Select(x => x.TrabajadorId).ToListAsync(ct);
         var usuariosAsignados = await ProyectoHelper.UsuariosDeTrabajadoresAsync(_db, a.EmpresaId, asignados, ct);
         await NotificacionesHelper.NotificarAsync(_db, a.EmpresaId, usuariosAsignados.Values.Where(u => u != a.UsuarioId && !menciones.Contains(u)),
-            TipoNotificacionTrabajo.TareaComentario, "Nuevo comentario en una tarea", $"Hay un comentario nuevo en la tarea «{t.Titulo}».", nameof(Tarea), tareaId.ToString(), now, ct);
+            TipoNotificacionTrabajo.TareaComentario, "Nuevo comentario en una tarea", $"Hay un comentario nuevo en la tarea «{t.Titulo}».", nameof(Tarea), tareaId.ToString(), now, ct, $"c:{c.ComentarioId}");
 
+        SeguimientoHelper.Evento(_db, a.EmpresaId, tareaId, TipoEventoTarea.Comentario, a.UsuarioId, now, detalle: ProyectoHelper.Recortar(contenido, 140));
         _auditoria.Registrar("Tareas", nameof(Comentario), c.ComentarioId.ToString(), "Comentar", null, new { TareaId = tareaId, Menciones = menciones.Count });
         await _db.SaveSafeAsync(ct);
 
@@ -541,76 +573,3 @@ public class ComentariosTareaService : IComentariosTareaService
     }
 }
 
-public class NotificacionesService : INotificacionesService
-{
-    private readonly RegistroTrabajoDbContext _db;
-    private readonly ICurrentUser _current;
-    private readonly IPermisoService _permisos;
-    private readonly TimeProvider _clock;
-
-    public NotificacionesService(RegistroTrabajoDbContext db, ICurrentUser current, IPermisoService permisos, TimeProvider clock)
-    {
-        _db = db; _current = current; _permisos = permisos; _clock = clock;
-    }
-
-    // Cada usuario solo ve y modifica su propia bandeja; una notificación ajena responde 404.
-    private IQueryable<Notificacion> Propias(bool tracking)
-    {
-        var empresaId = _current.RequireEmpresaId();
-        var usuarioId = _current.RequireUsuarioId();
-        var q = tracking ? _db.Notificaciones : _db.Notificaciones.AsNoTracking();
-        return q.Where(n => n.EmpresaId == empresaId && n.UsuarioDestinoId == usuarioId);
-    }
-
-    public async Task<PagedResult<NotificacionDto>> ListarAsync(NotificacionFiltro f, CancellationToken ct)
-    {
-        await _permisos.AsegurarPermisoAsync(Permisos.NotificacionesConsultar, ct);
-        var q = Propias(false);
-        if (!f.IncluirArchivadas) q = q.Where(n => n.ArchivadaUtc == null);
-        if (f.SoloNoLeidas) q = q.Where(n => n.LeidaUtc == null);
-        var pagina = await q.OrderByDescending(n => n.CreadaUtc).ThenBy(n => n.NotificacionId).ToPagedAsync(f, ct);
-        return new PagedResult<NotificacionDto>
-        {
-            Page = pagina.Page, PageSize = pagina.PageSize, Total = pagina.Total,
-            Items = pagina.Items.Select(n => new NotificacionDto
-            {
-                NotificacionId = n.NotificacionId, Tipo = n.Tipo, Titulo = n.Titulo, Mensaje = n.Mensaje, EntidadTipo = n.EntidadTipo,
-                EntidadId = n.EntidadId, CreadaUtc = n.CreadaUtc, Leida = n.LeidaUtc != null
-            }).ToList()
-        };
-    }
-
-    public async Task<int> ContarNoLeidasAsync(CancellationToken ct)
-    {
-        await _permisos.AsegurarPermisoAsync(Permisos.NotificacionesConsultar, ct);
-        return await Propias(false).CountAsync(n => n.LeidaUtc == null && n.ArchivadaUtc == null, ct);
-    }
-
-    public async Task MarcarLeidaAsync(Guid notificacionId, CancellationToken ct)
-    {
-        await _permisos.AsegurarPermisoAsync(Permisos.NotificacionesConsultar, ct);
-        var n = await Propias(true).FirstOrDefaultAsync(x => x.NotificacionId == notificacionId, ct) ?? throw ServiceException.NotFound("Notificación no encontrada.");
-        if (n.LeidaUtc is not null) return;
-        n.LeidaUtc = _clock.GetUtcNow().UtcDateTime;
-        await _db.SaveSafeAsync(ct);
-    }
-
-    public async Task MarcarTodasLeidasAsync(CancellationToken ct)
-    {
-        await _permisos.AsegurarPermisoAsync(Permisos.NotificacionesConsultar, ct);
-        var ahora = _clock.GetUtcNow().UtcDateTime;
-        var pendientes = await Propias(true).Where(n => n.LeidaUtc == null && n.ArchivadaUtc == null).ToListAsync(ct);
-        foreach (var n in pendientes) n.LeidaUtc = ahora;
-        await _db.SaveSafeAsync(ct);
-    }
-
-    public async Task ArchivarAsync(Guid notificacionId, CancellationToken ct)
-    {
-        await _permisos.AsegurarPermisoAsync(Permisos.NotificacionesConsultar, ct);
-        var n = await Propias(true).FirstOrDefaultAsync(x => x.NotificacionId == notificacionId, ct) ?? throw ServiceException.NotFound("Notificación no encontrada.");
-        var ahora = _clock.GetUtcNow().UtcDateTime;
-        n.ArchivadaUtc ??= ahora;
-        n.LeidaUtc ??= ahora;
-        await _db.SaveSafeAsync(ct);
-    }
-}

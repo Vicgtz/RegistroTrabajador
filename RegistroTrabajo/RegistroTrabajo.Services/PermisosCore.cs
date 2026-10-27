@@ -292,8 +292,8 @@ internal static class PermisosHelper
     /// Se persisten con el SaveChanges de la operación.
     /// </summary>
     public static Task NotificarAsync(RegistroTrabajoDbContext db, Guid empresaId, IEnumerable<Guid> destinatarios, string tipo,
-        string titulo, string mensaje, Guid solicitudId, DateTime now, CancellationToken ct) =>
-        NotificacionesHelper.NotificarAsync(db, empresaId, destinatarios, tipo, titulo, mensaje, nameof(SolicitudPermiso), solicitudId.ToString(), now, ct);
+        string titulo, string mensaje, Guid solicitudId, DateTime now, CancellationToken ct, string? clave = null) =>
+        NotificacionesHelper.NotificarAsync(db, empresaId, destinatarios, tipo, titulo, mensaje, nameof(SolicitudPermiso), solicitudId.ToString(), now, ct, clave);
 
     /// <summary>Cuentas de los supervisores vigentes del trabajador.</summary>
     public static async Task<List<Guid>> UsuariosSupervisoresAsync(RegistroTrabajoDbContext db, Guid empresaId, Guid trabajadorId, TimeProvider clock, CancellationToken ct)

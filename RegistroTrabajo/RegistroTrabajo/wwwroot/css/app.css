@@ -198,3 +198,23 @@ code {
 .campana { position: relative; display: inline-flex; align-items: center; color: var(--rt-texto-suave); text-decoration: none; padding: .25rem; }
 .campana:hover { color: var(--rt-azul); }
 .campana-contador { position: absolute; top: -.2rem; right: -.35rem; min-width: 1.1rem; height: 1.1rem; padding: 0 .25rem; border-radius: 1rem; background: #c0392b; color: #fff; font-size: .68rem; font-weight: 600; line-height: 1.1rem; text-align: center; }
+
+/* Bloque 9: panel de la campana y centro de notificaciones */
+.campana-wrap { position: relative; display: inline-flex; }
+button.campana { background: none; border: 0; cursor: pointer; }
+.campana-panel { position: absolute; right: 0; top: 100%; z-index: 1050; width: min(24rem, 92vw); background: var(--bs-body-bg, #fff); border: 1px solid var(--bs-border-color, #dee2e6); border-radius: .5rem; box-shadow: 0 8px 24px rgba(15, 47, 74, .18); }
+.campana-lista { max-height: 22rem; overflow-y: auto; }
+.campana-item { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--bs-border-color, #dee2e6); padding: .6rem .9rem; background: none; }
+.campana-item:hover { filter: brightness(.97); }
+.notificacion-prioritaria { border-left: 4px solid #c0392b; }
+.notificacion-archivada { opacity: .75; }
+
+/* Bloque 10: dashboard, gráficas y reportes */
+.leyenda-punto { display: inline-block; width: .7rem; height: .7rem; border-radius: 50%; margin-right: .4rem; }
+.barra-apilada { display: flex; height: .9rem; border-radius: .45rem; overflow: hidden; background: #e3e8ef; }
+.barra-segmento { height: 100%; }
+.indicador-valor { font-size: 2rem; font-weight: 600; line-height: 1.1; }
+.indicador-nota { font-size: .8rem; color: var(--rt-texto-suave); }
+.acceso-rapido { text-decoration: none; }
+.reporte-tabla th.ordenable { cursor: pointer; white-space: nowrap; }
+.reporte-tabla td, .reporte-tabla th { font-size: .85rem; }

@@ -19,8 +19,8 @@ else if (t is not null)
                     <h1 class="h4 mb-1">@t.Titulo</h1>
                     <div class="d-flex gap-2">
                         @if (t.PuedeEditar) { <button class="btn btn-sm btn-outline-primary" @onclick="AbrirEditar">Editar</button> }
-                        @if (t.PuedeEditar) { <button class="btn btn-sm btn-outline-danger" @onclick="() => AbrirMotivo(true)">Cancelar tarea</button> }
-                        @if (t.PuedeRevisar && EstadoTarea.EsCerrada(t.Estado)) { <button class="btn btn-sm btn-outline-primary" @onclick="() => AbrirMotivo(false)">Reabrir</button> }
+                        @if (t.TransicionesPermitidas.Contains(EstadoTarea.Cancelada)) { <button class="btn btn-sm btn-outline-danger" @onclick="() => AbrirMotivo(true)">Cancelar tarea</button> }
+                        @if (EstadoTarea.EsCerrada(t.Estado) && t.TransicionesPermitidas.Contains(EstadoTarea.Reabierta)) { <button class="btn btn-sm btn-outline-primary" @onclick="() => AbrirMotivo(false)">Reabrir</button> }
                     </div>
                 </div>
                 <div class="mb-3">
@@ -97,21 +97,54 @@ else if (t is not null)
             }
 
             <div class="tarjeta p-3 mb-3">
-                <h2 class="h6">Historial de avance</h2>
-                @if (historial is null) { <button class="btn btn-sm btn-outline-secondary" @onclick="CargarHistorial">Mostrar historial</button> }
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                    <h2 class="h6 mb-0">Línea de tiempo</h2>
+                    @if (linea is not null)
+                    {
+                        <select class="form-select form-select-sm w-auto" aria-label="Filtrar la línea de tiempo" @bind="filtroLinea">
+                            <option value="">Todo</option>
+                            <option value="avance">Avance</option>
+                            <option value="revision">Revisión y cierre</option>
+                            <option value="asignacion">Asignaciones</option>
+                            <option value="datos">Fechas y prioridad</option>
+                            <option value="comentario">Comentarios</option>
+                        </select>
+                    }
+                </div>
+                @if (linea is null) { <button class="btn btn-sm btn-outline-secondary" @onclick="CargarLinea">Mostrar línea de tiempo</button> }
                 else
                 {
                     <ul class="list-unstyled small mb-0">
-                        @foreach (var h in historial)
+                        @foreach (var e in LineaFiltrada())
                         {
                             <li class="py-1 border-bottom">
-                                <strong>@(h.EstadoAnterior is { } ea && ea != h.EstadoNuevo ? $"{FormatoProyectos.EstadoDeTarea(ea)} → " : "")@FormatoProyectos.EstadoDeTarea(h.EstadoNuevo)</strong>
-                                · @(h.PorcentajeAnterior is { } pa ? $"{pa}% → " : "")@h.PorcentajeNuevo%
-                                <span class="text-muted"> · @h.ActualizadoPor · @FormatoProyectos.FechaHora(h.FechaUtc)</span>
-                                @if (!string.IsNullOrWhiteSpace(h.Comentario)) { <div>@h.Comentario</div> }
+                                <span class="badge text-bg-@FormatoSeguimiento.ClaseTipo(e.Tipo)">@FormatoSeguimiento.Titulo(e)</span>
+                                @if (e.EstadoNuevo is { } en)
+                                {
+                                    <strong class="ms-1">@(e.EstadoAnterior is { } ea && ea != en ? $"{FormatoProyectos.EstadoDeTarea(ea)} → " : "")@FormatoProyectos.EstadoDeTarea(en)</strong>
+                                }
+                                @if (e.PorcentajeNuevo is { } pn) { <span> · @(e.PorcentajeAnterior is { } pa ? $"{pa}% → " : "")@pn%</span> }
+                                @if (FormatoSeguimiento.Cambio(e) is { } cambio) { <span class="ms-1">@cambio</span> }
+                                <span class="text-muted"> · @e.Usuario · @FormatoProyectos.FechaHora(e.FechaUtc)</span>
+                                @if (!string.IsNullOrWhiteSpace(e.Detalle)) { <div style="white-space:pre-wrap">@e.Detalle</div> }
                             </li>
                         }
+                        @if (!LineaFiltrada().Any()) { <li class="text-muted">Sin registros para este filtro.</li> }
                     </ul>
+                    @if (revisiones is { Count: > 0 })
+                    {
+                        <h3 class="h6 mt-3">Revisiones</h3>
+                        <ul class="list-unstyled small mb-0">
+                            @foreach (var rv in revisiones)
+                            {
+                                <li class="py-1 border-bottom">
+                                    <span class="badge text-bg-@(rv.Resultado == ResultadoRevision.Aprobada ? "success" : "danger")">@(rv.Resultado == ResultadoRevision.Aprobada ? "Aprobada" : "Devuelta")</span>
+                                    <span class="text-muted"> · @rv.Revisor · @FormatoProyectos.FechaHora(rv.FechaUtc) · avance @rv.PorcentajeAlRevisar%</span>
+                                    @if (!string.IsNullOrWhiteSpace(rv.Observacion)) { <div style="white-space:pre-wrap">@rv.Observacion</div> }
+                                </li>
+                            }
+                        </ul>
+                    }
                 }
             </div>
         </div>
@@ -208,10 +241,13 @@ else if (t is not null)
     [Parameter] public Guid Id { get; set; }
     [Inject] private TareasClient Api { get; set; } = default!;
     [Inject] private ProyectosClient ProyApi { get; set; } = default!;
+    [Inject] private SeguimientoClient SegApi { get; set; } = default!;
 
     private TareaDetalleDto? t;
     private List<ComentarioTareaDto>? comentarios;
-    private List<HistorialAvanceTareaDto>? historial;
+    private List<EventoSeguimientoDto>? linea;
+    private List<RevisionTareaDto>? revisiones;
+    private string filtroLinea = "";
     private List<UsuarioMencionableDto> mencionables = new();
     private List<ParticipanteProyectoDto> equipoProyecto = new();
     private readonly HashSet<Guid> menciones = new();
@@ -224,7 +260,7 @@ else if (t is not null)
 
     protected override async Task OnParametersSetAsync()
     {
-        cargando = true; historial = null; comentarios = null; error = exito = null;
+        cargando = true; linea = null; revisiones = null; comentarios = null; error = exito = null;
         var r = await Api.ObtenerAsync(Id);
         if (r.Ok) t = r.Data; else { t = null; error = r.Status == System.Net.HttpStatusCode.NotFound ? "La tarea no existe o no tienes acceso a ella." : r.Error; }
         cargando = false;
@@ -246,16 +282,27 @@ else if (t is not null)
         if (c.Ok) comentarios = c.Data ?? new(); else { comentarios = new(); error = c.Error; }
     }
 
-    private async Task CargarHistorial()
+    private async Task CargarLinea()
     {
-        var r = await Api.HistorialAsync(Id);
-        if (r.Ok) historial = r.Data; else error = r.Error;
+        var r = await SegApi.LineaDeTiempoAsync(Id);
+        if (!r.Ok) { error = r.Error; return; }
+        linea = r.Data ?? new();
+        var rv = await SegApi.RevisionesAsync(Id);
+        revisiones = rv.Ok ? rv.Data ?? new() : new();
     }
+
+    private IEnumerable<EventoSeguimientoDto> LineaFiltrada() =>
+        linea is null ? Enumerable.Empty<EventoSeguimientoDto>()
+        : string.IsNullOrEmpty(filtroLinea) ? linea : linea.Where(e => FormatoSeguimiento.Grupo(e.Tipo) == filtroLinea);
 
     private void Aplicar(TareaDetalleDto nueva, string mensaje)
     {
-        t = nueva; pct = nueva.PorcentajeAvance; exito = mensaje; historial = null;
+        var estabaAbierta = linea is not null;
+        t = nueva; pct = nueva.PorcentajeAvance; exito = mensaje; linea = null; revisiones = null;
+        if (estabaAbierta) _ = RecargarLineaAsync();
     }
+
+    private async Task RecargarLineaAsync() { await CargarLinea(); StateHasChanged(); }
 
     private IEnumerable<ParticipanteProyectoDto> Candidatos() =>
         t is null ? Enumerable.Empty<ParticipanteProyectoDto>() : equipoProyecto.Where(m => t.Equipo.All(a => a.TrabajadorId != m.TrabajadorId));

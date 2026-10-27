@@ -193,6 +193,8 @@ public class TareaDetalleDto : TareaResumenDto
     public bool PuedeActualizarAvance { get; set; }
     public bool PuedeRevisar { get; set; }
     public bool PuedeComentar { get; set; }
+    /// <summary>Estados a los que el usuario actual puede llevar la tarea desde el actual (validado en la API).</summary>
+    public List<byte> TransicionesPermitidas { get; set; } = new();
 }
 
 public class TareaFiltro : PageQuery
@@ -298,22 +300,3 @@ public class UsuarioMencionableDto
     public string Nombre { get; set; } = null!;
 }
 
-// ---------- Notificaciones ----------
-
-public class NotificacionDto
-{
-    public Guid NotificacionId { get; set; }
-    public string Tipo { get; set; } = null!;
-    public string Titulo { get; set; } = null!;
-    public string Mensaje { get; set; } = null!;
-    public string? EntidadTipo { get; set; }
-    public string? EntidadId { get; set; }
-    public DateTime CreadaUtc { get; set; }
-    public bool Leida { get; set; }
-}
-
-public class NotificacionFiltro : PageQuery
-{
-    public bool SoloNoLeidas { get; set; }
-    public bool IncluirArchivadas { get; set; }
-}

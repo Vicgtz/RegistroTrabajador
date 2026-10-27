@@ -25,5 +25,8 @@ public class Notificacion
 
     public DateTime? ArchivadaUtc { get; set; }
 
+    /// <summary>Bloque 9 (script 010): identifica el evento de origen para no avisar dos veces al mismo usuario.</summary>
+    public string? ClaveDeduplicacion { get; set; }
+
     public Usuario Usuario { get; set; } = null!;
 }

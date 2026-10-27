@@ -2,10 +2,44 @@
 
 @if (visible)
 {
-    <a class="campana" href="notificaciones" title="Notificaciones" aria-label="@(pendientes > 0 ? $"Notificaciones, {pendientes} sin leer" : "Notificaciones")">
-        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 22a2.2 2.2 0 0 0 2.2-2.2h-4.4A2.2 2.2 0 0 0 12 22Zm7-6.2V11a7 7 0 0 0-5.5-6.8V3.5a1.5 1.5 0 0 0-3 0v.7A7 7 0 0 0 5 11v4.8L3 17.8V19h18v-1.2l-2-2Z" /></svg>
-        @if (pendientes > 0) { <span class="campana-contador">@(pendientes > 99 ? "99+" : pendientes.ToString())</span> }
-    </a>
+    <div class="campana-wrap">
+        <button type="button" class="campana" @onclick="Alternar" aria-haspopup="dialog" aria-expanded="@(abierto ? "true" : "false")"
+                title="Notificaciones" aria-label="@(pendientes > 0 ? $"Notificaciones, {pendientes} sin leer" : "Notificaciones")">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 22a2.2 2.2 0 0 0 2.2-2.2h-4.4A2.2 2.2 0 0 0 12 22Zm7-6.2V11a7 7 0 0 0-5.5-6.8V3.5a1.5 1.5 0 0 0-3 0v.7A7 7 0 0 0 5 11v4.8L3 17.8V19h18v-1.2l-2-2Z" /></svg>
+            @if (pendientes > 0) { <span class="campana-contador">@(pendientes > 99 ? "99+" : pendientes.ToString())</span> }
+        </button>
+
+        @if (abierto)
+        {
+            <div class="campana-panel" role="dialog" aria-label="Notificaciones recientes">
+                <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+                    <strong>Notificaciones</strong>
+                    <a class="small text-decoration-none" href="notificaciones" @onclick="Cerrar">Ver todas</a>
+                </div>
+                @if (!string.IsNullOrEmpty(error)) { <div class="px-3 py-2 small text-danger" role="alert">@error</div> }
+                @if (recientes is null) { <div class="p-3"><Cargando /></div> }
+                else if (recientes.Count == 0) { <div class="p-3 small text-muted">No tienes avisos sin leer.</div> }
+                else
+                {
+                    <ul class="list-unstyled mb-0 campana-lista">
+                        @foreach (var n in recientes)
+                        {
+                            <li>
+                                <button type="button" class="campana-item notificacion-nueva" @onclick="() => Abrir(n)">
+                                    <span class="d-flex justify-content-between gap-2">
+                                        <span class="fw-semibold">@if (n.Prioritaria) { <span class="text-danger" title="Prioritaria" aria-label="Prioritaria">★ </span> }@n.Titulo</span>
+                                        <span class="small text-muted text-nowrap">@FormatoProyectos.FechaHora(n.CreadaUtc)</span>
+                                    </span>
+                                    <span class="d-block small">@n.Mensaje</span>
+                                    <span class="badge text-bg-@FormatoNotificaciones.ClaseCategoria(n.Categoria)">@CategoriaNotificacion.Nombre(n.Categoria)</span>
+                                </button>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        }
+    </div>
 }
 
 @code {
@@ -13,8 +47,11 @@
     [Inject] private NavigationManager Nav { get; set; } = default!;
     [Parameter] public bool Visible { get; set; }
 
-    private bool visible;
+    private readonly CancellationTokenSource cts = new();
+    private bool visible, abierto;
     private int pendientes;
+    private string? error;
+    private List<NotificacionDto>? recientes;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -22,11 +59,32 @@
         await Refrescar();
     }
 
-    protected override void OnInitialized() => Nav.LocationChanged += AlNavegar;
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += AlNavegar;
+        _ = SondearAsync();
+    }
 
-    // El contador se renueva al navegar: es la forma más barata de mantenerlo al día sin sondeos permanentes.
+    // El contador se renueva al navegar y cada 60 segundos; no hay conexión en tiempo real en esta versión.
+    private async Task SondearAsync()
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(60));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cts.Token))
+            {
+                if (!visible) continue;
+                await Refrescar();
+                if (abierto) await CargarRecientes();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
     private async void AlNavegar(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
+        abierto = false;
         await Refrescar();
         await InvokeAsync(StateHasChanged);
     }
@@ -34,9 +92,39 @@
     private async Task Refrescar()
     {
         if (!visible) return;
-        var r = await Api.NoLeidasAsync();
-        pendientes = r.Ok ? r.Data : 0;
+        var r = await Api.ResumenAsync();
+        pendientes = r.Ok && r.Data is not null ? r.Data.NoLeidas : 0;
     }
 
-    public void Dispose() => Nav.LocationChanged -= AlNavegar;
+    private async Task Alternar()
+    {
+        abierto = !abierto;
+        error = null;
+        if (abierto) { recientes = null; await CargarRecientes(); }
+    }
+
+    private void Cerrar() => abierto = false;
+
+    private async Task CargarRecientes()
+    {
+        var r = await Api.ListarAsync(new NotificacionFiltro { Estado = EstadoNotificacionFiltro.NoLeidas, PageSize = 5 });
+        recientes = r.Ok && r.Data is not null ? r.Data.Items.ToList() : new();
+    }
+
+    private async Task Abrir(NotificacionDto n)
+    {
+        error = null;
+        var d = await Api.DestinoAsync(n.NotificacionId);
+        if (!d.Ok) { error = d.Error ?? "No se pudo abrir el recurso."; return; }
+        await Api.LeidaAsync(n.NotificacionId);
+        abierto = false;
+        Nav.NavigateTo(d.Data!.Ruta);
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= AlNavegar;
+        cts.Cancel();
+        cts.Dispose();
+    }
 }

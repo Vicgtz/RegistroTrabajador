@@ -1,0 +1,102 @@
+@page "/errores-tecnicos"
+@attribute [Authorize]
+@using System.Security.Claims
+
+<PageTitle>Errores técnicos - Registro de Trabajo</PageTitle>
+
+@if (user is not null && !Puede(Permisos.ErroresConsultar))
+{
+    <div class="tarjeta p-4 text-center">
+        <h1 class="h5">Sin permiso</h1>
+        <p class="text-muted mb-0">Tu cuenta no tiene autorización para ver esta sección.</p>
+    </div>
+}
+else
+{
+    <div class="mb-3">
+        <h1 class="h3 mb-0">Errores técnicos</h1>
+        <div class="small text-muted">Registro para diagnóstico. No incluye contraseñas, tokens ni mensajes de las excepciones; el código de correlación coincide con el que recibió el usuario.</div>
+    </div>
+
+    <div class="tarjeta p-3 mb-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-4"><label class="form-label small mb-0" for="eCorr">Código de correlación</label><input id="eCorr" class="form-control form-control-sm" @bind="correlacion" placeholder="00000000-0000-0000-0000-000000000000" /></div>
+            <div class="col-6 col-md-2"><label class="form-label small mb-0" for="eDesde">Desde</label><input id="eDesde" type="date" class="form-control form-control-sm" @bind="filtro.Desde" /></div>
+            <div class="col-6 col-md-2"><label class="form-label small mb-0" for="eHasta">Hasta</label><input id="eHasta" type="date" class="form-control form-control-sm" @bind="filtro.Hasta" /></div>
+            <div class="col-12 col-md-2"><label class="form-label small mb-0" for="eBuscar">Buscar</label><input id="eBuscar" class="form-control form-control-sm" maxlength="100" @bind="filtro.Buscar" /></div>
+            <div class="col-auto"><button class="btn btn-primary btn-sm" @onclick="Buscar">Buscar</button></div>
+        </div>
+    </div>
+
+    <Alerta Mensaje="@error" Tipo="danger" />
+
+    @if (cargando) { <Cargando /> }
+    else if (datos is not null)
+    {
+        <div class="tarjeta p-3">
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0 reporte-tabla">
+                    <thead><tr><th>Fecha</th><th>Nivel</th><th>Tipo</th><th>Ruta</th><th>Correlación</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var e in datos.Items)
+                        {
+                            <tr>
+                                <td class="text-nowrap">@FormatoProyectos.FechaHora(e.FechaUtc)</td>
+                                <td><span class="badge text-bg-danger">@e.Nivel</span></td>
+                                <td>@e.Codigo</td>
+                                <td>@e.Ruta</td>
+                                <td class="small text-muted">@e.CorrelationId</td>
+                                <td><button class="btn btn-sm btn-link p-0" @onclick="() => Alternar(e)">@(abierto == e.ErrorTecnicoId ? "Ocultar" : "Detalle")</button></td>
+                            </tr>
+                            @if (abierto == e.ErrorTecnicoId)
+                            {
+                                <tr><td colspan="6"><div class="small">@e.Mensaje</div><pre class="small mb-0" style="white-space:pre-wrap">@e.DetalleTecnico</pre></td></tr>
+                            }
+                        }
+                        @if (datos.Items.Count == 0) { <tr><td colspan="6" class="text-center text-muted">No hay errores registrados.</td></tr> }
+                    </tbody>
+                </table>
+            </div>
+            <Paginador Page="datos.Page" PageSize="datos.PageSize" Total="datos.Total" OnPage="IrAPagina" />
+        </div>
+    }
+}
+
+@code {
+    [Inject] private ErroresTecnicosClient Api { get; set; } = default!;
+    [CascadingParameter] private Task<AuthenticationState>? Sesion { get; set; }
+
+    private ClaimsPrincipal? user;
+    private PagedResult<ErrorTecnicoDto>? datos;
+    private readonly ErrorTecnicoFiltro filtro = new() { PageSize = 20 };
+    private string? correlacion, error;
+    private long? abierto;
+    private bool cargando = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = Sesion is null ? null : (await Sesion).User;
+        if (Puede(Permisos.ErroresConsultar)) await Cargar();
+        cargando = false;
+    }
+
+    private bool Puede(string permiso) => user?.TienePermiso(permiso) == true;
+
+    private async Task Cargar()
+    {
+        error = null;
+        var r = await Api.ListarAsync(filtro);
+        if (r.Ok) datos = r.Data; else error = r.Error;
+    }
+
+    private async Task Buscar()
+    {
+        if (!string.IsNullOrWhiteSpace(correlacion) && !Guid.TryParse(correlacion, out _)) { error = "El código de correlación no es válido."; return; }
+        filtro.CorrelationId = Guid.TryParse(correlacion, out var g) ? g : null;
+        filtro.Page = 1;
+        await Cargar();
+    }
+
+    private async Task IrAPagina(int p) { filtro.Page = p; await Cargar(); }
+    private void Alternar(ErrorTecnicoDto e) => abierto = abierto == e.ErrorTecnicoId ? null : e.ErrorTecnicoId;
+}

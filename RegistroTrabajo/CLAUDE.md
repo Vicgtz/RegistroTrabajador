@@ -10,7 +10,7 @@ Aplicación web multiempresa para administrar trabajadores, permisos, asistencia
   - `RegistroTrabajo.Services`: lógica de negocio, validaciones, autorización, sesiones, auditoría, correo. Interfaces + implementaciones, DI con `AddRegistroTrabajoServices()`.
   - `RegistroTrabajo.Api`: controladores, JWT, middlewares, límite de intentos, comandos de inicialización.
   - `RegistroTrabajo` (cliente Blazor WASM): login, inicio y pantallas de administración.
-  - `RegistroTrabajo.Tests`: xUnit (160 pruebas).
+  - `RegistroTrabajo.Tests`: xUnit (200 pruebas).
 - Base de datos: SQL Server local `RegistroTrabajo` (autenticación integrada). Sección de configuración de la API: `RegistroTrabajoApiSettings` (`DbSettings`, `JwtSettings`, `Security`, `Email`, `AllowedOrigins`).
 
 ## Bloque 1 (hecho): seguridad y administración
@@ -54,6 +54,18 @@ El usuario creó 40 tablas laborales en la BD (Trabajadores, Departamentos, Pues
 - Servicios: `EstadosProyectoService`, `ProyectosService` (`ProyectosServices.cs`), `TareasService`, `ComentariosTareaService`, `NotificacionesService` (`TareasServices.cs`). Controladores en `Bloque7Controllers.cs`; pantallas Blazor: Proyectos, ProyectoDetalle, MisTareas, TareaDetalle, EstadosProyecto, Notificaciones (+ campana en `MainLayout`).
 - Significado: `Tarea.Estado` 1 Pendiente/2 En proceso/3 En revisión/4 Completada/5 Reabierta/6 Cancelada; `Prioridad` 1..4 (proyectos y tareas). El script 008 añade `Tareas.Prioridad`, siembra los estados de proyecto y crea 14 permisos.
 - Piezas compartidas: `ProyectoHelper` (acceso, visibilidad, nombres) y `NotificacionesHelper` (emisor genérico; `PermisosHelper.NotificarAsync` delega en él). Los estados de proyecto de una empresa nueva se siembran al primer uso.
+## Bloque 8 (hecho en código; script 009 ya aplicado a la BD de desarrollo)
+- Seguimiento de tareas: línea de tiempo unificada (`EventosSeguimientoTarea` + `HistorialAvanceTarea`), revisiones (`RevisionesTarea`), matriz de transiciones validada en la API, panel de retrasos/pendientes con días hábiles (sábados, domingos y festivos) y criterios por empresa. Detalle, endpoints y límites en `BLOQUE8.md`.
+- Servicios: `SeguimientoService`, `TransicionesTarea`, `CalendarioHabil` (`SeguimientoServices.cs`); `TareasService` y `ComentariosTareaService` registran los eventos. Controlador `Bloque8Controllers.cs`; pantallas Blazor: Seguimiento, RevisionTareas y la línea de tiempo en TareaDetalle.
+- Permiso nuevo `tareas.ver_seguimiento`; columnas `ConfiguracionEmpresa.DiasAlertaVencimiento` y `DiasSinActualizacion`. "Vencida" = fecha límite de un día hábil anterior a hoy (afecta también a los filtros y conteos del Bloque 7).
+## Bloque 9 (hecho en código; script 010 ya aplicado a la BD de desarrollo)
+- Sistema de notificaciones internas: centro con categorías (permisos, proyectos, tareas, menciones), filtros, historial de archivadas, apertura del recurso revalidando permisos, preferencias por categoría (obligatorias vs. opcionales en `CatalogoNotificaciones`), prioridad y deduplicación por clave. Detalle, endpoints y límites en `BLOQUE9.md`.
+- Servicios: `NotificacionesService` y `PreferenciasNotificacionService` (`NotificacionesServices.cs`; antes estaban en `TareasServices.cs`); `NotificacionesHelper` (`ProyectosServices.cs`) acepta `clave` de deduplicación. Controlador `Bloque9Controllers.cs`; cliente `Bloque9Clients.cs`; pantallas: campana con sondeo de 60 s, Notificaciones y PreferenciasNotificaciones.
+- Los DTO de notificaciones pasaron de `DtosBloque7.cs` a `DtosBloque9.cs`. Tipos nuevos: `proyecto.responsable`, `proyecto.fecha`.
+## Bloque 10 (hecho en código; script 011 ya aplicado a la BD de desarrollo)
+- Dashboard por rol (`DashboardService`), reportes con alcance por rol (`ReporteService`: trabajadores, movimientos, permisos, asistencia, proyectos, tareas, carga-trabajo), exportación a Excel/PDF solo para Admin y RR. HH. (`ExportacionService`, `ExportadorExcel`, `ExportadorPdf`), borradores propios (`BorradoresService`) y registro de errores técnicos desde `ErrorHandlingMiddleware` (`ErrorTecnicoService`). Detalle, endpoints y límites en `BLOQUE10.md`.
+- Paquetes nuevos en Services: `DocumentFormat.OpenXml` 3.1.1 y `PDFsharp-MigraDoc` 6.2.1 (restore con `--source "$USERPROFILE/.nuget/packages"`). Permisos nuevos: `reportes.consultar`, `reportes.exportar`, `errores.consultar`.
+- Los reportes de permisos nunca incluyen motivos; "pausado" en proyectos = estado cuyo nombre contiene «paus». Cliente: Home (dashboard), Reportes, Borradores, ErroresTecnicos, `Dona`/`BarraApilada`, `Bloque10Clients.cs`, `ApiClient.GetBytesAsync` y `wwwroot/js/descargas.js`.
 ## Servidor de pruebas (entorno `Pruebas`)
 - API `http://192.168.68.124:5002` (`C:\inetpub\RegistroTrabajo\api`), cliente `http://192.168.68.124:5003` (`C:\inetpub\RegistroTrabajo\client`).
 - Configuración por entorno: `RegistroTrabajo.Api/appsettings.json` (base: sin orígenes CORS), `appsettings.Development.json` (localhost:5118/7097) y `appsettings.Pruebas.json` (CORS solo para `http://192.168.68.124:5003`, `ClientBaseUrl` de los correos y `RedirigirAHttps=false` porque el servidor sirve solo HTTP). Cliente: `wwwroot/appsettings.Development.json` (API local) y `wwwroot/appsettings.Pruebas.json` (API del servidor).
@@ -63,7 +75,7 @@ El usuario creó 40 tablas laborales en la BD (Trabajadores, Departamentos, Pues
 dotnet publish RegistroTrabajo.Api -p:PublishProfile=Pruebas      # web.config con ASPNETCORE_ENVIRONMENT=Pruebas
 dotnet publish RegistroTrabajo -p:PublishProfile=Pruebas          # cliente con entorno Pruebas (carga appsettings.Pruebas.json)
 ```
-- En el servidor: la identidad del grupo de aplicaciones de IIS necesita acceso a SQL Server (o usar `UserId`/`Password` en `DbSettings`), y la clave JWT debe venir de la variable de entorno `RegistroTrabajoApiSettings__JwtSettings__SecretKey` (la del `appsettings.json` se considera comprometida). Aplicar antes los scripts SQL pendientes (hasta el 008).
+- En el servidor: la identidad del grupo de aplicaciones de IIS necesita acceso a SQL Server (o usar `UserId`/`Password` en `DbSettings`), y la clave JWT debe venir de la variable de entorno `RegistroTrabajoApiSettings__JwtSettings__SecretKey` (la del `appsettings.json` se considera comprometida). Aplicar antes los scripts SQL pendientes (hasta el 011).
 ## Comandos útiles
 ```powershell
 dotnet build RegistroTrabajo.sln
@@ -85,6 +97,9 @@ Puertos de desarrollo: API `http://localhost:5265`, cliente `http://localhost:51
 - `006_bloque5.sql`: **pendiente de aplicar** a la BD de desarrollo (índice único de jornada abierta + 8 permisos del Bloque 5 con su asignación a roles). Aplicar con `sqlcmd ... -I -i` (ver `BLOQUE5.md`).
 - `007_bloque6.sql`: **pendiente de aplicar** a la BD de desarrollo (estado, visibilidad, cancelación y RowVersion en EventosEmpresa, interruptores de fechas relevantes en ConfiguracionEmpresa, 5 permisos del Bloque 6 con su asignación a roles). Aplicar con `sqlcmd ... -I -i` (ver `BLOQUE6.md`).
 - `008_bloque7.sql`: **pendiente de aplicar** a la BD de desarrollo (`Tareas.Prioridad`, índices de consulta, estados de proyecto por defecto y 14 permisos del Bloque 7 con su asignación a roles). Aplicar con `sqlcmd ... -I -i` (ver `BLOQUE7.md`).
+- `009_bloque8.sql`: **aplicado** a la BD de desarrollo (EventosSeguimientoTarea, RevisionesTarea, 2 columnas de ConfiguracionEmpresa, índice de tareas y permiso `tareas.ver_seguimiento`). Aplicar con `sqlcmd ... -I -i` (ver `BLOQUE8.md`).
+- `010_bloque9.sql`: **aplicado** a la BD de desarrollo (ClaveDeduplicacion en Notificaciones con índice único filtrado, Prioritaria en PreferenciasNotificacion e índice por tipo). Aplicar con `sqlcmd ... -I -i` (ver `BLOQUE9.md`).
+- `011_bloque10.sql`: **aplicado** a la BD de desarrollo (permisos de reportes y errores con su asignación a roles, índices de Borradores y ErroresTecnicos). Aplicar con `sqlcmd ... -I -i` (ver `BLOQUE10.md`).
 - `001_auditoria_solo_insercion.sql`: **pendiente** (requiere DBA y un usuario de la API que no sea db_owner).
 - Las pruebas de SQL Server aplican los scripts dentro de una transacción que siempre se revierte y comprueban que cada tabla/columna de la BD esté mapeada (y al revés): mantenerlas verdes al cambiar el modelo.
 - Para regenerar entidades desde la BD se usó `dotnet ef dbcontext scaffold` en una carpeta temporal (fuera del repo) y un script de adaptación; no hay herramienta EF instalada globalmente.

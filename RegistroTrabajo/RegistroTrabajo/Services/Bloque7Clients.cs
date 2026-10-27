@@ -65,18 +65,6 @@ public class TareasClient(ApiClient api)
     public Task<ApiResult<List<UsuarioMencionableDto>>> MencionablesAsync(Guid id) => api.GetAsync<List<UsuarioMencionableDto>>($"api/tareas/{id}/mencionables");
 }
 
-public class NotificacionesClient(ApiClient api)
-{
-    public Task<ApiResult<PagedResult<NotificacionDto>>> ListarAsync(NotificacionFiltro f) =>
-        api.GetAsync<PagedResult<NotificacionDto>>("api/notificaciones" + Qs.De(("page", f.Page), ("pageSize", f.PageSize),
-            ("soloNoLeidas", f.SoloNoLeidas ? true : null), ("incluirArchivadas", f.IncluirArchivadas ? true : null)));
-
-    public Task<ApiResult<int>> NoLeidasAsync() => api.GetAsync<int>("api/notificaciones/no-leidas");
-    public Task<ApiResult> LeidaAsync(Guid id) => api.SendAsync(HttpMethod.Post, $"api/notificaciones/{id}/leida");
-    public Task<ApiResult> TodasLeidasAsync() => api.SendAsync(HttpMethod.Post, "api/notificaciones/leidas");
-    public Task<ApiResult> ArchivarAsync(Guid id) => api.SendAsync(HttpMethod.Post, $"api/notificaciones/{id}/archivar");
-}
-
 /// <summary>Textos y clases de presentación de proyectos y tareas.</summary>
 public static class FormatoProyectos
 {

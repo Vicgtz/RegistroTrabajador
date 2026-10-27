@@ -64,6 +64,26 @@ public class ApiClient(HttpClient http, JsonSerializerOptions json, NavigationMa
         }
     }
 
+    /// <summary>Descarga un archivo (p. ej. un reporte exportado). Los errores vuelven como ProblemDetails igual que en las demás llamadas.</summary>
+    public async Task<ApiResult<byte[]>> GetBytesAsync(string url, CancellationToken ct = default)
+    {
+        try
+        {
+            using var response = await http.GetAsync(url, ct);
+            if (!response.IsSuccessStatusCode)
+                return new ApiResult<byte[]>(false, default, await LeerErrorAsync(response, ct), response.StatusCode);
+            return new ApiResult<byte[]>(true, await response.Content.ReadAsByteArrayAsync(ct), null, response.StatusCode);
+        }
+        catch (HttpRequestException)
+        {
+            return new ApiResult<byte[]>(false, default, SinConexion, 0);
+        }
+        catch (TaskCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return new ApiResult<byte[]>(false, default, SinConexion, 0);
+        }
+    }
+
     private static async Task<string> LeerErrorAsync(HttpResponseMessage response, CancellationToken ct)
     {
         if (response.StatusCode == HttpStatusCode.TooManyRequests)

@@ -1,0 +1,101 @@
+@page "/notificaciones/preferencias"
+@attribute [Authorize]
+@using System.Security.Claims
+
+<PageTitle>Preferencias de notificaciones - Registro de Trabajo</PageTitle>
+
+@if (user is not null && !Puede(Permisos.NotificacionesConsultar))
+{
+    <div class="tarjeta p-4 text-center">
+        <h1 class="h5">Sin permiso</h1>
+        <p class="text-muted mb-0">Tu cuenta no tiene autorización para ver esta sección.</p>
+    </div>
+}
+else
+{
+    <a class="small text-decoration-none" href="notificaciones">&larr; Centro de notificaciones</a>
+    <div class="mb-3 mt-1">
+        <h1 class="h3 mb-0">Preferencias de notificaciones</h1>
+        <div class="small text-muted">Solo cambian cómo organizas tus avisos dentro de la aplicación; no alteran tus permisos de acceso. Los avisos de operaciones importantes son obligatorios.</div>
+    </div>
+
+    <Alerta Mensaje="@error" Tipo="danger" />
+    <Alerta Mensaje="@exito" Tipo="success" />
+
+    @if (cargando) { <Cargando /> }
+    else if (categorias is not null)
+    {
+        <div class="tarjeta p-3 mb-3">
+            @foreach (var c in categorias)
+            {
+                <div class="py-3 border-bottom">
+                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+                        <div>
+                            <div class="fw-semibold">@c.Nombre</div>
+                            <div class="small text-muted">@c.Descripcion</div>
+                        </div>
+                        <div class="d-flex flex-column gap-1">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="@($"act-{c.Categoria}")" @bind="c.Activa" disabled="@c.TodasObligatorias" />
+                                <label class="form-check-label" for="@($"act-{c.Categoria}")">@(c.TodasObligatorias ? "Siempre activa" : "Recibir avisos opcionales")</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="@($"pri-{c.Categoria}")" @bind="c.Prioritaria" />
+                                <label class="form-check-label" for="@($"pri-{c.Categoria}")">Mostrar como prioritaria</label>
+                            </div>
+                        </div>
+                    </div>
+                    @if (c.Obligatorias.Count > 0)
+                    {
+                        <div class="small mt-2"><span class="badge text-bg-secondary me-1">Obligatorios</span>@string.Join(" · ", c.Obligatorias)</div>
+                    }
+                    @if (c.Opcionales.Count > 0)
+                    {
+                        <div class="small mt-1"><span class="badge text-bg-light border me-1">Opcionales</span>@string.Join(" · ", c.Opcionales)</div>
+                    }
+                </div>
+            }
+        </div>
+        <button class="btn btn-primary" disabled="@guardando" @onclick="Guardar">Guardar preferencias</button>
+    }
+}
+
+@code {
+    [Inject] private NotificacionesClient Api { get; set; } = default!;
+    [CascadingParameter] private Task<AuthenticationState>? Sesion { get; set; }
+
+    private ClaimsPrincipal? user;
+    private List<PreferenciaCategoriaDto>? categorias;
+    private bool cargando = true, guardando;
+    private string? error, exito;
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = Sesion is null ? null : (await Sesion).User;
+        if (Puede(Permisos.NotificacionesConsultar))
+        {
+            var r = await Api.PreferenciasAsync();
+            if (r.Ok) categorias = r.Data; else error = r.Error;
+        }
+        cargando = false;
+    }
+
+    private bool Puede(string permiso) => user?.TienePermiso(permiso) == true;
+
+    private async Task Guardar()
+    {
+        if (categorias is null) return;
+        error = exito = null; guardando = true;
+        try
+        {
+            var r = await Api.GuardarPreferenciasAsync(new GuardarPreferenciasRequest
+            {
+                Categorias = categorias.Select(c => new GuardarPreferenciaCategoria { Categoria = c.Categoria, Activa = c.Activa, Prioritaria = c.Prioritaria }).ToList()
+            });
+            if (!r.Ok) { error = r.Error; return; }
+            categorias = r.Data;
+            exito = "Preferencias guardadas.";
+        }
+        finally { guardando = false; }
+    }
+}

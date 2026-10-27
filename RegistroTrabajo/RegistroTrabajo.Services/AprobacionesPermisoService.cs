@@ -66,7 +66,7 @@ public class AprobacionesPermisoService : IAprobacionesPermisoService
         _auditoria.Registrar("Permisos", nameof(SolicitudPermiso), solicitudId.ToString(), r.Aprobar ? "AprobarPermiso" : "RechazarPermiso",
             new { Estado = EstadoSolicitudPermiso.Pendiente }, new { s.Estado, Cantidad = s.CantidadSolicitada });
         await NotificarTrabajadorAsync(empresaId, s, "permiso.resuelta", "Solicitud de permiso resuelta",
-            r.Aprobar ? "Su solicitud de permiso fue aprobada." : "Su solicitud de permiso fue rechazada.", now, ct);
+            r.Aprobar ? "Su solicitud de permiso fue aprobada." : "Su solicitud de permiso fue rechazada.", now, ct, $"sr:{solicitudId}:{s.Estado}");
         await _db.SaveSafeAsync(ct);
         return await _solicitudes.ObtenerAsync(solicitudId, ct);
     }
@@ -97,7 +97,7 @@ public class AprobacionesPermisoService : IAprobacionesPermisoService
         var nombre = await _db.Trabajadores.AsNoTracking().Where(t => t.TrabajadorId == mi && t.EmpresaId == empresaId).Select(t => t.Nombres + " " + t.Apellidos).FirstAsync(ct);
         var revisores = await PermisosHelper.UsuariosSupervisoresAsync(_db, empresaId, mi, _clock, ct);
         await PermisosHelper.NotificarAsync(_db, empresaId, revisores, "permiso.cancelacion_pendiente", "Cancelación de permiso pendiente",
-            $"{nombre} solicitó cancelar un permiso aprobado.", solicitudId, now, ct);
+            $"{nombre} solicitó cancelar un permiso aprobado.", solicitudId, now, ct, $"cp:{c.SolicitudCancelacionId}");
         await _db.SaveSafeAsync(ct);
         return (await CancelacionesAsync(empresaId, _db.SolicitudesCancelacionPermiso.AsNoTracking().Where(x => x.SolicitudCancelacionId == c.SolicitudCancelacionId), 1, 1, ct)).Items[0];
     }
@@ -151,7 +151,7 @@ public class AprobacionesPermisoService : IAprobacionesPermisoService
         _auditoria.Registrar("Permisos", nameof(SolicitudCancelacionPermiso), cancelacionId.ToString(), r.Aprobar ? "AprobarCancelacionPermiso" : "RechazarCancelacionPermiso",
             new { Estado = EstadoCancelacionPermiso.Pendiente }, new { c.Estado, solicitudId = s.SolicitudPermisoId });
         await NotificarTrabajadorAsync(empresaId, s, "permiso.cancelacion_resuelta", "Cancelación de permiso resuelta",
-            r.Aprobar ? "Su solicitud de cancelación fue aprobada." : "Su solicitud de cancelación fue rechazada.", now, ct);
+            r.Aprobar ? "Su solicitud de cancelación fue aprobada." : "Su solicitud de cancelación fue rechazada.", now, ct, $"cr:{cancelacionId}");
         await _db.SaveSafeAsync(ct);
         return (await CancelacionesAsync(empresaId, _db.SolicitudesCancelacionPermiso.AsNoTracking().Where(x => x.SolicitudCancelacionId == cancelacionId), 1, 1, ct)).Items[0];
     }
@@ -165,11 +165,11 @@ public class AprobacionesPermisoService : IAprobacionesPermisoService
         if (!alcance.Revisa(trabajadorId)) throw ServiceException.Forbidden("No tiene autorización para resolver solicitudes de este trabajador.");
     }
 
-    private async Task NotificarTrabajadorAsync(Guid empresaId, SolicitudPermiso s, string tipo, string titulo, string mensaje, DateTime now, CancellationToken ct)
+    private async Task NotificarTrabajadorAsync(Guid empresaId, SolicitudPermiso s, string tipo, string titulo, string mensaje, DateTime now, CancellationToken ct, string? clave = null)
     {
         var usuario = await _db.Trabajadores.AsNoTracking().Where(t => t.TrabajadorId == s.TrabajadorId && t.EmpresaId == empresaId)
             .Select(t => t.UsuarioId).FirstOrDefaultAsync(ct);
-        if (usuario is { } u) await PermisosHelper.NotificarAsync(_db, empresaId, new[] { u }, tipo, titulo, mensaje, s.SolicitudPermisoId, now, ct);
+        if (usuario is { } u) await PermisosHelper.NotificarAsync(_db, empresaId, new[] { u }, tipo, titulo, mensaje, s.SolicitudPermisoId, now, ct, clave);
     }
 
     private static async Task<PagedResult<SolicitudCancelacionDto>> CancelacionesAsync(Guid empresaId, IQueryable<SolicitudCancelacionPermiso> q, int page, int pageSize, CancellationToken ct)

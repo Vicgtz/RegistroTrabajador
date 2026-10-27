@@ -14,14 +14,43 @@
 else
 {
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-        <h1 class="h3 mb-0">Notificaciones</h1>
-        <div class="d-flex gap-3 align-items-center">
-            <div class="form-check"><input class="form-check-input" type="checkbox" id="nSoloNo" @bind="filtro.SoloNoLeidas" @bind:after="Buscar" /><label class="form-check-label" for="nSoloNo">Solo no leídas</label></div>
+        <div>
+            <h1 class="h3 mb-0">Centro de notificaciones</h1>
+            <div class="small text-muted">Tus avisos personales; archivar no modifica el permiso, tarea o proyecto de origen</div>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary btn-sm" href="notificaciones/preferencias">Preferencias</a>
             <button class="btn btn-outline-secondary btn-sm" @onclick="MarcarTodas">Marcar todas como leídas</button>
         </div>
     </div>
 
+    <ul class="nav nav-tabs mb-3" role="tablist">
+        @Pestana("Bandeja", EstadoNotificacionFiltro.Bandeja)
+        @Pestana("No leídas", EstadoNotificacionFiltro.NoLeidas)
+        @Pestana("Archivadas (historial)", EstadoNotificacionFiltro.Archivadas)
+        @Pestana("Todas", EstadoNotificacionFiltro.Todas)
+    </ul>
+
+    <div class="tarjeta p-3 mb-3">
+        <div class="d-flex flex-wrap gap-2 mb-2" role="group" aria-label="Categorías">
+            <button class="btn btn-sm @(filtro.Categoria is null ? "btn-primary" : "btn-outline-primary")" @onclick='() => CambiarCategoria(null)'>Todas las categorías</button>
+            @foreach (var c in CategoriaNotificacion.Todas)
+            {
+                var sin = resumen?.NoLeidasPorCategoria.GetValueOrDefault(c) ?? 0;
+                <button class="btn btn-sm @(filtro.Categoria == c ? "btn-primary" : "btn-outline-primary")" @onclick="() => CambiarCategoria(c)">
+                    @CategoriaNotificacion.Nombre(c) @if (sin > 0) { <span class="badge text-bg-danger ms-1">@sin</span> }
+                </button>
+            }
+        </div>
+        <div class="row g-2 align-items-end">
+            <div class="col-md-5"><label class="form-label small mb-0" for="nBuscar">Buscar</label><input id="nBuscar" class="form-control form-control-sm" maxlength="100" @bind="filtro.Buscar" @bind:after="Buscar" /></div>
+            <div class="col-6 col-md-3"><label class="form-label small mb-0" for="nDesde">Desde</label><input id="nDesde" type="date" class="form-control form-control-sm" @bind="filtro.Desde" @bind:after="Buscar" /></div>
+            <div class="col-6 col-md-3"><label class="form-label small mb-0" for="nHasta">Hasta</label><input id="nHasta" type="date" class="form-control form-control-sm" @bind="filtro.Hasta" @bind:after="Buscar" /></div>
+        </div>
+    </div>
+
     <Alerta Mensaje="@error" Tipo="danger" />
+    <Alerta Mensaje="@aviso" Tipo="warning" />
 
     @if (cargando) { <Cargando /> }
     else if (datos is not null)
@@ -29,20 +58,29 @@ else
         <div class="list-group">
             @foreach (var n in datos.Items)
             {
-                <div class="list-group-item d-flex justify-content-between align-items-start gap-2 @(n.Leida ? "" : "notificacion-nueva")">
+                <div class="list-group-item d-flex justify-content-between align-items-start gap-2 @(n.Leida ? "" : "notificacion-nueva") @(n.Prioritaria ? "notificacion-prioritaria" : "") @(n.Archivada ? "notificacion-archivada" : "")">
                     <div>
-                        <div class="fw-semibold">@if (!n.Leida) { <span class="badge text-bg-primary me-1">Nueva</span> }@n.Titulo</div>
+                        <div class="fw-semibold">
+                            @if (!n.Leida) { <span class="badge text-bg-primary me-1">Nueva</span> }
+                            @if (n.Prioritaria) { <span class="badge text-bg-danger me-1">Prioritaria</span> }
+                            @if (n.Archivada) { <span class="badge text-bg-secondary me-1">Archivada</span> }
+                            @n.Titulo
+                        </div>
                         <div>@n.Mensaje</div>
-                        <div class="small text-muted">@FormatoProyectos.FechaHora(n.CreadaUtc)</div>
+                        <div class="small text-muted">
+                            <span class="badge text-bg-@FormatoNotificaciones.ClaseCategoria(n.Categoria)">@CategoriaNotificacion.Nombre(n.Categoria)</span>
+                            · @FormatoProyectos.FechaHora(n.CreadaUtc)
+                        </div>
                     </div>
                     <div class="d-flex flex-column gap-1 text-nowrap">
-                        @if (Destino(n) is { } url) { <button class="btn btn-sm btn-outline-primary" @onclick="() => Abrir(n, url)">Abrir</button> }
+                        @if (n.EntidadId is not null) { <button class="btn btn-sm btn-outline-primary" @onclick="() => Abrir(n)">Abrir</button> }
                         @if (!n.Leida) { <button class="btn btn-sm btn-link p-0" @onclick="() => Leer(n)">Marcar leída</button> }
-                        <button class="btn btn-sm btn-link text-danger p-0" @onclick="() => Archivar(n)">Archivar</button>
+                        @if (n.Archivada) { <button class="btn btn-sm btn-link p-0" @onclick="() => Desarchivar(n)">Desarchivar</button> }
+                        else { <button class="btn btn-sm btn-link text-danger p-0" @onclick="() => Archivar(n)">Archivar</button> }
                     </div>
                 </div>
             }
-            @if (datos.Items.Count == 0) { <div class="list-group-item text-muted">No tienes notificaciones.</div> }
+            @if (datos.Items.Count == 0) { <div class="list-group-item text-muted">No hay notificaciones con estos filtros.</div> }
         </div>
         <Paginador Page="datos.Page" PageSize="datos.PageSize" Total="datos.Total" OnPage="IrAPagina" />
     }
@@ -55,9 +93,10 @@ else
 
     private ClaimsPrincipal? user;
     private PagedResult<NotificacionDto>? datos;
+    private ResumenNotificacionesDto? resumen;
     private readonly NotificacionFiltro filtro = new() { PageSize = 20 };
     private bool cargando = true;
-    private string? error;
+    private string? error, aviso;
 
     protected override async Task OnInitializedAsync()
     {
@@ -72,43 +111,42 @@ else
     {
         var r = await Api.ListarAsync(filtro);
         if (r.Ok) datos = r.Data; else error = r.Error;
+        var s = await Api.ResumenAsync();
+        if (s.Ok) resumen = s.Data;
     }
 
     private async Task Buscar() { filtro.Page = 1; await Cargar(); }
     private async Task IrAPagina(int p) { filtro.Page = p; await Cargar(); }
+    private async Task CambiarCategoria(string? c) { filtro.Categoria = c; await Buscar(); }
+    private async Task CambiarEstado(EstadoNotificacionFiltro e) { filtro.Estado = e; await Buscar(); }
 
-    // Solo los elementos del Bloque 7 tienen pantalla propia; el resto de avisos se leen aquí.
-    private static string? Destino(NotificacionDto n) => n.EntidadTipo switch
+    private RenderFragment Pestana(string titulo, EstadoNotificacionFiltro estado) => __builder =>
     {
-        "Tarea" when Guid.TryParse(n.EntidadId, out var t) => $"tareas/{t}",
-        "Proyecto" when Guid.TryParse(n.EntidadId, out var p) => $"proyectos/{p}",
-        _ => null
+        <li class="nav-item" role="presentation">
+            <button class="nav-link @(filtro.Estado == estado ? "active" : "")" role="tab" aria-selected="@(filtro.Estado == estado ? "true" : "false")" @onclick="() => CambiarEstado(estado)">@titulo</button>
+        </li>
     };
 
-    private async Task Abrir(NotificacionDto n, string url)
+    // La API vuelve a comprobar los permisos antes de dar la ruta: si el recurso ya no es accesible, el aviso queda y se informa.
+    private async Task Abrir(NotificacionDto n)
     {
+        error = aviso = null;
+        var d = await Api.DestinoAsync(n.NotificacionId);
+        if (!d.Ok) { aviso = d.Error ?? "No se pudo abrir el recurso."; return; }
         if (!n.Leida) await Api.LeidaAsync(n.NotificacionId);
-        Nav.NavigateTo(url);
+        Nav.NavigateTo(d.Data!.Ruta);
     }
 
-    private async Task Leer(NotificacionDto n)
+    private async Task Accion(Func<Task<ApiResult>> accion)
     {
-        var r = await Api.LeidaAsync(n.NotificacionId);
+        error = aviso = null;
+        var r = await accion();
         if (!r.Ok) { error = r.Error; return; }
         await Cargar();
     }
 
-    private async Task Archivar(NotificacionDto n)
-    {
-        var r = await Api.ArchivarAsync(n.NotificacionId);
-        if (!r.Ok) { error = r.Error; return; }
-        await Cargar();
-    }
-
-    private async Task MarcarTodas()
-    {
-        var r = await Api.TodasLeidasAsync();
-        if (!r.Ok) { error = r.Error; return; }
-        await Cargar();
-    }
+    private Task Leer(NotificacionDto n) => Accion(() => Api.LeidaAsync(n.NotificacionId));
+    private Task Archivar(NotificacionDto n) => Accion(() => Api.ArchivarAsync(n.NotificacionId));
+    private Task Desarchivar(NotificacionDto n) => Accion(() => Api.DesarchivarAsync(n.NotificacionId));
+    private Task MarcarTodas() => Accion(() => Api.TodasLeidasAsync());
 }

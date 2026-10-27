@@ -62,6 +62,14 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IProyectosService, ProyectosService>();
         services.AddScoped<ITareasService, TareasService>();
         services.AddScoped<IComentariosTareaService, ComentariosTareaService>();
+        services.AddScoped<ISeguimientoService, SeguimientoService>();
+        services.AddScoped<IPreferenciasNotificacionService, PreferenciasNotificacionService>();
+        services.AddScoped<ReporteService>();
+        services.AddScoped<IReporteService>(sp => sp.GetRequiredService<ReporteService>());
+        services.AddScoped<IExportacionService, ExportacionService>();
+        services.AddScoped<IDashboardService, DashboardService>();
+        services.AddScoped<IBorradoresService, BorradoresService>();
+        services.AddScoped<IErrorTecnicoService, ErrorTecnicoService>();
         services.AddScoped<INotificacionesService, NotificacionesService>();
         return services;
     }

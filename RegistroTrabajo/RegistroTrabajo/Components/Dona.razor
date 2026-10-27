@@ -1,0 +1,33 @@
+@* Gráfica de dona en SVG, sin librerías. Siempre acompañada de su leyenda con los valores para no depender solo del color. *@
+@{
+    var total = Segmentos.Sum(s => s.Valor);
+    double acumulado = 0;
+}
+<div class="d-flex align-items-center gap-3">
+    <svg viewBox="0 0 42 42" width="110" height="110" role="img" aria-label="@Descripcion">
+        <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#e3e8ef" stroke-width="6" />
+        @if (total > 0)
+        {
+            @foreach (var s in Segmentos.Where(x => x.Valor > 0))
+            {
+                var pct = 100.0 * s.Valor / total;
+                <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="@s.Color" stroke-width="6"
+                        stroke-dasharray="@pct.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) @((100 - pct).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture))"
+                        stroke-dashoffset="@((25 - acumulado).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture))" />
+                acumulado += pct;
+            }
+        }
+        <text x="21" y="23" text-anchor="middle" font-size="7" font-weight="600" fill="currentColor">@total</text>
+    </svg>
+    <ul class="list-unstyled small mb-0">
+        @foreach (var s in Segmentos)
+        {
+            <li><span class="leyenda-punto" style="background:@s.Color"></span>@s.Etiqueta: <strong>@s.Valor</strong></li>
+        }
+    </ul>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<SegmentoGrafica> Segmentos { get; set; } = Array.Empty<SegmentoGrafica>();
+    private string Descripcion => string.Join(", ", Segmentos.Select(s => $"{s.Etiqueta} {s.Valor}"));
+}

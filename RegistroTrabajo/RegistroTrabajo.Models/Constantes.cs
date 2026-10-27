@@ -146,6 +146,29 @@ public static class EstadoTarea
     public static bool EsCerrada(byte e) => e is Completada or Cancelada;
 }
 
+/// <summary>Tipos de <c>EventosSeguimientoTarea.Tipo</c> (Bloque 8). El avance y los cambios de estado viven en HistorialAvanceTarea.</summary>
+public static class TipoEventoTarea
+{
+    public const string FechaLimiteCambiada = "fecha_limite_cambiada";
+    public const string PrioridadCambiada = "prioridad_cambiada";
+    public const string AsignacionAgregada = "asignacion_agregada";
+    public const string AsignacionRetirada = "asignacion_retirada";
+    public const string EnviadaARevision = "enviada_a_revision";
+    public const string RevisionAprobada = "revision_aprobada";
+    public const string RevisionDevuelta = "revision_devuelta";
+    public const string Reabierta = "reabierta";
+    public const string Cancelada = "cancelada";
+    public const string Comentario = "comentario";
+    /// <summary>Evento sintético: proviene de HistorialAvanceTarea (no se guarda en EventosSeguimientoTarea).</summary>
+    public const string AvanceActualizado = "avance_actualizado";
+}
+
+public static class ResultadoRevision
+{
+    public const byte Aprobada = 1;
+    public const byte Devuelta = 2;
+}
+
 public static class PrioridadTrabajo
 {
     public const byte Baja = 1;
@@ -159,11 +182,98 @@ public static class TipoNotificacionTrabajo
 {
     public const string ProyectoAsignado = "proyecto.asignado";
     public const string ProyectoEstado = "proyecto.estado";
+    public const string ProyectoResponsable = "proyecto.responsable";
+    public const string ProyectoFecha = "proyecto.fecha";
     public const string TareaAsignada = "tarea.asignada";
     public const string TareaRevision = "tarea.revision_pendiente";
     public const string TareaRevisada = "tarea.revisada";
     public const string TareaMencion = "tarea.mencion";
     public const string TareaComentario = "tarea.comentario";
+    public const string TareaFechaLimite = "tarea.fecha_limite";
+    public const string TareaRetirada = "tarea.retirada";
+}
+
+/// <summary>Tipos de notificación de permisos y ausencias (Bloque 4).</summary>
+public static class TipoNotificacionPermiso
+{
+    public const string SolicitudPendiente = "permiso.solicitud_pendiente";
+    public const string Resuelta = "permiso.resuelta";
+    public const string CancelacionPendiente = "permiso.cancelacion_pendiente";
+    public const string CancelacionResuelta = "permiso.cancelacion_resuelta";
+}
+
+/// <summary>Categorías del centro de notificaciones (Bloque 9).</summary>
+public static class CategoriaNotificacion
+{
+    public const string Permisos = "permisos";
+    public const string Proyectos = "proyectos";
+    public const string Tareas = "tareas";
+    public const string Menciones = "menciones";
+
+    public static readonly string[] Todas = { Permisos, Proyectos, Tareas, Menciones };
+
+    public static string Nombre(string categoria) => categoria switch
+    {
+        Permisos => "Permisos y ausencias",
+        Proyectos => "Proyectos",
+        Tareas => "Tareas",
+        Menciones => "Menciones",
+        _ => categoria
+    };
+
+    public static string Descripcion(string categoria) => categoria switch
+    {
+        Permisos => "Solicitudes, aprobaciones, rechazos y cancelaciones.",
+        Proyectos => "Incorporación a proyectos, cambios de responsable y modificaciones relevantes.",
+        Tareas => "Nuevas asignaciones, fechas límite, revisiones y correcciones.",
+        Menciones => "Avisos cuando otro usuario te menciona en un comentario.",
+        _ => ""
+    };
+}
+
+public sealed record InfoTipoNotificacion(string Tipo, string Categoria, bool Obligatoria, string Descripcion);
+
+/// <summary>
+/// Catálogo de tipos de notificación. Las obligatorias corresponden a operaciones importantes y no se pueden desactivar;
+/// las opcionales sí. Es una lista fija en código: no hay reglas por empresa en la primera versión.
+/// </summary>
+public static class CatalogoNotificaciones
+{
+    public static readonly IReadOnlyList<InfoTipoNotificacion> Tipos = new List<InfoTipoNotificacion>
+    {
+        new(TipoNotificacionPermiso.SolicitudPendiente, CategoriaNotificacion.Permisos, true, "Solicitud de permiso pendiente de revisión"),
+        new(TipoNotificacionPermiso.Resuelta, CategoriaNotificacion.Permisos, true, "Resultado de tu solicitud de permiso"),
+        new(TipoNotificacionPermiso.CancelacionPendiente, CategoriaNotificacion.Permisos, true, "Solicitud de cancelación pendiente de revisión"),
+        new(TipoNotificacionPermiso.CancelacionResuelta, CategoriaNotificacion.Permisos, true, "Resultado de tu solicitud de cancelación"),
+        new(TipoNotificacionTrabajo.ProyectoAsignado, CategoriaNotificacion.Proyectos, true, "Te incorporaron a un proyecto"),
+        new(TipoNotificacionTrabajo.ProyectoResponsable, CategoriaNotificacion.Proyectos, true, "Cambió el responsable de un proyecto"),
+        new(TipoNotificacionTrabajo.ProyectoEstado, CategoriaNotificacion.Proyectos, false, "Cambió el estado de un proyecto"),
+        new(TipoNotificacionTrabajo.ProyectoFecha, CategoriaNotificacion.Proyectos, false, "Cambió la fecha de término de un proyecto"),
+        new(TipoNotificacionTrabajo.TareaAsignada, CategoriaNotificacion.Tareas, true, "Te asignaron una tarea"),
+        new(TipoNotificacionTrabajo.TareaRetirada, CategoriaNotificacion.Tareas, true, "Te retiraron de una tarea"),
+        new(TipoNotificacionTrabajo.TareaFechaLimite, CategoriaNotificacion.Tareas, true, "Cambió la fecha límite de una tarea"),
+        new(TipoNotificacionTrabajo.TareaRevision, CategoriaNotificacion.Tareas, true, "Una tarea espera tu revisión"),
+        new(TipoNotificacionTrabajo.TareaRevisada, CategoriaNotificacion.Tareas, true, "Aprobaron, devolvieron, reabrieron o cancelaron una tarea"),
+        new(TipoNotificacionTrabajo.TareaComentario, CategoriaNotificacion.Tareas, false, "Comentario nuevo en una tarea"),
+        new(TipoNotificacionTrabajo.TareaMencion, CategoriaNotificacion.Menciones, false, "Te mencionaron en un comentario")
+    };
+
+    private static readonly Dictionary<string, InfoTipoNotificacion> PorTipo = Tipos.ToDictionary(t => t.Tipo);
+
+    public static InfoTipoNotificacion? Info(string tipo) => PorTipo.GetValueOrDefault(tipo);
+
+    /// <summary>Categoría del tipo; los tipos desconocidos se agrupan por su prefijo.</summary>
+    public static string CategoriaDe(string tipo) => Info(tipo)?.Categoria ?? tipo switch
+    {
+        _ when tipo.StartsWith("permiso.", StringComparison.Ordinal) => CategoriaNotificacion.Permisos,
+        _ when tipo.StartsWith("proyecto.", StringComparison.Ordinal) => CategoriaNotificacion.Proyectos,
+        _ => CategoriaNotificacion.Tareas
+    };
+
+    /// <summary>Los tipos desconocidos se tratan como obligatorios: ante la duda, no se silencia un aviso.</summary>
+    public static bool EsObligatoria(string tipo) => Info(tipo)?.Obligatoria ?? true;
+
+    public static IEnumerable<string> TiposDe(string categoria) => Tipos.Where(t => t.Categoria == categoria).Select(t => t.Tipo);
 }
 
 public static class TipoCambioLaboral
@@ -278,6 +388,20 @@ public static class Permisos
     public const string TareasComentar = "tareas.comentar";
     public const string NotificacionesConsultar = "notificaciones.consultar";
 
+    // Bloque 8
+    public const string TareasVerSeguimiento = "tareas.ver_seguimiento";
+
+    // Bloque 10
+    public const string ReportesConsultar = "reportes.consultar";
+    public const string ReportesExportar = "reportes.exportar";
+    public const string ErroresConsultar = "errores.consultar";
+
+    /// <summary>Permisos del Bloque 10 (catálogo insertado por el script 011).</summary>
+    public static readonly string[] Bloque10 = { ReportesConsultar, ReportesExportar, ErroresConsultar };
+
+    /// <summary>Permisos del Bloque 8 (catálogo insertado por el script 009).</summary>
+    public static readonly string[] Bloque8 = { TareasVerSeguimiento };
+
     /// <summary>Permisos del Bloque 7 (catálogo insertado por el script 008).</summary>
     public static readonly string[] Bloque7 =
     {
@@ -329,7 +453,7 @@ public static class Permisos
         CalendarioConsultar, CalendarioGestionarEventos, CalendarioConfigurar, CalendarioVerFechasRelevantes, CalendarioVerAusenciasTodos,
         ProyectosConsultar, ProyectosConsultarTodos, ProyectosCrear, ProyectosModificar, ProyectosAsignar, ProyectosCambiarResponsable,
         ProyectosFinalizar, ProyectosReabrir, ProyectosConfigurarEstados, TareasGestionar, TareasActualizarAvance, TareasRevisar,
-        TareasComentar, NotificacionesConsultar
+        TareasComentar, NotificacionesConsultar, TareasVerSeguimiento, ReportesConsultar, ReportesExportar, ErroresConsultar
     };
 }
 /// <summary>Permisos exclusivos de la empresa de plataforma (nunca se asignan a roles de empresas normales).</summary>
@@ -364,7 +488,8 @@ public static class PermisosPorDefecto
             Permisos.HorariosConsultar, Permisos.HorariosConfigurar,
             Permisos.CalendarioConsultar, Permisos.CalendarioGestionarEventos, Permisos.CalendarioConfigurar, Permisos.CalendarioVerFechasRelevantes, Permisos.CalendarioVerAusenciasTodos,
             Permisos.ProyectosConsultar, Permisos.ProyectosCrear, Permisos.ProyectosModificar, Permisos.ProyectosAsignar, Permisos.ProyectosFinalizar,
-            Permisos.TareasGestionar, Permisos.TareasActualizarAvance, Permisos.TareasRevisar, Permisos.TareasComentar, Permisos.NotificacionesConsultar
+            Permisos.TareasGestionar, Permisos.TareasActualizarAvance, Permisos.TareasRevisar, Permisos.TareasComentar, Permisos.NotificacionesConsultar, Permisos.TareasVerSeguimiento,
+            Permisos.ReportesConsultar, Permisos.ReportesExportar
         },
         [NombresRol.Supervisor] = new[]
         {
@@ -375,7 +500,8 @@ public static class PermisosPorDefecto
             Permisos.AsistenciaCorregir, Permisos.HorariosConsultar,
             Permisos.CalendarioConsultar, Permisos.CalendarioVerFechasRelevantes, Permisos.CalendarioVerAusenciasTodos,
             Permisos.ProyectosConsultar, Permisos.ProyectosCrear, Permisos.ProyectosModificar, Permisos.ProyectosAsignar, Permisos.ProyectosFinalizar,
-            Permisos.TareasGestionar, Permisos.TareasActualizarAvance, Permisos.TareasRevisar, Permisos.TareasComentar, Permisos.NotificacionesConsultar
+            Permisos.TareasGestionar, Permisos.TareasActualizarAvance, Permisos.TareasRevisar, Permisos.TareasComentar, Permisos.NotificacionesConsultar, Permisos.TareasVerSeguimiento,
+            Permisos.ReportesConsultar
         },
         [NombresRol.Trabajador] = new[]
         {
@@ -383,7 +509,7 @@ public static class PermisosPorDefecto
             Permisos.PuestosConsultar, Permisos.PerfilSolicitar, Permisos.PermisosSolicitar,
             Permisos.AsistenciaRegistrar, Permisos.AsistenciaConsultarPropia,
             Permisos.CalendarioConsultar, Permisos.CalendarioVerFechasRelevantes, Permisos.CalendarioVerAusenciasTodos,
-            Permisos.ProyectosConsultar, Permisos.TareasActualizarAvance, Permisos.TareasComentar, Permisos.NotificacionesConsultar
+            Permisos.ProyectosConsultar, Permisos.TareasActualizarAvance, Permisos.TareasComentar, Permisos.NotificacionesConsultar, Permisos.ReportesConsultar
         }
     };
 }

@@ -13,5 +13,8 @@ public class PreferenciaNotificacion
 
     public bool Habilitada { get; set; }
 
+    /// <summary>Bloque 9 (script 010): el usuario quiere ver estos avisos como prioritarios.</summary>
+    public bool Prioritaria { get; set; }
+
     public Usuario Usuario { get; set; } = null!;
 }

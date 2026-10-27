@@ -56,6 +56,11 @@ builder.Services.AddScoped<CalendarioClient>();
 builder.Services.AddScoped<EventosEmpresaClient>();
 builder.Services.AddScoped<ProyectosClient>();
 builder.Services.AddScoped<TareasClient>();
+builder.Services.AddScoped<SeguimientoClient>();
 builder.Services.AddScoped<NotificacionesClient>();
+builder.Services.AddScoped<DashboardClient>();
+builder.Services.AddScoped<ReportesClient>();
+builder.Services.AddScoped<BorradoresClient>();
+builder.Services.AddScoped<ErroresTecnicosClient>();
 
 await builder.Build().RunAsync();

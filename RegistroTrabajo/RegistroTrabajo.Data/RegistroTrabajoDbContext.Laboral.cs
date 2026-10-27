@@ -23,6 +23,8 @@ public partial class RegistroTrabajoDbContext
     public DbSet<ErrorTecnico> ErroresTecnicos => Set<ErrorTecnico>();
     public DbSet<EstadoProyecto> EstadosProyecto => Set<EstadoProyecto>();
     public DbSet<EventoEmpresa> EventosEmpresa => Set<EventoEmpresa>();
+    public DbSet<EventoSeguimientoTarea> EventosSeguimientoTarea => Set<EventoSeguimientoTarea>();
+    public DbSet<RevisionTarea> RevisionesTarea => Set<RevisionTarea>();
     public DbSet<HistorialAvanceTarea> HistorialAvanceTarea => Set<HistorialAvanceTarea>();
     public DbSet<HistorialEstadoProyecto> HistorialEstadoProyecto => Set<HistorialEstadoProyecto>();
     public DbSet<HistorialLaboral> HistorialLaboral => Set<HistorialLaboral>();
@@ -495,6 +497,57 @@ public partial class RegistroTrabajoDbContext
                 .HasConstraintName("FK__HistorialAvanceT__64CCF2AE");
         });
 
+        modelBuilder.Entity<EventoSeguimientoTarea>(entity =>
+        {
+            entity.ToTable("EventosSeguimientoTarea");
+
+            entity.HasKey(e => e.EventoSeguimientoTareaId);
+
+            entity.Property(e => e.Tipo).HasMaxLength(40).IsUnicode(false);
+            entity.Property(e => e.ValorAnteriorJson).HasMaxLength(2000);
+            entity.Property(e => e.ValorNuevoJson).HasMaxLength(2000);
+            entity.Property(e => e.Detalle).HasMaxLength(1000);
+            entity.Property(e => e.FechaUtc)
+                .HasPrecision(0)
+                .HasDefaultValueSql("(sysutcdatetime())");
+
+            entity.HasOne(d => d.Tarea).WithMany()
+                .HasPrincipalKey(p => new { p.EmpresaId, p.TareaId })
+                .HasForeignKey(d => new { d.EmpresaId, d.TareaId })
+                .OnDelete(DeleteBehavior.NoAction)
+                .HasConstraintName("FK_EventosSeguimientoTarea_Tarea");
+
+            entity.HasOne(d => d.Usuario).WithMany()
+                .HasPrincipalKey(p => new { p.EmpresaId, p.UsuarioId })
+                .HasForeignKey(d => new { d.EmpresaId, d.UsuarioId })
+                .OnDelete(DeleteBehavior.NoAction)
+                .HasConstraintName("FK_EventosSeguimientoTarea_Usuario");
+        });
+
+        modelBuilder.Entity<RevisionTarea>(entity =>
+        {
+            entity.ToTable("RevisionesTarea");
+
+            entity.HasKey(e => e.RevisionTareaId);
+
+            entity.Property(e => e.Observacion).HasMaxLength(2000);
+            entity.Property(e => e.FechaUtc)
+                .HasPrecision(0)
+                .HasDefaultValueSql("(sysutcdatetime())");
+
+            entity.HasOne(d => d.Tarea).WithMany()
+                .HasPrincipalKey(p => new { p.EmpresaId, p.TareaId })
+                .HasForeignKey(d => new { d.EmpresaId, d.TareaId })
+                .OnDelete(DeleteBehavior.NoAction)
+                .HasConstraintName("FK_RevisionesTarea_Tarea");
+
+            entity.HasOne(d => d.Revisor).WithMany()
+                .HasPrincipalKey(p => new { p.EmpresaId, p.UsuarioId })
+                .HasForeignKey(d => new { d.EmpresaId, d.RevisorUsuarioId })
+                .OnDelete(DeleteBehavior.NoAction)
+                .HasConstraintName("FK_RevisionesTarea_Usuario");
+        });
+
         modelBuilder.Entity<HistorialEstadoProyecto>(entity =>
         {
             entity.ToTable("HistorialEstadoProyecto");
@@ -688,6 +741,7 @@ public partial class RegistroTrabajoDbContext
                 .HasDefaultValueSql("(sysutcdatetime())");
             entity.Property(e => e.EntidadId).HasMaxLength(100);
             entity.Property(e => e.EntidadTipo).HasMaxLength(80);
+            entity.Property(e => e.ClaveDeduplicacion).HasMaxLength(200);
             entity.Property(e => e.LeidaUtc).HasPrecision(0);
             entity.Property(e => e.Mensaje).HasMaxLength(1000);
             entity.Property(e => e.Tipo).HasMaxLength(80);

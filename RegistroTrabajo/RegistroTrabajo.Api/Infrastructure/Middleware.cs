@@ -54,7 +54,34 @@ public class ErrorHandlingMiddleware
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error no controlado. CorrelationId={CorrelationId}", ctx.Items[HttpCurrentUser.CorrelationItem]);
+            await RegistrarErrorTecnicoAsync(ctx, ex);
             await Write(ctx, StatusCodes.Status500InternalServerError, "Ocurrió un error interno.");
+        }
+    }
+
+    /// <summary>
+    /// Guarda el error técnico con su correlación (Bloque 10). Usa un alcance propio, porque el contexto de la solicitud pudo quedar en
+    /// mal estado, y nunca propaga fallos: registrar el error no debe cambiar la respuesta genérica al usuario.
+    /// </summary>
+    private async Task RegistrarErrorTecnicoAsync(HttpContext ctx, Exception ex)
+    {
+        try
+        {
+            Guid? empresaId = null, usuarioId = null;
+            try
+            {
+                var actual = ctx.RequestServices.GetService<ICurrentUser>();
+                empresaId = actual?.EmpresaId; usuarioId = actual?.UsuarioId;
+            }
+            catch (Exception) { /* sin identidad: se registra sin empresa ni usuario */ }
+
+            using var alcance = ctx.RequestServices.GetRequiredService<IServiceScopeFactory>().CreateScope();
+            await alcance.ServiceProvider.GetRequiredService<IErrorTecnicoService>().RegistrarAsync(
+                ex, ctx.Request.Method, ctx.Request.Path.Value ?? "", ctx.Items[HttpCurrentUser.CorrelationItem] as Guid?, empresaId, usuarioId, CancellationToken.None);
+        }
+        catch (Exception inner)
+        {
+            _logger.LogWarning(inner, "No se pudo registrar el error técnico en la base de datos.");
         }
     }
 
