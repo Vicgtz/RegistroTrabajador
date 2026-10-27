@@ -1,0 +1,107 @@
+@page "/mis-tareas"
+@attribute [Authorize]
+@using System.Security.Claims
+
+<PageTitle>Mis tareas - Registro de Trabajo</PageTitle>
+
+@if (user is not null && !Puede(Permisos.ProyectosConsultar))
+{
+    <div class="tarjeta p-4 text-center">
+        <h1 class="h5">Sin permiso</h1>
+        <p class="text-muted mb-0">Tu cuenta no tiene autorización para ver esta sección.</p>
+    </div>
+}
+else
+{
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h1 class="h3 mb-0">Mis tareas</h1>
+            <div class="small text-muted">Tus actividades pendientes, con su proyecto y fecha límite</div>
+        </div>
+        <a class="btn btn-outline-secondary" href="proyectos">Ver proyectos</a>
+    </div>
+
+    <Alerta Mensaje="@error" Tipo="danger" />
+
+    <div class="tarjeta p-3 mb-3 d-flex flex-wrap gap-3 align-items-center">
+        <select class="form-select form-select-sm w-auto" @bind="filtro.Estado" @bind:after="Buscar">
+            <option value="">Todos los estados</option>
+            @foreach (var e in FormatoProyectos.EstadosTarea) { <option value="@e">@FormatoProyectos.EstadoDeTarea(e)</option> }
+        </select>
+        <div class="form-check"><input class="form-check-input" type="checkbox" id="mVenc" @bind="filtro.SoloVencidas" @bind:after="Buscar" /><label class="form-check-label" for="mVenc">Solo vencidas</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" id="mCerr" @bind="filtro.IncluirCerradas" @bind:after="Buscar" /><label class="form-check-label" for="mCerr">Incluir completadas y canceladas</label></div>
+    </div>
+
+    @if (cargando) { <Cargando /> }
+    else if (datos is not null)
+    {
+        @if (datos.Items.Count == 0)
+        {
+            <div class="tarjeta p-4 text-center text-muted">No tienes tareas asignadas con estos filtros.</div>
+        }
+        @Grupo("Vencidas", datos.Items.Where(t => t.Vencida).ToList(), "text-danger")
+        @Grupo("En curso", datos.Items.Where(t => !t.Vencida && !EstadoTarea.EsCerrada(t.Estado)).ToList(), "")
+        @Grupo("Cerradas", datos.Items.Where(t => EstadoTarea.EsCerrada(t.Estado)).ToList(), "text-muted")
+        <Paginador Page="datos.Page" PageSize="datos.PageSize" Total="datos.Total" OnPage="IrAPagina" />
+    }
+}
+
+@code {
+    [Inject] private TareasClient Api { get; set; } = default!;
+    [CascadingParameter] private Task<AuthenticationState>? Sesion { get; set; }
+
+    private ClaimsPrincipal? user;
+    private PagedResult<TareaResumenDto>? datos;
+    private readonly MisTareasFiltro filtro = new() { PageSize = 50 };
+    private bool cargando = true;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = Sesion is null ? null : (await Sesion).User;
+        if (Puede(Permisos.ProyectosConsultar)) await Cargar();
+        cargando = false;
+    }
+
+    private bool Puede(string permiso) => user?.TienePermiso(permiso) == true;
+
+    private async Task Cargar()
+    {
+        cargando = true;
+        var r = await Api.MisTareasAsync(filtro);
+        if (r.Ok) datos = r.Data; else error = r.Error;
+        cargando = false;
+    }
+
+    private async Task Buscar() { filtro.Page = 1; await Cargar(); }
+    private async Task IrAPagina(int p) { filtro.Page = p; await Cargar(); }
+
+    private RenderFragment Grupo(string titulo, List<TareaResumenDto> tareas, string clase) => __builder =>
+    {
+        if (tareas.Count == 0) return;
+        <div class="tarjeta p-3 mb-3">
+            <h2 class="h6 @clase">@titulo <span class="badge text-bg-light border">@tareas.Count</span></h2>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead><tr><th>Tarea</th><th>Proyecto</th><th>Estado</th><th style="min-width:8rem">Avance</th><th>Prioridad</th><th>Fecha límite</th></tr></thead>
+                    <tbody>
+                        @foreach (var t in tareas)
+                        {
+                            <tr>
+                                <td><a class="fw-semibold text-decoration-none" href="tareas/@t.TareaId">@t.Titulo</a></td>
+                                <td><a class="text-decoration-none" href="proyectos/@t.ProyectoId">@t.Proyecto</a></td>
+                                <td><span class="badge text-bg-@FormatoProyectos.ClaseEstadoTarea(t.Estado)">@FormatoProyectos.EstadoDeTarea(t.Estado)</span></td>
+                                <td>
+                                    <div class="progress" style="height:.5rem" role="progressbar" aria-label="Avance" aria-valuenow="@t.PorcentajeAvance" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar @FormatoProyectos.ClaseBarra(t.PorcentajeAvance)" style="width:@FormatoProyectos.Pct(t.PorcentajeAvance)"></div></div>
+                                    <span class="small text-muted">@FormatoProyectos.Pct(t.PorcentajeAvance)</span>
+                                </td>
+                                <td><span class="badge text-bg-@FormatoProyectos.ClasePrioridad(t.Prioridad)">@FormatoProyectos.Prioridad(t.Prioridad)</span></td>
+                                <td class="@(t.Vencida ? "text-danger fw-semibold" : "")">@FormatoProyectos.Fecha(t.FechaVencimiento)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    };
+}

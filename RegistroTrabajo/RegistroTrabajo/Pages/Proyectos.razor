@@ -1,0 +1,206 @@
+@page "/proyectos"
+@attribute [Authorize]
+@using System.Security.Claims
+
+<PageTitle>Proyectos - Registro de Trabajo</PageTitle>
+
+@if (user is not null && !Puede(Permisos.ProyectosConsultar))
+{
+    <div class="tarjeta p-4 text-center">
+        <h1 class="h5">Sin permiso</h1>
+        <p class="text-muted mb-0">Tu cuenta no tiene autorización para ver esta sección.</p>
+    </div>
+}
+else
+{
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h1 class="h3 mb-0">Proyectos</h1>
+            <div class="small text-muted">Organiza y da seguimiento al trabajo de tu equipo</div>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" href="mis-tareas">Mis tareas</a>
+            @if (Puede(Permisos.ProyectosConfigurarEstados)) { <a class="btn btn-outline-secondary" href="proyectos/estados">Estados</a> }
+            @if (Puede(Permisos.ProyectosCrear)) { <button class="btn btn-primary" @onclick="Nuevo">Nuevo proyecto</button> }
+        </div>
+    </div>
+
+    <Alerta Mensaje="@error" Tipo="danger" />
+    <Alerta Mensaje="@exito" Tipo="success" />
+
+    @if (resumen is not null)
+    {
+        <div class="row g-3 mb-3">
+            <div class="col-6 col-lg"><div class="tarjeta p-3 text-center resumen-tarjeta"><div class="resumen-cifra">@resumen.Total</div><div class="text-muted">Proyectos</div></div></div>
+            @foreach (var e in resumen.PorEstado.Where(x => x.Total > 0 || !x.EsFinal))
+            {
+                <div class="col-6 col-lg"><div class="tarjeta p-3 text-center resumen-tarjeta"><div class="resumen-cifra">@e.Total</div><div class="text-muted">@e.Nombre</div></div></div>
+            }
+            <div class="col-6 col-lg"><div class="tarjeta p-3 text-center resumen-tarjeta @(resumen.ProximosAVencer > 0 ? "resumen-alerta" : "")"><div class="resumen-cifra">@resumen.ProximosAVencer</div><div class="text-muted">Próximos a vencer</div></div></div>
+            @if (resumen.Vencidos > 0)
+            {
+                <div class="col-6 col-lg"><div class="tarjeta p-3 text-center resumen-tarjeta resumen-peligro"><div class="resumen-cifra">@resumen.Vencidos</div><div class="text-muted">Vencidos</div></div></div>
+            }
+        </div>
+    }
+
+    <div class="tarjeta p-3 mb-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-3"><label class="form-label">Buscar</label><input class="form-control" placeholder="Nombre del proyecto" @bind="filtro.Buscar" @bind:event="oninput" @onkeydown="TeclaBuscar" /></div>
+            <div class="col-md-3">
+                <label class="form-label">Estado</label>
+                <select class="form-select" @bind="filtro.EstadoProyectoId">
+                    <option value="">Todos</option>
+                    @foreach (var e in estados) { <option value="@e.EstadoProyectoId">@e.Nombre</option> }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Prioridad</label>
+                <select class="form-select" @bind="filtro.Prioridad">
+                    <option value="">Todas</option>
+                    @foreach (var p in FormatoProyectos.Prioridades) { <option value="@p">@FormatoProyectos.Prioridad(p)</option> }
+                </select>
+            </div>
+            <div class="col-md-2 d-flex flex-column gap-1">
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="fMios" @bind="filtro.SoloMios" /><label class="form-check-label" for="fMios">Solo los míos</label></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="fVence" @bind="filtro.SoloProximosAVencer" /><label class="form-check-label" for="fVence">Próximos a vencer</label></div>
+            </div>
+            <div class="col-md-2"><button class="btn btn-primary w-100" @onclick="Buscar">Buscar</button></div>
+        </div>
+    </div>
+
+    @if (cargando) { <Cargando /> }
+    else if (datos is not null)
+    {
+        <div class="row g-3">
+            @foreach (var p in datos.Items)
+            {
+                <div class="col-md-6 col-xl-4">
+                    <div class="tarjeta p-3 h-100 proyecto-tarjeta @(p.EstadoFinal ? "proyecto-cerrado" : "")">
+                        <div class="d-flex justify-content-between align-items-start gap-2">
+                            <a class="h6 mb-1 text-decoration-none" href="proyectos/@p.ProyectoId">@p.Nombre</a>
+                            <span class="badge text-bg-@FormatoProyectos.ClasePrioridad(p.Prioridad)">@FormatoProyectos.Prioridad(p.Prioridad)</span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="badge @(p.EstadoFinal ? "text-bg-success" : "text-bg-primary")">@p.Estado</span>
+                            @if (p.Vencido) { <span class="badge text-bg-danger">Vencido</span> }
+                            else if (p.ProximoAVencer) { <span class="badge text-bg-warning">Próximo a vencer</span> }
+                            @if (p.TareasVencidas > 0) { <span class="badge text-bg-danger" title="Tareas vencidas">@p.TareasVencidas tareas vencidas</span> }
+                        </div>
+                        <div class="d-flex justify-content-between small text-muted"><span>Progreso</span><span>@FormatoProyectos.Pct(p.Avance)</span></div>
+                        <div class="progress mb-2" role="progressbar" aria-label="Progreso del proyecto" aria-valuenow="@p.Avance" aria-valuemin="0" aria-valuemax="100">
+                            <div class="progress-bar @FormatoProyectos.ClaseBarra(p.Avance)" style="width:@FormatoProyectos.Pct(p.Avance)"></div>
+                        </div>
+                        <div class="small">@p.TareasCompletadas / @p.TareasTotal tareas completadas</div>
+                        <div class="d-flex justify-content-between small text-muted mt-2">
+                            <span title="Responsable">@p.Responsable · @p.Participantes @(p.Participantes == 1 ? "persona" : "personas")</span>
+                            <span>Vence: @FormatoProyectos.Fecha(p.FechaFinPrevista)</span>
+                        </div>
+                    </div>
+                </div>
+            }
+            @if (datos.Items.Count == 0) { <div class="col-12"><div class="tarjeta p-4 text-muted text-center">No hay proyectos para los filtros indicados.</div></div> }
+        </div>
+        <Paginador Page="datos.Page" PageSize="datos.PageSize" Total="datos.Total" OnPage="IrAPagina" />
+    }
+}
+
+<Modal @bind-Visible="formVisible" Titulo="Nuevo proyecto" Tamano="modal-lg">
+    <ChildContent>
+        <Alerta Mensaje="@errorForm" Tipo="danger" />
+        <div class="row g-3">
+            <div class="col-12"><label class="form-label" for="pNombre">Nombre</label><input id="pNombre" class="form-control" maxlength="180" @bind="form.Nombre" /></div>
+            <div class="col-12"><label class="form-label" for="pDesc">Descripción</label><textarea id="pDesc" class="form-control" rows="3" maxlength="4000" @bind="form.Descripcion"></textarea></div>
+            <div class="col-md-4"><label class="form-label" for="pIni">Inicio</label><input id="pIni" type="date" class="form-control" @bind="form.FechaInicio" /></div>
+            <div class="col-md-4"><label class="form-label" for="pFin">Fin previsto</label><input id="pFin" type="date" class="form-control" @bind="form.FechaFinPrevista" /></div>
+            <div class="col-md-4">
+                <label class="form-label" for="pPri">Prioridad</label>
+                <select id="pPri" class="form-select" @bind="form.Prioridad">
+                    @foreach (var p in FormatoProyectos.Prioridades) { <option value="@p">@FormatoProyectos.Prioridad(p)</option> }
+                </select>
+            </div>
+            @if (trabajadores.Count > 0)
+            {
+                <div class="col-12">
+                    <label class="form-label" for="pResp">Responsable</label>
+                    <select id="pResp" class="form-select" @bind="form.ResponsableTrabajadorId">
+                        <option value="">Yo</option>
+                        @foreach (var t in trabajadores) { <option value="@t.TrabajadorId">@t.Nombres @t.Apellidos</option> }
+                    </select>
+                </div>
+            }
+        </div>
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-secondary" @onclick="() => formVisible = false">Cerrar</button>
+        <button class="btn btn-primary" disabled="@guardando" @onclick="Guardar">Crear proyecto</button>
+    </Footer>
+</Modal>
+
+@code {
+    [Inject] private ProyectosClient Api { get; set; } = default!;
+    [Inject] private TrabajadoresClient TrabApi { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+    [CascadingParameter] private Task<AuthenticationState>? Estado { get; set; }
+
+    private ClaimsPrincipal? user;
+    private PagedResult<ProyectoResumenDto>? datos;
+    private ProyectosResumenDto? resumen;
+    private List<EstadoProyectoDto> estados = new();
+    private List<TrabajadorResumenDto> trabajadores = new();
+    private readonly ProyectoFiltro filtro = new() { PageSize = 12 };
+    private GuardarProyectoRequest form = new();
+    private bool cargando = true, guardando, formVisible;
+    private string? error, exito, errorForm;
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = Estado is null ? null : (await Estado).User;
+        if (!Puede(Permisos.ProyectosConsultar)) { cargando = false; return; }
+        var e = await Api.EstadosAsync();
+        if (e.Ok) estados = e.Data ?? new(); else error = e.Error;
+        if (Puede(Permisos.ProyectosCrear) && Puede(Permisos.TrabajadoresConsultar))
+        {
+            var t = await TrabApi.ListarAsync(new TrabajadorFiltro { PageSize = 200, EstadoLaboral = EstadoLaboral.Activo });
+            if (t.Ok) trabajadores = t.Data?.Items.ToList() ?? new();
+        }
+        await Cargar();
+    }
+
+    private bool Puede(string permiso) => user?.TienePermiso(permiso) == true;
+
+    private async Task Cargar()
+    {
+        cargando = true;
+        var r = await Api.ListarAsync(filtro);
+        if (r.Ok) datos = r.Data; else error = r.Error;
+        var s = await Api.ResumenAsync();
+        if (s.Ok) resumen = s.Data;
+        cargando = false;
+    }
+
+    private async Task Buscar() { filtro.Page = 1; await Cargar(); }
+    private async Task IrAPagina(int p) { filtro.Page = p; await Cargar(); }
+    private async Task TeclaBuscar(KeyboardEventArgs e) { if (e.Key == "Enter") await Buscar(); }
+
+    private void Nuevo()
+    {
+        errorForm = null;
+        form = new GuardarProyectoRequest();
+        formVisible = true;
+    }
+
+    private async Task Guardar()
+    {
+        errorForm = error = exito = null;
+        guardando = true;
+        try
+        {
+            var r = await Api.CrearAsync(form);
+            if (!r.Ok) { errorForm = r.Error; return; }
+            formVisible = false;
+            Nav.NavigateTo($"proyectos/{r.Data!.ProyectoId}");
+        }
+        finally { guardando = false; }
+    }
+}

@@ -1,0 +1,114 @@
+@page "/notificaciones"
+@attribute [Authorize]
+@using System.Security.Claims
+
+<PageTitle>Notificaciones - Registro de Trabajo</PageTitle>
+
+@if (user is not null && !Puede(Permisos.NotificacionesConsultar))
+{
+    <div class="tarjeta p-4 text-center">
+        <h1 class="h5">Sin permiso</h1>
+        <p class="text-muted mb-0">Tu cuenta no tiene autorización para ver esta sección.</p>
+    </div>
+}
+else
+{
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <h1 class="h3 mb-0">Notificaciones</h1>
+        <div class="d-flex gap-3 align-items-center">
+            <div class="form-check"><input class="form-check-input" type="checkbox" id="nSoloNo" @bind="filtro.SoloNoLeidas" @bind:after="Buscar" /><label class="form-check-label" for="nSoloNo">Solo no leídas</label></div>
+            <button class="btn btn-outline-secondary btn-sm" @onclick="MarcarTodas">Marcar todas como leídas</button>
+        </div>
+    </div>
+
+    <Alerta Mensaje="@error" Tipo="danger" />
+
+    @if (cargando) { <Cargando /> }
+    else if (datos is not null)
+    {
+        <div class="list-group">
+            @foreach (var n in datos.Items)
+            {
+                <div class="list-group-item d-flex justify-content-between align-items-start gap-2 @(n.Leida ? "" : "notificacion-nueva")">
+                    <div>
+                        <div class="fw-semibold">@if (!n.Leida) { <span class="badge text-bg-primary me-1">Nueva</span> }@n.Titulo</div>
+                        <div>@n.Mensaje</div>
+                        <div class="small text-muted">@FormatoProyectos.FechaHora(n.CreadaUtc)</div>
+                    </div>
+                    <div class="d-flex flex-column gap-1 text-nowrap">
+                        @if (Destino(n) is { } url) { <button class="btn btn-sm btn-outline-primary" @onclick="() => Abrir(n, url)">Abrir</button> }
+                        @if (!n.Leida) { <button class="btn btn-sm btn-link p-0" @onclick="() => Leer(n)">Marcar leída</button> }
+                        <button class="btn btn-sm btn-link text-danger p-0" @onclick="() => Archivar(n)">Archivar</button>
+                    </div>
+                </div>
+            }
+            @if (datos.Items.Count == 0) { <div class="list-group-item text-muted">No tienes notificaciones.</div> }
+        </div>
+        <Paginador Page="datos.Page" PageSize="datos.PageSize" Total="datos.Total" OnPage="IrAPagina" />
+    }
+}
+
+@code {
+    [Inject] private NotificacionesClient Api { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+    [CascadingParameter] private Task<AuthenticationState>? Sesion { get; set; }
+
+    private ClaimsPrincipal? user;
+    private PagedResult<NotificacionDto>? datos;
+    private readonly NotificacionFiltro filtro = new() { PageSize = 20 };
+    private bool cargando = true;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = Sesion is null ? null : (await Sesion).User;
+        if (Puede(Permisos.NotificacionesConsultar)) await Cargar();
+        cargando = false;
+    }
+
+    private bool Puede(string permiso) => user?.TienePermiso(permiso) == true;
+
+    private async Task Cargar()
+    {
+        var r = await Api.ListarAsync(filtro);
+        if (r.Ok) datos = r.Data; else error = r.Error;
+    }
+
+    private async Task Buscar() { filtro.Page = 1; await Cargar(); }
+    private async Task IrAPagina(int p) { filtro.Page = p; await Cargar(); }
+
+    // Solo los elementos del Bloque 7 tienen pantalla propia; el resto de avisos se leen aquí.
+    private static string? Destino(NotificacionDto n) => n.EntidadTipo switch
+    {
+        "Tarea" when Guid.TryParse(n.EntidadId, out var t) => $"tareas/{t}",
+        "Proyecto" when Guid.TryParse(n.EntidadId, out var p) => $"proyectos/{p}",
+        _ => null
+    };
+
+    private async Task Abrir(NotificacionDto n, string url)
+    {
+        if (!n.Leida) await Api.LeidaAsync(n.NotificacionId);
+        Nav.NavigateTo(url);
+    }
+
+    private async Task Leer(NotificacionDto n)
+    {
+        var r = await Api.LeidaAsync(n.NotificacionId);
+        if (!r.Ok) { error = r.Error; return; }
+        await Cargar();
+    }
+
+    private async Task Archivar(NotificacionDto n)
+    {
+        var r = await Api.ArchivarAsync(n.NotificacionId);
+        if (!r.Ok) { error = r.Error; return; }
+        await Cargar();
+    }
+
+    private async Task MarcarTodas()
+    {
+        var r = await Api.TodasLeidasAsync();
+        if (!r.Ok) { error = r.Error; return; }
+        await Cargar();
+    }
+}

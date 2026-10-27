@@ -1037,6 +1037,7 @@ public partial class RegistroTrabajoDbContext
 
             entity.Property(e => e.TareaId).HasDefaultValueSql("(newsequentialid())");
             entity.Property(e => e.Estado).HasDefaultValue((byte)1);
+            entity.Property(e => e.Prioridad).HasDefaultValue((byte)2);
             entity.Property(e => e.FechaActualizacionUtc).HasPrecision(0);
             entity.Property(e => e.FechaCreacionUtc)
                 .HasPrecision(0)

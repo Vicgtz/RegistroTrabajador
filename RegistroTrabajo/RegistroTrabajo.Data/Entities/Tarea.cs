@@ -21,6 +21,8 @@ public class Tarea
 
     public byte PorcentajeAvance { get; set; }
 
+    public byte Prioridad { get; set; } = 2;
+
     public Guid CreadaPorUsuarioId { get; set; }
 
     public Guid? ResponsableTrabajadorId { get; set; }

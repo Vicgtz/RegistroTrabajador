@@ -10,7 +10,7 @@ Aplicación web multiempresa para administrar trabajadores, permisos, asistencia
   - `RegistroTrabajo.Services`: lógica de negocio, validaciones, autorización, sesiones, auditoría, correo. Interfaces + implementaciones, DI con `AddRegistroTrabajoServices()`.
   - `RegistroTrabajo.Api`: controladores, JWT, middlewares, límite de intentos, comandos de inicialización.
   - `RegistroTrabajo` (cliente Blazor WASM): login, inicio y pantallas de administración.
-  - `RegistroTrabajo.Tests`: xUnit (144 pruebas).
+  - `RegistroTrabajo.Tests`: xUnit (160 pruebas).
 - Base de datos: SQL Server local `RegistroTrabajo` (autenticación integrada). Sección de configuración de la API: `RegistroTrabajoApiSettings` (`DbSettings`, `JwtSettings`, `Security`, `Email`, `AllowedOrigins`).
 
 ## Bloque 1 (hecho): seguridad y administración
@@ -49,6 +49,11 @@ El usuario creó 40 tablas laborales en la BD (Trabajadores, Departamentos, Pues
 - Calendario laboral y eventos de la empresa: vista mensual, agenda del día y administración de eventos. Reúne eventos propios, festivos (Bloque 5), permisos aprobados (Bloque 4) y cumpleaños/aniversarios (Bloque 3) sin duplicar catálogos. Detalle, endpoints, permisos y límites en `BLOQUE6.md`.
 - Servicios: `EventosEmpresaService` y `CalendarioService` (`CalendarioServices.cs`). Controladores en `Bloque6Controllers.cs`; pantallas Blazor: Calendario, EventosEmpresa.
 - Fechas: los DTO usan siempre hora local de la empresa; día completo se guarda como fecha local sin zona, con hora se guarda en UTC. `EventoEmpresa.Estado` 1 Activo/2 Cancelado; `Visibilidad` 1 Empresa/2 Departamento; `Tipo` 1..5 (el script 007 amplía ese CHECK).
+## Bloque 7 (hecho en código; falta aplicar el script 008 a la BD de desarrollo)
+- Proyectos y tareas: estados de proyecto configurables por empresa, equipos, tareas con avance y revisión del responsable, comentarios inmutables con menciones, historial, vencidas y bandeja de notificaciones. Detalle, endpoints, permisos, reglas y límites en `BLOQUE7.md`.
+- Servicios: `EstadosProyectoService`, `ProyectosService` (`ProyectosServices.cs`), `TareasService`, `ComentariosTareaService`, `NotificacionesService` (`TareasServices.cs`). Controladores en `Bloque7Controllers.cs`; pantallas Blazor: Proyectos, ProyectoDetalle, MisTareas, TareaDetalle, EstadosProyecto, Notificaciones (+ campana en `MainLayout`).
+- Significado: `Tarea.Estado` 1 Pendiente/2 En proceso/3 En revisión/4 Completada/5 Reabierta/6 Cancelada; `Prioridad` 1..4 (proyectos y tareas). El script 008 añade `Tareas.Prioridad`, siembra los estados de proyecto y crea 14 permisos.
+- Piezas compartidas: `ProyectoHelper` (acceso, visibilidad, nombres) y `NotificacionesHelper` (emisor genérico; `PermisosHelper.NotificarAsync` delega en él). Los estados de proyecto de una empresa nueva se siembran al primer uso.
 ## Servidor de pruebas (entorno `Pruebas`)
 - API `http://192.168.68.124:5002` (`C:\inetpub\RegistroTrabajo\api`), cliente `http://192.168.68.124:5003` (`C:\inetpub\RegistroTrabajo\client`).
 - Configuración por entorno: `RegistroTrabajo.Api/appsettings.json` (base: sin orígenes CORS), `appsettings.Development.json` (localhost:5118/7097) y `appsettings.Pruebas.json` (CORS solo para `http://192.168.68.124:5003`, `ClientBaseUrl` de los correos y `RedirigirAHttps=false` porque el servidor sirve solo HTTP). Cliente: `wwwroot/appsettings.Development.json` (API local) y `wwwroot/appsettings.Pruebas.json` (API del servidor).
@@ -58,7 +63,7 @@ El usuario creó 40 tablas laborales en la BD (Trabajadores, Departamentos, Pues
 dotnet publish RegistroTrabajo.Api -p:PublishProfile=Pruebas      # web.config con ASPNETCORE_ENVIRONMENT=Pruebas
 dotnet publish RegistroTrabajo -p:PublishProfile=Pruebas          # cliente con entorno Pruebas (carga appsettings.Pruebas.json)
 ```
-- En el servidor: la identidad del grupo de aplicaciones de IIS necesita acceso a SQL Server (o usar `UserId`/`Password` en `DbSettings`), y la clave JWT debe venir de la variable de entorno `RegistroTrabajoApiSettings__JwtSettings__SecretKey` (la del `appsettings.json` se considera comprometida). Aplicar antes los scripts SQL pendientes (hasta el 007).
+- En el servidor: la identidad del grupo de aplicaciones de IIS necesita acceso a SQL Server (o usar `UserId`/`Password` en `DbSettings`), y la clave JWT debe venir de la variable de entorno `RegistroTrabajoApiSettings__JwtSettings__SecretKey` (la del `appsettings.json` se considera comprometida). Aplicar antes los scripts SQL pendientes (hasta el 008).
 ## Comandos útiles
 ```powershell
 dotnet build RegistroTrabajo.sln
@@ -79,6 +84,7 @@ Puertos de desarrollo: API `http://localhost:5265`, cliente `http://localhost:51
   - `005_bloque4.sql`: **pendiente de aplicar** a la BD de desarrollo (RowVersion y ClaveIdempotencia en SolicitudesPermiso, 2 índices únicos filtrados, 8 permisos del Bloque 4 + asignación a roles). Aplicar con `sqlcmd ... -I -i` (ver `BLOQUE4.md`). Las pruebas de SQL Server lo validan dentro de una transacción revertida.
 - `006_bloque5.sql`: **pendiente de aplicar** a la BD de desarrollo (índice único de jornada abierta + 8 permisos del Bloque 5 con su asignación a roles). Aplicar con `sqlcmd ... -I -i` (ver `BLOQUE5.md`).
 - `007_bloque6.sql`: **pendiente de aplicar** a la BD de desarrollo (estado, visibilidad, cancelación y RowVersion en EventosEmpresa, interruptores de fechas relevantes en ConfiguracionEmpresa, 5 permisos del Bloque 6 con su asignación a roles). Aplicar con `sqlcmd ... -I -i` (ver `BLOQUE6.md`).
+- `008_bloque7.sql`: **pendiente de aplicar** a la BD de desarrollo (`Tareas.Prioridad`, índices de consulta, estados de proyecto por defecto y 14 permisos del Bloque 7 con su asignación a roles). Aplicar con `sqlcmd ... -I -i` (ver `BLOQUE7.md`).
 - `001_auditoria_solo_insercion.sql`: **pendiente** (requiere DBA y un usuario de la API que no sea db_owner).
 - Las pruebas de SQL Server aplican los scripts dentro de una transacción que siempre se revierte y comprueban que cada tabla/columna de la BD esté mapeada (y al revés): mantenerlas verdes al cambiar el modelo.
 - Para regenerar entidades desde la BD se usó `dotnet ef dbcontext scaffold` en una carpeta temporal (fuera del repo) y un script de adaptación; no hay herramienta EF instalada globalmente.
@@ -96,6 +102,7 @@ Puertos de desarrollo: API `http://localhost:5265`, cliente `http://localhost:51
 - `appsettings.json` volvió a contener la clave JWT antigua: considerarla comprometida y moverla a user-secrets o variable de entorno (`RegistroTrabajoApiSettings__JwtSettings__SecretKey`). Los user-secrets solo se cargan en `Development`.
 - `RegistroTrabajo.Api/dev-credenciales.local.txt` guarda contraseñas de desarrollo: borrar cuando se copien.
 - Pruebas HTTP de extremo a extremo (WebApplicationFactory), detección de reutilización del refresh token, MFA y exportaciones: fuera del Bloque 1.
-- Siguiente: resto de módulos del Bloque 2 (Proyectos, Tareas...) en Service → API → App, por etapas; usarán las relaciones de supervisión del Bloque 3 para aprobaciones.
+- Siguiente: módulos restantes del Bloque 2 sin servicio (Reportes, Borradores, Errores técnicos, Respaldo...) en Service → API → App, por etapas. Pendientes del Bloque 7: ponderar el avance del proyecto, mostrar vencimientos de tareas en el Calendario y pruebas de la interfaz.
+- Nota de entorno: `dotnet restore` falla en esta máquina por un origen NuGet de Telerik (401). Se restauró con `dotnet restore RegistroTrabajo.sln --source "$USERPROFILE/.nuget/packages"` y luego `--no-restore`.
 
 Más detalle del Bloque 1 (endpoints, scripts, límites): `BLOQUE1.md`.

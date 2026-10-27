@@ -291,21 +291,9 @@ internal static class PermisosHelper
     /// Agrega notificaciones sin datos de salud ni motivos (el texto es genérico a propósito) y respeta las preferencias del usuario.
     /// Se persisten con el SaveChanges de la operación.
     /// </summary>
-    public static async Task NotificarAsync(RegistroTrabajoDbContext db, Guid empresaId, IEnumerable<Guid> destinatarios, string tipo,
-        string titulo, string mensaje, Guid solicitudId, DateTime now, CancellationToken ct)
-    {
-        var ids = destinatarios.Distinct().ToList();
-        if (ids.Count == 0) return;
-        var silenciados = await db.PreferenciasNotificacion.AsNoTracking()
-            .Where(p => p.EmpresaId == empresaId && p.TipoNotificacion == tipo && !p.Habilitada && ids.Contains(p.UsuarioId))
-            .Select(p => p.UsuarioId).ToListAsync(ct);
-        foreach (var u in ids.Except(silenciados))
-            db.Notificaciones.Add(new Notificacion
-            {
-                NotificacionId = Guid.NewGuid(), EmpresaId = empresaId, UsuarioDestinoId = u, Tipo = tipo, Titulo = titulo, Mensaje = mensaje,
-                EntidadTipo = nameof(SolicitudPermiso), EntidadId = solicitudId.ToString(), CreadaUtc = now
-            });
-    }
+    public static Task NotificarAsync(RegistroTrabajoDbContext db, Guid empresaId, IEnumerable<Guid> destinatarios, string tipo,
+        string titulo, string mensaje, Guid solicitudId, DateTime now, CancellationToken ct) =>
+        NotificacionesHelper.NotificarAsync(db, empresaId, destinatarios, tipo, titulo, mensaje, nameof(SolicitudPermiso), solicitudId.ToString(), now, ct);
 
     /// <summary>Cuentas de los supervisores vigentes del trabajador.</summary>
     public static async Task<List<Guid>> UsuariosSupervisoresAsync(RegistroTrabajoDbContext db, Guid empresaId, Guid trabajadorId, TimeProvider clock, CancellationToken ct)

@@ -54,5 +54,8 @@ builder.Services.AddScoped<AsistenciaClient>();
 builder.Services.AddScoped<HorariosClient>();
 builder.Services.AddScoped<CalendarioClient>();
 builder.Services.AddScoped<EventosEmpresaClient>();
+builder.Services.AddScoped<ProyectosClient>();
+builder.Services.AddScoped<TareasClient>();
+builder.Services.AddScoped<NotificacionesClient>();
 
 await builder.Build().RunAsync();

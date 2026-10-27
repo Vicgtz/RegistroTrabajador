@@ -9,6 +9,7 @@
         <div class="top-row px-4">
             <AuthorizeView>
                 <div class="empresa" title="Empresa">@context.User.FindFirst("empresa")?.Value</div>
+                <CampanaNotificaciones Visible="@context.User.TienePermiso(Permisos.NotificacionesConsultar)" />
                 <div class="usuario">
                     <span class="avatar" aria-hidden="true">@Inicial(context.User.Identity?.Name)</span>
                     <span class="nombre">@context.User.Identity?.Name</span>

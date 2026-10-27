@@ -58,6 +58,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICorreccionesAsistenciaService, CorreccionesAsistenciaService>();
         services.AddScoped<IEventosEmpresaService, EventosEmpresaService>();
         services.AddScoped<ICalendarioService, CalendarioService>();
+        services.AddScoped<IEstadosProyectoService, EstadosProyectoService>();
+        services.AddScoped<IProyectosService, ProyectosService>();
+        services.AddScoped<ITareasService, TareasService>();
+        services.AddScoped<IComentariosTareaService, ComentariosTareaService>();
+        services.AddScoped<INotificacionesService, NotificacionesService>();
         return services;
     }
 }

@@ -130,6 +130,42 @@ public static class CategoriaCalendario
     public const byte Aniversario = 5;
 }
 
+// Bloque 7. La BD limita Tareas.Estado a 1..6 y Prioridad (de proyectos y tareas, script 008) a 1..4; el significado es de la aplicación.
+public static class EstadoTarea
+{
+    public const byte Pendiente = 1;
+    public const byte EnProceso = 2;
+    /// <summary>El trabajador terminó (100 %) y espera la revisión del responsable.</summary>
+    public const byte EnRevision = 3;
+    public const byte Completada = 4;
+    /// <summary>Volvió a abrirse tras una revisión o un cierre; conserva sus actualizaciones anteriores.</summary>
+    public const byte Reabierta = 5;
+    /// <summary>Se conserva para el historial; las tareas no se eliminan físicamente.</summary>
+    public const byte Cancelada = 6;
+
+    public static bool EsCerrada(byte e) => e is Completada or Cancelada;
+}
+
+public static class PrioridadTrabajo
+{
+    public const byte Baja = 1;
+    public const byte Media = 2;
+    public const byte Alta = 3;
+    public const byte Urgente = 4;
+}
+
+/// <summary>Tipos de notificación del Bloque 7 (Notificaciones.Tipo).</summary>
+public static class TipoNotificacionTrabajo
+{
+    public const string ProyectoAsignado = "proyecto.asignado";
+    public const string ProyectoEstado = "proyecto.estado";
+    public const string TareaAsignada = "tarea.asignada";
+    public const string TareaRevision = "tarea.revision_pendiente";
+    public const string TareaRevisada = "tarea.revisada";
+    public const string TareaMencion = "tarea.mencion";
+    public const string TareaComentario = "tarea.comentario";
+}
+
 public static class TipoCambioLaboral
 {
     public const string Ingreso = "Ingreso";
@@ -226,6 +262,30 @@ public static class Permisos
     public const string CalendarioVerFechasRelevantes = "calendario.ver_fechas_relevantes";
     public const string CalendarioVerAusenciasTodos = "calendario.ver_ausencias_todos";
 
+    // Bloque 7
+    public const string ProyectosConsultar = "proyectos.consultar";
+    public const string ProyectosConsultarTodos = "proyectos.consultar_todos";
+    public const string ProyectosCrear = "proyectos.crear";
+    public const string ProyectosModificar = "proyectos.modificar";
+    public const string ProyectosAsignar = "proyectos.asignar";
+    public const string ProyectosCambiarResponsable = "proyectos.cambiar_responsable";
+    public const string ProyectosFinalizar = "proyectos.finalizar";
+    public const string ProyectosReabrir = "proyectos.reabrir";
+    public const string ProyectosConfigurarEstados = "proyectos.configurar_estados";
+    public const string TareasGestionar = "tareas.gestionar";
+    public const string TareasActualizarAvance = "tareas.actualizar_avance";
+    public const string TareasRevisar = "tareas.revisar";
+    public const string TareasComentar = "tareas.comentar";
+    public const string NotificacionesConsultar = "notificaciones.consultar";
+
+    /// <summary>Permisos del Bloque 7 (catálogo insertado por el script 008).</summary>
+    public static readonly string[] Bloque7 =
+    {
+        ProyectosConsultar, ProyectosConsultarTodos, ProyectosCrear, ProyectosModificar, ProyectosAsignar, ProyectosCambiarResponsable,
+        ProyectosFinalizar, ProyectosReabrir, ProyectosConfigurarEstados, TareasGestionar, TareasActualizarAvance, TareasRevisar,
+        TareasComentar, NotificacionesConsultar
+    };
+
     /// <summary>Permisos del Bloque 6 (catálogo insertado por el script 007).</summary>
     public static readonly string[] Bloque6 =
     {
@@ -266,7 +326,10 @@ public static class Permisos
         PermisosVerMotivoPrivado, SaldosConsultar, SaldosAjustar,
         AsistenciaRegistrar, AsistenciaConsultarPropia, AsistenciaConsultar, AsistenciaConsultarTodos,
         AsistenciaCorregir, AsistenciaCorregirTodos, HorariosConsultar, HorariosConfigurar,
-        CalendarioConsultar, CalendarioGestionarEventos, CalendarioConfigurar, CalendarioVerFechasRelevantes, CalendarioVerAusenciasTodos
+        CalendarioConsultar, CalendarioGestionarEventos, CalendarioConfigurar, CalendarioVerFechasRelevantes, CalendarioVerAusenciasTodos,
+        ProyectosConsultar, ProyectosConsultarTodos, ProyectosCrear, ProyectosModificar, ProyectosAsignar, ProyectosCambiarResponsable,
+        ProyectosFinalizar, ProyectosReabrir, ProyectosConfigurarEstados, TareasGestionar, TareasActualizarAvance, TareasRevisar,
+        TareasComentar, NotificacionesConsultar
     };
 }
 /// <summary>Permisos exclusivos de la empresa de plataforma (nunca se asignan a roles de empresas normales).</summary>
@@ -299,7 +362,9 @@ public static class PermisosPorDefecto
             Permisos.AsistenciaRegistrar, Permisos.AsistenciaConsultarPropia, Permisos.AsistenciaConsultar,
             Permisos.AsistenciaConsultarTodos, Permisos.AsistenciaCorregir, Permisos.AsistenciaCorregirTodos,
             Permisos.HorariosConsultar, Permisos.HorariosConfigurar,
-            Permisos.CalendarioConsultar, Permisos.CalendarioGestionarEventos, Permisos.CalendarioConfigurar, Permisos.CalendarioVerFechasRelevantes, Permisos.CalendarioVerAusenciasTodos
+            Permisos.CalendarioConsultar, Permisos.CalendarioGestionarEventos, Permisos.CalendarioConfigurar, Permisos.CalendarioVerFechasRelevantes, Permisos.CalendarioVerAusenciasTodos,
+            Permisos.ProyectosConsultar, Permisos.ProyectosCrear, Permisos.ProyectosModificar, Permisos.ProyectosAsignar, Permisos.ProyectosFinalizar,
+            Permisos.TareasGestionar, Permisos.TareasActualizarAvance, Permisos.TareasRevisar, Permisos.TareasComentar, Permisos.NotificacionesConsultar
         },
         [NombresRol.Supervisor] = new[]
         {
@@ -308,14 +373,17 @@ public static class PermisosPorDefecto
             Permisos.PermisosSolicitar, Permisos.PermisosAprobar, Permisos.SaldosConsultar,
             Permisos.AsistenciaRegistrar, Permisos.AsistenciaConsultarPropia, Permisos.AsistenciaConsultar,
             Permisos.AsistenciaCorregir, Permisos.HorariosConsultar,
-            Permisos.CalendarioConsultar, Permisos.CalendarioVerFechasRelevantes, Permisos.CalendarioVerAusenciasTodos
+            Permisos.CalendarioConsultar, Permisos.CalendarioVerFechasRelevantes, Permisos.CalendarioVerAusenciasTodos,
+            Permisos.ProyectosConsultar, Permisos.ProyectosCrear, Permisos.ProyectosModificar, Permisos.ProyectosAsignar, Permisos.ProyectosFinalizar,
+            Permisos.TareasGestionar, Permisos.TareasActualizarAvance, Permisos.TareasRevisar, Permisos.TareasComentar, Permisos.NotificacionesConsultar
         },
         [NombresRol.Trabajador] = new[]
         {
             Permisos.EmpresaConsultar, Permisos.TrabajadoresConsultar, Permisos.DepartamentosConsultar,
             Permisos.PuestosConsultar, Permisos.PerfilSolicitar, Permisos.PermisosSolicitar,
             Permisos.AsistenciaRegistrar, Permisos.AsistenciaConsultarPropia,
-            Permisos.CalendarioConsultar, Permisos.CalendarioVerFechasRelevantes, Permisos.CalendarioVerAusenciasTodos
+            Permisos.CalendarioConsultar, Permisos.CalendarioVerFechasRelevantes, Permisos.CalendarioVerAusenciasTodos,
+            Permisos.ProyectosConsultar, Permisos.TareasActualizarAvance, Permisos.TareasComentar, Permisos.NotificacionesConsultar
         }
     };
 }

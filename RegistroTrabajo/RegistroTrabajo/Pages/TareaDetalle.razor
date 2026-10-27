@@ -1,0 +1,378 @@
+@page "/tareas/{Id:guid}"
+@attribute [Authorize]
+
+<PageTitle>@(t?.Titulo ?? "Tarea") - Registro de Trabajo</PageTitle>
+
+@if (t is not null) { <a class="small text-decoration-none" href="proyectos/@t.ProyectoId">&larr; @t.Proyecto</a> }
+else { <a class="small text-decoration-none" href="mis-tareas">&larr; Mis tareas</a> }
+
+<Alerta Mensaje="@error" Tipo="danger" />
+<Alerta Mensaje="@exito" Tipo="success" />
+
+@if (cargando) { <Cargando /> }
+else if (t is not null)
+{
+    <div class="row g-3 mt-1">
+        <div class="col-lg-7">
+            <div class="tarjeta p-3 mb-3">
+                <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                    <h1 class="h4 mb-1">@t.Titulo</h1>
+                    <div class="d-flex gap-2">
+                        @if (t.PuedeEditar) { <button class="btn btn-sm btn-outline-primary" @onclick="AbrirEditar">Editar</button> }
+                        @if (t.PuedeEditar) { <button class="btn btn-sm btn-outline-danger" @onclick="() => AbrirMotivo(true)">Cancelar tarea</button> }
+                        @if (t.PuedeRevisar && EstadoTarea.EsCerrada(t.Estado)) { <button class="btn btn-sm btn-outline-primary" @onclick="() => AbrirMotivo(false)">Reabrir</button> }
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <span class="badge text-bg-@FormatoProyectos.ClaseEstadoTarea(t.Estado)">@FormatoProyectos.EstadoDeTarea(t.Estado)</span>
+                    <span class="badge text-bg-@FormatoProyectos.ClasePrioridad(t.Prioridad)">Prioridad @FormatoProyectos.Prioridad(t.Prioridad).ToLower()</span>
+                    @if (t.Vencida) { <span class="badge text-bg-danger">Vencida</span> }
+                </div>
+                @if (!string.IsNullOrWhiteSpace(t.Descripcion)) { <p style="white-space:pre-wrap">@t.Descripcion</p> } else { <p class="text-muted">Sin descripción.</p> }
+
+                <div class="d-flex justify-content-between small text-muted"><span>Avance</span><span>@FormatoProyectos.Pct(t.PorcentajeAvance)</span></div>
+                <div class="progress mb-3" role="progressbar" aria-label="Avance de la tarea" aria-valuenow="@t.PorcentajeAvance" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress-bar @FormatoProyectos.ClaseBarra(t.PorcentajeAvance)" style="width:@FormatoProyectos.Pct(t.PorcentajeAvance)"></div>
+                </div>
+
+                <dl class="row small mb-0">
+                    <dt class="col-sm-4">Proyecto</dt><dd class="col-sm-8"><a href="proyectos/@t.ProyectoId">@t.Proyecto</a></dd>
+                    <dt class="col-sm-4">Inicio</dt><dd class="col-sm-8">@FormatoProyectos.Fecha(t.FechaInicio)</dd>
+                    <dt class="col-sm-4">Fecha límite</dt><dd class="col-sm-8 @(t.Vencida ? "text-danger fw-semibold" : "")">@FormatoProyectos.Fecha(t.FechaVencimiento)</dd>
+                    <dt class="col-sm-4">Creada</dt><dd class="col-sm-8">@FormatoProyectos.FechaHora(t.FechaCreacionUtc) por @t.CreadaPor</dd>
+                    @if (t.FechaFinalizacionUtc is { } fin) { <dt class="col-sm-4">Completada</dt><dd class="col-sm-8">@FormatoProyectos.FechaHora(fin)</dd> }
+                </dl>
+            </div>
+
+            <div class="tarjeta p-3 mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h2 class="h6 mb-0">Asignados</h2>
+                </div>
+                <ul class="list-unstyled mb-2">
+                    @foreach (var m in t.Equipo)
+                    {
+                        <li class="d-flex justify-content-between align-items-center py-1 border-bottom">
+                            <span>@m.Nombre <span class="small text-muted">desde @FormatoProyectos.FechaHora(m.FechaAsignacionUtc)</span></span>
+                            @if (t.PuedeEditar) { <button class="btn btn-sm btn-link text-danger p-0" @onclick="() => Retirar(m)">Quitar</button> }
+                        </li>
+                    }
+                    @if (t.Equipo.Count == 0) { <li class="text-muted small">Nadie asignado.</li> }
+                </ul>
+                @if (t.PuedeEditar && Candidatos().Any())
+                {
+                    <div class="d-flex gap-2">
+                        <select class="form-select form-select-sm" @bind="asignarA"><option value="">Asignar a…</option>@foreach (var c in Candidatos()) { <option value="@c.TrabajadorId">@c.Nombre</option> }</select>
+                        <button class="btn btn-sm btn-outline-primary" disabled="@(asignarA is null || guardando)" @onclick="Asignar">Asignar</button>
+                    </div>
+                }
+            </div>
+
+            @if (t.PuedeActualizarAvance)
+            {
+                <div class="tarjeta p-3 mb-3">
+                    <h2 class="h6">Actualizar avance</h2>
+                    <Alerta Mensaje="@errorAvance" Tipo="danger" />
+                    <label class="form-label" for="avPct">Porcentaje: <strong>@pct %</strong></label>
+                    <input id="avPct" type="range" class="form-range" min="0" max="100" step="5" @bind="pct" @bind:event="oninput" />
+                    <input class="form-control mb-2" maxlength="2000" placeholder="Comentario del avance (opcional)" @bind="comentarioAvance" />
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary" disabled="@guardando" @onclick="GuardarAvance">Guardar avance</button>
+                        <button class="btn btn-outline-success" disabled="@guardando" @onclick="MarcarLista">Marcar como lista</button>
+                    </div>
+                    <div class="form-text">Al llegar al 100 % la tarea pasa a revisión del responsable del proyecto.</div>
+                </div>
+            }
+
+            @if (t.PuedeRevisar && t.Estado == EstadoTarea.EnRevision)
+            {
+                <div class="tarjeta p-3 mb-3 border-warning">
+                    <h2 class="h6">Revisión pendiente</h2>
+                    <Alerta Mensaje="@errorRevision" Tipo="danger" />
+                    <input class="form-control mb-2" maxlength="2000" placeholder="Observaciones (obligatorias al devolver)" @bind="comentarioRevision" />
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-success" disabled="@guardando" @onclick="() => Revisar(true)">Aprobar</button>
+                        <button class="btn btn-outline-danger" disabled="@guardando" @onclick="() => Revisar(false)">Devolver</button>
+                    </div>
+                </div>
+            }
+
+            <div class="tarjeta p-3 mb-3">
+                <h2 class="h6">Historial de avance</h2>
+                @if (historial is null) { <button class="btn btn-sm btn-outline-secondary" @onclick="CargarHistorial">Mostrar historial</button> }
+                else
+                {
+                    <ul class="list-unstyled small mb-0">
+                        @foreach (var h in historial)
+                        {
+                            <li class="py-1 border-bottom">
+                                <strong>@(h.EstadoAnterior is { } ea && ea != h.EstadoNuevo ? $"{FormatoProyectos.EstadoDeTarea(ea)} → " : "")@FormatoProyectos.EstadoDeTarea(h.EstadoNuevo)</strong>
+                                · @(h.PorcentajeAnterior is { } pa ? $"{pa}% → " : "")@h.PorcentajeNuevo%
+                                <span class="text-muted"> · @h.ActualizadoPor · @FormatoProyectos.FechaHora(h.FechaUtc)</span>
+                                @if (!string.IsNullOrWhiteSpace(h.Comentario)) { <div>@h.Comentario</div> }
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="tarjeta p-3 actividad-panel">
+                <h2 class="h6">Comentarios @(comentarios is null ? "" : $"({comentarios.Count})")</h2>
+                @if (comentarios is null) { <Cargando /> }
+                else
+                {
+                    <div class="actividad-lista mb-3">
+                        @foreach (var c in comentarios)
+                        {
+                            <div class="comentario @(c.ComentarioPadreId is not null ? "comentario-respuesta" : "")">
+                                <div class="d-flex justify-content-between small"><strong>@c.Autor</strong><span class="text-muted">@FormatoProyectos.FechaHora(c.FechaCreacionUtc)</span></div>
+                                @if (c.ComentarioPadreId is { } padreId && comentarios.FirstOrDefault(x => x.ComentarioId == padreId) is { } padre)
+                                {
+                                    <div class="small text-muted fst-italic">En respuesta a @padre.Autor</div>
+                                }
+                                <div style="white-space:pre-wrap">@c.Contenido</div>
+                                @if (c.Menciones.Count > 0) { <div class="small text-primary">@string.Join(" ", c.Menciones.Select(m => "@" + m))</div> }
+                                @if (t.PuedeComentar) { <button class="btn btn-sm btn-link p-0" @onclick="() => Responder(c)">Responder</button> }
+                            </div>
+                        }
+                        @if (comentarios.Count == 0) { <div class="text-muted small">Aún no hay comentarios.</div> }
+                    </div>
+
+                    @if (t.PuedeComentar)
+                    {
+                        <Alerta Mensaje="@errorComentario" Tipo="danger" />
+                        @if (respondiendoA is not null)
+                        {
+                            <div class="small text-muted mb-1">Respondiendo a @respondiendoA.Autor <button class="btn btn-sm btn-link p-0" @onclick="() => respondiendoA = null">cancelar</button></div>
+                        }
+                        <textarea class="form-control mb-2" rows="3" maxlength="4000" placeholder="Escribe una actualización o instrucción…" @bind="textoComentario" @bind:event="oninput"></textarea>
+                        @if (mencionables.Count > 0)
+                        {
+                            <div class="small text-muted mb-1">Mencionar:</div>
+                            <div class="d-flex flex-wrap gap-2 mb-2">
+                                @foreach (var m in mencionables)
+                                {
+                                    <div class="form-check form-check-inline me-0">
+                                        <input class="form-check-input" type="checkbox" id="@($"mn{m.UsuarioId}")" checked="@menciones.Contains(m.UsuarioId)" @onchange="e => AlternarMencion(m.UsuarioId, e.Value is true)" />
+                                        <label class="form-check-label small" for="@($"mn{m.UsuarioId}")">@m.Nombre</label>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        <button class="btn btn-primary" disabled="@(guardando || string.IsNullOrWhiteSpace(textoComentario))" @onclick="Comentar">Publicar</button>
+                        <div class="form-text">Los comentarios publicados no se pueden editar ni eliminar.</div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+}
+
+<Modal @bind-Visible="editarVisible" Titulo="Editar tarea" Tamano="modal-lg">
+    <ChildContent>
+        <Alerta Mensaje="@errorForm" Tipo="danger" />
+        <div class="row g-3">
+            <div class="col-12"><label class="form-label" for="tTitulo">Título</label><input id="tTitulo" class="form-control" maxlength="180" @bind="form.Titulo" /></div>
+            <div class="col-12"><label class="form-label" for="tDesc">Descripción</label><textarea id="tDesc" class="form-control" rows="3" maxlength="4000" @bind="form.Descripcion"></textarea></div>
+            <div class="col-md-4"><label class="form-label" for="tIni">Inicio</label><input id="tIni" type="date" class="form-control" @bind="form.FechaInicio" /></div>
+            <div class="col-md-4"><label class="form-label" for="tVen">Fecha límite</label><input id="tVen" type="date" class="form-control" @bind="form.FechaVencimiento" /></div>
+            <div class="col-md-4">
+                <label class="form-label" for="tPri">Prioridad</label>
+                <select id="tPri" class="form-select" @bind="form.Prioridad">
+                    @foreach (var p in FormatoProyectos.Prioridades) { <option value="@p">@FormatoProyectos.Prioridad(p)</option> }
+                </select>
+            </div>
+        </div>
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-secondary" @onclick="() => editarVisible = false">Cerrar</button>
+        <button class="btn btn-primary" disabled="@guardando" @onclick="GuardarEdicion">Guardar</button>
+    </Footer>
+</Modal>
+
+<Modal @bind-Visible="motivoVisible" Titulo="@(cancelando ? "Cancelar tarea" : "Reabrir tarea")">
+    <ChildContent>
+        <Alerta Mensaje="@errorForm" Tipo="danger" />
+        <p class="small text-muted">@(cancelando ? "La tarea se conserva con su historial, pero deja de contar para el avance del proyecto." : "La tarea vuelve a estar abierta y conserva sus actualizaciones anteriores.")</p>
+        <label class="form-label" for="mMotivo">Motivo</label>
+        <input id="mMotivo" class="form-control" maxlength="500" @bind="motivo" />
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-secondary" @onclick="() => motivoVisible = false">Volver</button>
+        <button class="btn @(cancelando ? "btn-danger" : "btn-primary")" disabled="@guardando" @onclick="ConfirmarMotivo">@(cancelando ? "Cancelar tarea" : "Reabrir")</button>
+    </Footer>
+</Modal>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [Inject] private TareasClient Api { get; set; } = default!;
+    [Inject] private ProyectosClient ProyApi { get; set; } = default!;
+
+    private TareaDetalleDto? t;
+    private List<ComentarioTareaDto>? comentarios;
+    private List<HistorialAvanceTareaDto>? historial;
+    private List<UsuarioMencionableDto> mencionables = new();
+    private List<ParticipanteProyectoDto> equipoProyecto = new();
+    private readonly HashSet<Guid> menciones = new();
+    private GuardarTareaRequest form = new();
+    private ComentarioTareaDto? respondiendoA;
+    private Guid? asignarA;
+    private int pct;
+    private string? comentarioAvance, comentarioRevision, textoComentario, motivo, error, exito, errorForm, errorAvance, errorRevision, errorComentario;
+    private bool cargando = true, guardando, editarVisible, motivoVisible, cancelando;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        cargando = true; historial = null; comentarios = null; error = exito = null;
+        var r = await Api.ObtenerAsync(Id);
+        if (r.Ok) t = r.Data; else { t = null; error = r.Status == System.Net.HttpStatusCode.NotFound ? "La tarea no existe o no tienes acceso a ella." : r.Error; }
+        cargando = false;
+        if (t is null) return;
+        pct = t.PorcentajeAvance;
+        await CargarComentarios();
+        var m = await Api.MencionablesAsync(Id);
+        if (m.Ok) mencionables = m.Data ?? new();
+        if (t.PuedeEditar)
+        {
+            var p = await ProyApi.ObtenerAsync(t.ProyectoId);
+            if (p.Ok && p.Data is not null) equipoProyecto = p.Data.Equipo;
+        }
+    }
+
+    private async Task CargarComentarios()
+    {
+        var c = await Api.ComentariosAsync(Id);
+        if (c.Ok) comentarios = c.Data ?? new(); else { comentarios = new(); error = c.Error; }
+    }
+
+    private async Task CargarHistorial()
+    {
+        var r = await Api.HistorialAsync(Id);
+        if (r.Ok) historial = r.Data; else error = r.Error;
+    }
+
+    private void Aplicar(TareaDetalleDto nueva, string mensaje)
+    {
+        t = nueva; pct = nueva.PorcentajeAvance; exito = mensaje; historial = null;
+    }
+
+    private IEnumerable<ParticipanteProyectoDto> Candidatos() =>
+        t is null ? Enumerable.Empty<ParticipanteProyectoDto>() : equipoProyecto.Where(m => t.Equipo.All(a => a.TrabajadorId != m.TrabajadorId));
+
+    // ---- Avance y revisión ----
+    private async Task GuardarAvance()
+    {
+        if (t is null) return;
+        errorAvance = error = exito = null; guardando = true;
+        try
+        {
+            var r = await Api.AvanceAsync(Id, new ActualizarAvanceRequest { PorcentajeAvance = (byte)pct, Comentario = comentarioAvance, RowVersion = t.RowVersion });
+            if (!r.Ok) { errorAvance = r.Error; return; }
+            comentarioAvance = null;
+            Aplicar(r.Data!, "Avance actualizado.");
+        }
+        finally { guardando = false; }
+    }
+
+    private async Task MarcarLista() { pct = 100; await GuardarAvance(); }
+
+    private async Task Revisar(bool aprobar)
+    {
+        if (t is null) return;
+        errorRevision = error = exito = null; guardando = true;
+        try
+        {
+            var r = await Api.RevisarAsync(Id, new RevisarTareaRequest { Aprobar = aprobar, Comentario = comentarioRevision, RowVersion = t.RowVersion });
+            if (!r.Ok) { errorRevision = r.Error; return; }
+            comentarioRevision = null;
+            Aplicar(r.Data!, aprobar ? "Tarea aprobada." : "Tarea devuelta al equipo.");
+        }
+        finally { guardando = false; }
+    }
+
+    // ---- Edición, motivo y asignaciones ----
+    private void AbrirEditar()
+    {
+        if (t is null) return;
+        errorForm = null;
+        form = new GuardarTareaRequest
+        {
+            Titulo = t.Titulo, Descripcion = t.Descripcion, FechaInicio = t.FechaInicio, FechaVencimiento = t.FechaVencimiento,
+            Prioridad = t.Prioridad, RowVersion = t.RowVersion
+        };
+        editarVisible = true;
+    }
+
+    private async Task GuardarEdicion()
+    {
+        errorForm = error = exito = null; guardando = true;
+        try
+        {
+            var r = await Api.ActualizarAsync(Id, form);
+            if (!r.Ok) { errorForm = r.Error; return; }
+            editarVisible = false;
+            Aplicar(r.Data!, "Tarea actualizada.");
+        }
+        finally { guardando = false; }
+    }
+
+    private void AbrirMotivo(bool cancelar) { cancelando = cancelar; motivo = null; errorForm = null; motivoVisible = true; }
+
+    private async Task ConfirmarMotivo()
+    {
+        if (t is null) return;
+        errorForm = error = exito = null; guardando = true;
+        try
+        {
+            var req = new MotivoTareaRequest { Motivo = motivo ?? "", RowVersion = t.RowVersion };
+            var r = cancelando ? await Api.CancelarAsync(Id, req) : await Api.ReabrirAsync(Id, req);
+            if (!r.Ok) { errorForm = r.Error; return; }
+            motivoVisible = false;
+            Aplicar(r.Data!, cancelando ? "Tarea cancelada." : "Tarea reabierta.");
+        }
+        finally { guardando = false; }
+    }
+
+    private async Task Asignar()
+    {
+        if (asignarA is not { } w) return;
+        error = exito = null; guardando = true;
+        try
+        {
+            var r = await Api.AsignarAsync(Id, new AsignarTareaRequest { TrabajadorIds = new() { w } });
+            if (!r.Ok) { error = r.Error; return; }
+            asignarA = null;
+            Aplicar(r.Data!, "Asignación registrada.");
+        }
+        finally { guardando = false; }
+    }
+
+    private async Task Retirar(AsignadoTareaDto m)
+    {
+        error = exito = null;
+        var r = await Api.RetirarAsync(Id, m.TrabajadorId);
+        if (!r.Ok) { error = r.Error; return; }
+        Aplicar(r.Data!, $"{m.Nombre} ya no está asignado.");
+    }
+
+    // ---- Comentarios ----
+    private void AlternarMencion(Guid id, bool marcado) { if (marcado) menciones.Add(id); else menciones.Remove(id); }
+    private void Responder(ComentarioTareaDto c) { respondiendoA = c; }
+
+    private async Task Comentar()
+    {
+        errorComentario = error = exito = null; guardando = true;
+        try
+        {
+            var r = await Api.ComentarAsync(Id, new PublicarComentarioRequest
+            {
+                Contenido = textoComentario ?? "", ComentarioPadreId = respondiendoA?.ComentarioId, MencionesUsuarioIds = menciones.ToList()
+            });
+            if (!r.Ok) { errorComentario = r.Error; return; }
+            textoComentario = null; respondiendoA = null; menciones.Clear();
+            await CargarComentarios();
+        }
+        finally { guardando = false; }
+    }
+}

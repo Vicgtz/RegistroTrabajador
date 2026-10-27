@@ -1,0 +1,417 @@
+@page "/proyectos/{Id:guid}"
+@attribute [Authorize]
+@using System.Security.Claims
+
+<PageTitle>@(p?.Nombre ?? "Proyecto") - Registro de Trabajo</PageTitle>
+
+<a class="small text-decoration-none" href="proyectos">&larr; Proyectos</a>
+
+<Alerta Mensaje="@error" Tipo="danger" />
+<Alerta Mensaje="@exito" Tipo="success" />
+
+@if (cargando) { <Cargando /> }
+else if (p is not null)
+{
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 my-2">
+        <div>
+            <h1 class="h3 mb-1">@p.Nombre</h1>
+            <span class="badge @(p.EstadoFinal ? "text-bg-success" : "text-bg-primary")">@p.Estado</span>
+            <span class="badge text-bg-@FormatoProyectos.ClasePrioridad(p.Prioridad)">Prioridad @FormatoProyectos.Prioridad(p.Prioridad).ToLower()</span>
+            @if (p.Vencido) { <span class="badge text-bg-danger">Vencido</span> }
+            else if (p.ProximoAVencer) { <span class="badge text-bg-warning">Próximo a vencer</span> }
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            @if (p.PuedeModificar) { <button class="btn btn-outline-primary" @onclick="AbrirEditar">Editar</button> }
+            @if (OpcionesEstado().Count > 0) { <button class="btn btn-outline-primary" @onclick="AbrirEstado">@(p.EstadoFinal ? "Reabrir" : "Cambiar estado")</button> }
+            @if (p.PuedeCambiarResponsable) { <button class="btn btn-outline-primary" @onclick="AbrirResponsable">Cambiar responsable</button> }
+            @if (p.PuedeGestionarTareas) { <button class="btn btn-primary" @onclick="AbrirTarea">Nueva tarea</button> }
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-lg-8">
+            <div class="tarjeta p-3 h-100">
+                @if (!string.IsNullOrWhiteSpace(p.Descripcion)) { <p style="white-space:pre-wrap">@p.Descripcion</p> }
+                else { <p class="text-muted">Sin descripción.</p> }
+                <div class="d-flex justify-content-between small text-muted"><span>Progreso general (promedio simple de las tareas)</span><span>@FormatoProyectos.Pct(p.Avance)</span></div>
+                <div class="progress mb-2" role="progressbar" aria-label="Progreso del proyecto" aria-valuenow="@p.Avance" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress-bar @FormatoProyectos.ClaseBarra(p.Avance)" style="width:@FormatoProyectos.Pct(p.Avance)"></div>
+                </div>
+                <div class="small">@p.TareasCompletadas / @p.TareasTotal tareas completadas@(p.TareasVencidas > 0 ? $" · {p.TareasVencidas} vencidas" : "")</div>
+                <hr />
+                <dl class="row small mb-0">
+                    <dt class="col-sm-4">Responsable</dt><dd class="col-sm-8">@p.Responsable</dd>
+                    <dt class="col-sm-4">Inicio</dt><dd class="col-sm-8">@FormatoProyectos.Fecha(p.FechaInicio)</dd>
+                    <dt class="col-sm-4">Fin previsto</dt><dd class="col-sm-8">@FormatoProyectos.Fecha(p.FechaFinPrevista)</dd>
+                    <dt class="col-sm-4">Creado</dt><dd class="col-sm-8">@FormatoProyectos.FechaHora(p.FechaCreacionUtc) por @p.CreadoPor</dd>
+                    @if (p.FechaActualizacionUtc is { } act) { <dt class="col-sm-4">Última actualización</dt><dd class="col-sm-8">@FormatoProyectos.FechaHora(act)</dd> }
+                    @if (p.FechaCierreUtc is { } cierre) { <dt class="col-sm-4">Cerrado</dt><dd class="col-sm-8">@FormatoProyectos.FechaHora(cierre)</dd> }
+                </dl>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="tarjeta p-3 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h2 class="h6 mb-0">Equipo (@p.Equipo.Count)</h2>
+                    @if (p.PuedeAsignar) { <button class="btn btn-sm btn-outline-primary" @onclick="AbrirEquipo">Agregar</button> }
+                </div>
+                <ul class="list-unstyled mb-0">
+                    @foreach (var m in p.Equipo)
+                    {
+                        <li class="d-flex justify-content-between align-items-center py-1 border-bottom">
+                            <span>@m.Nombre @if (m.EsResponsable) { <span class="badge text-bg-primary">Responsable</span> }
+                                @if (!string.IsNullOrWhiteSpace(m.RolEnProyecto) && !m.EsResponsable) { <span class="small text-muted">· @m.RolEnProyecto</span> }
+                            </span>
+                            @if (p.PuedeAsignar && !m.EsResponsable) { <button class="btn btn-sm btn-link text-danger p-0" @onclick="() => Retirar(m)">Retirar</button> }
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="tarjeta p-3 mb-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+            <h2 class="h6 mb-0">Tareas</h2>
+            <div class="d-flex gap-2 align-items-center">
+                <select class="form-select form-select-sm" @bind="filtroTareas.Estado" @bind:after="CargarTareas">
+                    <option value="">Todos los estados</option>
+                    @foreach (var e in FormatoProyectos.EstadosTarea) { <option value="@e">@FormatoProyectos.EstadoDeTarea(e)</option> }
+                </select>
+                <div class="form-check text-nowrap"><input class="form-check-input" type="checkbox" id="soloVenc" @bind="filtroTareas.SoloVencidas" @bind:after="CargarTareas" /><label class="form-check-label small" for="soloVenc">Solo vencidas</label></div>
+            </div>
+        </div>
+        @if (tareas is null) { <Cargando /> }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead><tr><th>Tarea</th><th>Estado</th><th style="min-width:9rem">Avance</th><th>Prioridad</th><th>Vence</th><th>Asignados</th></tr></thead>
+                    <tbody>
+                        @foreach (var t in tareas.Items)
+                        {
+                            <tr class="@(EstadoTarea.EsCerrada(t.Estado) ? "text-muted" : "")">
+                                <td><a class="fw-semibold text-decoration-none" href="tareas/@t.TareaId">@t.Titulo</a></td>
+                                <td><span class="badge text-bg-@FormatoProyectos.ClaseEstadoTarea(t.Estado)">@FormatoProyectos.EstadoDeTarea(t.Estado)</span></td>
+                                <td>
+                                    <div class="progress" style="height:.5rem" role="progressbar" aria-label="Avance" aria-valuenow="@t.PorcentajeAvance" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar @FormatoProyectos.ClaseBarra(t.PorcentajeAvance)" style="width:@FormatoProyectos.Pct(t.PorcentajeAvance)"></div></div>
+                                    <span class="small text-muted">@FormatoProyectos.Pct(t.PorcentajeAvance)</span>
+                                </td>
+                                <td><span class="badge text-bg-@FormatoProyectos.ClasePrioridad(t.Prioridad)">@FormatoProyectos.Prioridad(t.Prioridad)</span></td>
+                                <td class="@(t.Vencida ? "text-danger fw-semibold" : "")">@FormatoProyectos.Fecha(t.FechaVencimiento)@(t.Vencida ? " (vencida)" : "")</td>
+                                <td class="small">@(t.Asignados.Count == 0 ? "—" : string.Join(", ", t.Asignados))</td>
+                            </tr>
+                        }
+                        @if (tareas.Items.Count == 0) { <tr><td colspan="6" class="text-muted">Sin tareas para los filtros indicados.</td></tr> }
+                    </tbody>
+                </table>
+            </div>
+            <Paginador Page="tareas.Page" PageSize="tareas.PageSize" Total="tareas.Total" OnPage="IrAPaginaTareas" />
+        }
+    </div>
+
+    <div class="tarjeta p-3 mb-3">
+        <h2 class="h6">Historial de estados</h2>
+        @if (historial is null) { <button class="btn btn-sm btn-outline-secondary" @onclick="CargarHistorial">Mostrar historial</button> }
+        else
+        {
+            <ul class="list-unstyled small mb-0">
+                @foreach (var h in historial)
+                {
+                    <li class="py-1 border-bottom">
+                        <strong>@(h.EstadoAnterior is null ? "Creado en" : $"{h.EstadoAnterior} →") @h.EstadoNuevo</strong>
+                        <span class="text-muted"> · @h.CambiadoPor · @FormatoProyectos.FechaHora(h.FechaUtc)</span>
+                        @if (!string.IsNullOrWhiteSpace(h.Comentario)) { <div>@h.Comentario</div> }
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+}
+
+<Modal @bind-Visible="editarVisible" Titulo="Editar proyecto" Tamano="modal-lg">
+    <ChildContent>
+        <Alerta Mensaje="@errorForm" Tipo="danger" />
+        <div class="row g-3">
+            <div class="col-12"><label class="form-label" for="eNombre">Nombre</label><input id="eNombre" class="form-control" maxlength="180" @bind="form.Nombre" /></div>
+            <div class="col-12"><label class="form-label" for="eDesc">Descripción</label><textarea id="eDesc" class="form-control" rows="3" maxlength="4000" @bind="form.Descripcion"></textarea></div>
+            <div class="col-md-4"><label class="form-label" for="eIni">Inicio</label><input id="eIni" type="date" class="form-control" @bind="form.FechaInicio" /></div>
+            <div class="col-md-4"><label class="form-label" for="eFin">Fin previsto</label><input id="eFin" type="date" class="form-control" @bind="form.FechaFinPrevista" /></div>
+            <div class="col-md-4">
+                <label class="form-label" for="ePri">Prioridad</label>
+                <select id="ePri" class="form-select" @bind="form.Prioridad">
+                    @foreach (var pr in FormatoProyectos.Prioridades) { <option value="@pr">@FormatoProyectos.Prioridad(pr)</option> }
+                </select>
+            </div>
+        </div>
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-secondary" @onclick="() => editarVisible = false">Cerrar</button>
+        <button class="btn btn-primary" disabled="@guardando" @onclick="GuardarEdicion">Guardar</button>
+    </Footer>
+</Modal>
+
+<Modal @bind-Visible="estadoVisible" Titulo="@(p?.EstadoFinal == true ? "Reabrir proyecto" : "Cambiar estado")">
+    <ChildContent>
+        <Alerta Mensaje="@errorForm" Tipo="danger" />
+        <label class="form-label" for="sEstado">Nuevo estado</label>
+        <select id="sEstado" class="form-select mb-3" @bind="estadoNuevo">
+            <option value="">Seleccione…</option>
+            @foreach (var e in OpcionesEstado()) { <option value="@e.EstadoProyectoId">@e.Nombre@(e.EsFinal ? " (cierra el proyecto)" : "")</option> }
+        </select>
+        <label class="form-label" for="sCom">Comentario (opcional)</label>
+        <input id="sCom" class="form-control" maxlength="500" @bind="comentarioEstado" />
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-secondary" @onclick="() => estadoVisible = false">Cerrar</button>
+        <button class="btn btn-primary" disabled="@(guardando || estadoNuevo is null)" @onclick="GuardarEstado">Aplicar</button>
+    </Footer>
+</Modal>
+
+<Modal @bind-Visible="responsableVisible" Titulo="Cambiar responsable">
+    <ChildContent>
+        <Alerta Mensaje="@errorForm" Tipo="danger" />
+        <label class="form-label" for="rResp">Nuevo responsable</label>
+        <select id="rResp" class="form-select" @bind="responsableNuevo">
+            <option value="">Seleccione…</option>
+            @foreach (var t in trabajadores.Where(t => p is null || t.TrabajadorId != p.ResponsableTrabajadorId)) { <option value="@t.TrabajadorId">@t.Nombres @t.Apellidos</option> }
+        </select>
+        <div class="form-text">El nuevo responsable pasa a formar parte del equipo si aún no lo era.</div>
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-secondary" @onclick="() => responsableVisible = false">Cerrar</button>
+        <button class="btn btn-primary" disabled="@(guardando || responsableNuevo is null)" @onclick="GuardarResponsable">Cambiar</button>
+    </Footer>
+</Modal>
+
+<Modal @bind-Visible="equipoVisible" Titulo="Agregar al equipo">
+    <ChildContent>
+        <Alerta Mensaje="@errorForm" Tipo="danger" />
+        <div class="mb-3">
+            <label class="form-label" for="qRol">Rol en el proyecto (opcional)</label>
+            <input id="qRol" class="form-control" maxlength="100" @bind="rolNuevo" />
+        </div>
+        <div class="list-group" style="max-height:18rem;overflow:auto">
+            @foreach (var t in Candidatos())
+            {
+                <label class="list-group-item d-flex gap-2">
+                    <input class="form-check-input" type="checkbox" checked="@seleccion.Contains(t.TrabajadorId)" @onchange="e => Alternar(t.TrabajadorId, e.Value is true)" />
+                    <span>@t.Nombres @t.Apellidos <span class="small text-muted">@t.Puesto</span></span>
+                </label>
+            }
+            @if (!Candidatos().Any()) { <div class="text-muted small p-2">No hay más trabajadores activos para agregar.</div> }
+        </div>
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-secondary" @onclick="() => equipoVisible = false">Cerrar</button>
+        <button class="btn btn-primary" disabled="@(guardando || seleccion.Count == 0)" @onclick="GuardarEquipo">Agregar (@seleccion.Count)</button>
+    </Footer>
+</Modal>
+
+<Modal @bind-Visible="tareaVisible" Titulo="Nueva tarea" Tamano="modal-lg">
+    <ChildContent>
+        <Alerta Mensaje="@errorForm" Tipo="danger" />
+        <div class="row g-3">
+            <div class="col-12"><label class="form-label" for="tTitulo">Título</label><input id="tTitulo" class="form-control" maxlength="180" @bind="formTarea.Titulo" /></div>
+            <div class="col-12"><label class="form-label" for="tDesc">Descripción</label><textarea id="tDesc" class="form-control" rows="3" maxlength="4000" @bind="formTarea.Descripcion"></textarea></div>
+            <div class="col-md-4"><label class="form-label" for="tIni">Inicio</label><input id="tIni" type="date" class="form-control" @bind="formTarea.FechaInicio" /></div>
+            <div class="col-md-4"><label class="form-label" for="tVen">Fecha límite</label><input id="tVen" type="date" class="form-control" @bind="formTarea.FechaVencimiento" /></div>
+            <div class="col-md-4">
+                <label class="form-label" for="tPri">Prioridad</label>
+                <select id="tPri" class="form-select" @bind="formTarea.Prioridad">
+                    @foreach (var pr in FormatoProyectos.Prioridades) { <option value="@pr">@FormatoProyectos.Prioridad(pr)</option> }
+                </select>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Asignar a</label>
+                <div class="d-flex flex-wrap gap-3">
+                    @foreach (var m in p?.Equipo ?? new())
+                    {
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="@($"ta{m.TrabajadorId}")" checked="@seleccionTarea.Contains(m.TrabajadorId)" @onchange="e => AlternarTarea(m.TrabajadorId, e.Value is true)" />
+                            <label class="form-check-label" for="@($"ta{m.TrabajadorId}")">@m.Nombre</label>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-secondary" @onclick="() => tareaVisible = false">Cerrar</button>
+        <button class="btn btn-primary" disabled="@guardando" @onclick="GuardarTarea">Crear tarea</button>
+    </Footer>
+</Modal>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [Inject] private ProyectosClient Api { get; set; } = default!;
+    [Inject] private TrabajadoresClient TrabApi { get; set; } = default!;
+    [CascadingParameter] private Task<AuthenticationState>? Sesion { get; set; }
+
+    private ClaimsPrincipal? user;
+    private ProyectoDetalleDto? p;
+    private PagedResult<TareaResumenDto>? tareas;
+    private List<HistorialEstadoProyectoDto>? historial;
+    private List<EstadoProyectoDto> estados = new();
+    private List<TrabajadorResumenDto> trabajadores = new();
+    private readonly TareaFiltro filtroTareas = new() { PageSize = 25 };
+    private GuardarProyectoRequest form = new();
+    private GuardarTareaRequest formTarea = new();
+    private readonly HashSet<Guid> seleccion = new(), seleccionTarea = new();
+    private Guid? estadoNuevo, responsableNuevo;
+    private string? comentarioEstado, rolNuevo, error, exito, errorForm;
+    private bool cargando = true, guardando, editarVisible, estadoVisible, responsableVisible, equipoVisible, tareaVisible;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        user = Sesion is null ? null : (await Sesion).User;
+        cargando = true; historial = null; error = exito = null;
+        var r = await Api.ObtenerAsync(Id);
+        if (r.Ok) p = r.Data; else { p = null; error = r.Status == System.Net.HttpStatusCode.NotFound ? "El proyecto no existe o no tienes acceso a él." : r.Error; }
+        cargando = false;
+        if (p is null) return;
+        var e = await Api.EstadosAsync();
+        if (e.Ok) estados = e.Data ?? new();
+        if ((p.PuedeAsignar || p.PuedeCambiarResponsable) && Puede(Permisos.TrabajadoresConsultar))
+        {
+            var t = await TrabApi.ListarAsync(new TrabajadorFiltro { PageSize = 200, EstadoLaboral = EstadoLaboral.Activo });
+            if (t.Ok) trabajadores = t.Data?.Items.ToList() ?? new();
+        }
+        await CargarTareas();
+    }
+
+    private bool Puede(string permiso) => user?.TienePermiso(permiso) == true;
+
+    private async Task CargarTareas()
+    {
+        filtroTareas.Page = filtroTareas.Page < 1 ? 1 : filtroTareas.Page;
+        var r = await Api.TareasAsync(Id, filtroTareas);
+        if (r.Ok) tareas = r.Data; else error = r.Error;
+    }
+
+    private async Task IrAPaginaTareas(int pagina) { filtroTareas.Page = pagina; await CargarTareas(); }
+
+    private async Task CargarHistorial()
+    {
+        var r = await Api.HistorialAsync(Id);
+        if (r.Ok) historial = r.Data; else error = r.Error;
+    }
+
+    private async Task Recargar(ProyectoDetalleDto nuevo, string mensaje)
+    {
+        p = nuevo; exito = mensaje; historial = null;
+        await CargarTareas();
+    }
+
+    // Estados a los que puede mover el usuario: reabrir (de un estado final a uno abierto), finalizar o un cambio ordinario.
+    private List<EstadoProyectoDto> OpcionesEstado()
+    {
+        if (p is null) return new();
+        return estados.Where(e => e.EstadoProyectoId != p.EstadoProyectoId && (p.EstadoFinal
+            ? !e.EsFinal && p.PuedeReabrir
+            : e.EsFinal ? p.PuedeFinalizar : p.PuedeModificar)).ToList();
+    }
+
+    private IEnumerable<TrabajadorResumenDto> Candidatos() =>
+        trabajadores.Where(t => p is not null && p.Equipo.All(m => m.TrabajadorId != t.TrabajadorId));
+
+    private void Alternar(Guid id, bool marcado) { if (marcado) seleccion.Add(id); else seleccion.Remove(id); }
+    private void AlternarTarea(Guid id, bool marcado) { if (marcado) seleccionTarea.Add(id); else seleccionTarea.Remove(id); }
+
+    private void AbrirEditar()
+    {
+        if (p is null) return;
+        errorForm = null;
+        form = new GuardarProyectoRequest
+        {
+            Nombre = p.Nombre, Descripcion = p.Descripcion, FechaInicio = p.FechaInicio, FechaFinPrevista = p.FechaFinPrevista,
+            Prioridad = p.Prioridad, RowVersion = p.RowVersion
+        };
+        editarVisible = true;
+    }
+
+    private async Task GuardarEdicion()
+    {
+        errorForm = error = exito = null; guardando = true;
+        try
+        {
+            var r = await Api.ActualizarAsync(Id, form);
+            if (!r.Ok) { errorForm = r.Error; return; }
+            editarVisible = false;
+            await Recargar(r.Data!, "Proyecto actualizado.");
+        }
+        finally { guardando = false; }
+    }
+
+    private void AbrirEstado() { errorForm = null; estadoNuevo = null; comentarioEstado = null; estadoVisible = true; }
+
+    private async Task GuardarEstado()
+    {
+        if (p is null || estadoNuevo is not { } destino) return;
+        errorForm = error = exito = null; guardando = true;
+        try
+        {
+            var r = await Api.CambiarEstadoAsync(Id, new CambiarEstadoProyectoRequest { EstadoProyectoId = destino, Comentario = comentarioEstado, RowVersion = p.RowVersion });
+            if (!r.Ok) { errorForm = r.Error; return; }
+            estadoVisible = false;
+            await Recargar(r.Data!, $"Estado actualizado a «{r.Data!.Estado}».");
+        }
+        finally { guardando = false; }
+    }
+
+    private void AbrirResponsable() { errorForm = null; responsableNuevo = null; responsableVisible = true; }
+
+    private async Task GuardarResponsable()
+    {
+        if (p is null || responsableNuevo is not { } nuevo) return;
+        errorForm = error = exito = null; guardando = true;
+        try
+        {
+            var r = await Api.CambiarResponsableAsync(Id, new CambiarResponsableRequest { ResponsableTrabajadorId = nuevo, RowVersion = p.RowVersion });
+            if (!r.Ok) { errorForm = r.Error; return; }
+            responsableVisible = false;
+            await Recargar(r.Data!, "Responsable actualizado.");
+        }
+        finally { guardando = false; }
+    }
+
+    private void AbrirEquipo() { errorForm = null; seleccion.Clear(); rolNuevo = null; equipoVisible = true; }
+
+    private async Task GuardarEquipo()
+    {
+        errorForm = error = exito = null; guardando = true;
+        try
+        {
+            var r = await Api.AsignarAsync(Id, new AsignarTrabajadoresRequest { TrabajadorIds = seleccion.ToList(), RolEnProyecto = rolNuevo });
+            if (!r.Ok) { errorForm = r.Error; return; }
+            equipoVisible = false;
+            await Recargar(r.Data!, "Equipo actualizado.");
+        }
+        finally { guardando = false; }
+    }
+
+    private async Task Retirar(ParticipanteProyectoDto m)
+    {
+        error = exito = null;
+        var r = await Api.RetirarAsync(Id, m.TrabajadorId);
+        if (!r.Ok) { error = r.Error; return; }
+        await Recargar(r.Data!, $"{m.Nombre} salió del proyecto; sus tareas abiertas quedaron sin asignar.");
+    }
+
+    private void AbrirTarea() { errorForm = null; formTarea = new GuardarTareaRequest(); seleccionTarea.Clear(); tareaVisible = true; }
+
+    private async Task GuardarTarea()
+    {
+        errorForm = error = exito = null; guardando = true;
+        try
+        {
+            formTarea.TrabajadorIds = seleccionTarea.ToList();
+            var r = await Api.CrearTareaAsync(Id, formTarea);
+            if (!r.Ok) { errorForm = r.Error; return; }
+            tareaVisible = false;
+            var d = await Api.ObtenerAsync(Id);
+            await Recargar(d.Ok && d.Data is not null ? d.Data : p!, "Tarea creada.");
+        }
+        finally { guardando = false; }
+    }
+}

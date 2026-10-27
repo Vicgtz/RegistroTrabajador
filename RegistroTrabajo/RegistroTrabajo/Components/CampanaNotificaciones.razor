@@ -1,0 +1,42 @@
+@implements IDisposable
+
+@if (visible)
+{
+    <a class="campana" href="notificaciones" title="Notificaciones" aria-label="@(pendientes > 0 ? $"Notificaciones, {pendientes} sin leer" : "Notificaciones")">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 22a2.2 2.2 0 0 0 2.2-2.2h-4.4A2.2 2.2 0 0 0 12 22Zm7-6.2V11a7 7 0 0 0-5.5-6.8V3.5a1.5 1.5 0 0 0-3 0v.7A7 7 0 0 0 5 11v4.8L3 17.8V19h18v-1.2l-2-2Z" /></svg>
+        @if (pendientes > 0) { <span class="campana-contador">@(pendientes > 99 ? "99+" : pendientes.ToString())</span> }
+    </a>
+}
+
+@code {
+    [Inject] private NotificacionesClient Api { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+    [Parameter] public bool Visible { get; set; }
+
+    private bool visible;
+    private int pendientes;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        visible = Visible;
+        await Refrescar();
+    }
+
+    protected override void OnInitialized() => Nav.LocationChanged += AlNavegar;
+
+    // El contador se renueva al navegar: es la forma más barata de mantenerlo al día sin sondeos permanentes.
+    private async void AlNavegar(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        await Refrescar();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task Refrescar()
+    {
+        if (!visible) return;
+        var r = await Api.NoLeidasAsync();
+        pendientes = r.Ok ? r.Data : 0;
+    }
+
+    public void Dispose() => Nav.LocationChanged -= AlNavegar;
+}

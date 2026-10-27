@@ -1,0 +1,124 @@
+@page "/proyectos/estados"
+@attribute [Authorize]
+@using System.Security.Claims
+
+<PageTitle>Estados de proyecto - Registro de Trabajo</PageTitle>
+
+@if (user is not null && !Puede(Permisos.ProyectosConfigurarEstados))
+{
+    <div class="tarjeta p-4 text-center">
+        <h1 class="h5">Sin permiso</h1>
+        <p class="text-muted mb-0">Tu cuenta no tiene autorización para ver esta sección.</p>
+    </div>
+}
+else
+{
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <h1 class="h3 mb-0">Estados de proyecto</h1>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" href="proyectos">Volver a proyectos</a>
+            <button class="btn btn-primary" @onclick="Nuevo">Nuevo estado</button>
+        </div>
+    </div>
+    <p class="text-muted">Un estado <strong>final</strong> cierra el proyecto (por ejemplo Finalizado o Cancelado). Los estados en uso no se pueden desactivar ni cambiar entre abierto y final.</p>
+
+    <Alerta Mensaje="@error" Tipo="danger" />
+    <Alerta Mensaje="@exito" Tipo="success" />
+
+    @if (cargando) { <Cargando /> }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead><tr><th>Orden</th><th>Nombre</th><th>Tipo</th><th>Proyectos</th><th>Estado</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var e in estados)
+                    {
+                        <tr class="@(e.Activo ? "" : "text-muted")">
+                            <td>@e.Orden</td>
+                            <td class="fw-semibold">@e.Nombre</td>
+                            <td>@(e.EsFinal ? "Final (cierra el proyecto)" : "Abierto")</td>
+                            <td>@e.Proyectos</td>
+                            <td>@(e.Activo ? "Activo" : "Inactivo")</td>
+                            <td class="text-end"><button class="btn btn-sm btn-outline-primary" @onclick="() => Editar(e)">Editar</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+<Modal @bind-Visible="formVisible" Titulo="@(editandoId is null ? "Nuevo estado" : "Editar estado")">
+    <ChildContent>
+        <Alerta Mensaje="@errorForm" Tipo="danger" />
+        <div class="row g-3">
+            <div class="col-12"><label class="form-label" for="eNombre">Nombre</label><input id="eNombre" class="form-control" maxlength="80" @bind="form.Nombre" /></div>
+            <div class="col-md-6"><label class="form-label" for="eOrden">Orden</label><input id="eOrden" type="number" min="1" max="1000" class="form-control" @bind="form.Orden" /></div>
+            <div class="col-md-6 d-flex flex-column justify-content-end gap-1">
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="eFinal" @bind="form.EsFinal" /><label class="form-check-label" for="eFinal">Estado final (cierra el proyecto)</label></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="eActivo" @bind="form.Activo" /><label class="form-check-label" for="eActivo">Activo</label></div>
+            </div>
+        </div>
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-secondary" @onclick="() => formVisible = false">Cerrar</button>
+        <button class="btn btn-primary" disabled="@guardando" @onclick="Guardar">Guardar</button>
+    </Footer>
+</Modal>
+
+@code {
+    [Inject] private ProyectosClient Api { get; set; } = default!;
+    [CascadingParameter] private Task<AuthenticationState>? Sesion { get; set; }
+
+    private ClaimsPrincipal? user;
+    private List<EstadoProyectoDto> estados = new();
+    private GuardarEstadoProyectoRequest form = new();
+    private Guid? editandoId;
+    private bool cargando = true, guardando, formVisible;
+    private string? error, exito, errorForm;
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = Sesion is null ? null : (await Sesion).User;
+        if (Puede(Permisos.ProyectosConfigurarEstados)) await Cargar();
+        cargando = false;
+    }
+
+    private bool Puede(string permiso) => user?.TienePermiso(permiso) == true;
+
+    private async Task Cargar()
+    {
+        var r = await Api.EstadosAsync(incluirInactivos: true);
+        if (r.Ok) estados = r.Data ?? new(); else error = r.Error;
+    }
+
+    private void Nuevo()
+    {
+        editandoId = null; errorForm = null;
+        form = new GuardarEstadoProyectoRequest { Orden = (short)(estados.Count == 0 ? 1 : estados.Max(e => e.Orden) + 1) };
+        formVisible = true;
+    }
+
+    private void Editar(EstadoProyectoDto e)
+    {
+        editandoId = e.EstadoProyectoId; errorForm = null;
+        form = new GuardarEstadoProyectoRequest { Nombre = e.Nombre, Orden = e.Orden, EsFinal = e.EsFinal, Activo = e.Activo };
+        formVisible = true;
+    }
+
+    private async Task Guardar()
+    {
+        errorForm = error = exito = null;
+        guardando = true;
+        try
+        {
+            var r = editandoId is { } id ? await Api.ActualizarEstadoAsync(id, form) : await Api.CrearEstadoAsync(form);
+            if (!r.Ok) { errorForm = r.Error; return; }
+            formVisible = false;
+            exito = editandoId is null ? "Estado creado." : "Estado actualizado.";
+            await Cargar();
+        }
+        finally { guardando = false; }
+    }
+}

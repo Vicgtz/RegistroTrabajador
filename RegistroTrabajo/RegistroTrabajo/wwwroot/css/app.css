@@ -178,3 +178,23 @@ code {
     .cal-chip, .cal-mas { display: none; }
     .cal-barras { display: flex; }
 }
+/* ---- Bloque 7: proyectos y tareas ---- */
+.resumen-tarjeta { border-top: 3px solid var(--rt-azul); }
+.resumen-cifra { font-size: 1.9rem; font-weight: 700; line-height: 1.1; color: var(--rt-azul-oscuro); }
+.resumen-alerta { border-top-color: #e0a100; }
+.resumen-peligro { border-top-color: #c0392b; }
+.resumen-peligro .resumen-cifra { color: #c0392b; }
+
+.proyecto-tarjeta { transition: box-shadow .15s ease; }
+.proyecto-tarjeta:hover { box-shadow: 0 4px 14px rgba(15, 47, 74, .14); }
+.proyecto-cerrado { opacity: .8; }
+
+.comentario { border-left: 3px solid var(--rt-azul-claro); padding: .4rem .75rem; margin-bottom: .75rem; background: #fafcfe; border-radius: .3rem; }
+.comentario-respuesta { margin-left: 1.25rem; }
+.actividad-lista { max-height: 28rem; overflow-y: auto; }
+
+.notificacion-nueva { background: var(--rt-azul-claro); }
+
+.campana { position: relative; display: inline-flex; align-items: center; color: var(--rt-texto-suave); text-decoration: none; padding: .25rem; }
+.campana:hover { color: var(--rt-azul); }
+.campana-contador { position: absolute; top: -.2rem; right: -.35rem; min-width: 1.1rem; height: 1.1rem; padding: 0 .25rem; border-radius: 1rem; background: #c0392b; color: #fff; font-size: .68rem; font-weight: 600; line-height: 1.1rem; text-align: center; }
