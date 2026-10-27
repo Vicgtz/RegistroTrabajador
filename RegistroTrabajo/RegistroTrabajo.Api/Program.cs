@@ -52,6 +52,11 @@ builder.Services.AddRegistroTrabajoServices(o =>
     e.ClientBaseUrl = string.IsNullOrWhiteSpace(settings.Email.ClientBaseUrl)
         ? settings.AllowedOrigins.FirstOrDefault() ?? e.ClientBaseUrl
         : settings.Email.ClientBaseUrl;
+}, r =>
+{
+    r.Carpeta = settings.Respaldos.Carpeta;
+    r.Comprimir = settings.Respaldos.Comprimir;
+    r.MinutosOperacionVigente = settings.Respaldos.MinutosOperacionVigente;
 });
 
 builder.Services

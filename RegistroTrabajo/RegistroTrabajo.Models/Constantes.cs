@@ -324,6 +324,11 @@ public static class Permisos
     public const string PlataformaEmpresasConsultar = "plataforma.empresas.consultar";
     public const string PlataformaEmpresasCrear = "plataforma.empresas.crear";
     public const string PlataformaEmpresasCambiarEstado = "plataforma.empresas.cambiar_estado";
+    // Bloque 11 (script 012): respaldos de la base de datos, solo para la empresa de plataforma
+    public const string PlataformaRespaldosConsultar = "plataforma.respaldos.consultar";
+    public const string PlataformaRespaldosSolicitar = "plataforma.respaldos.solicitar";
+    // Bloque 12 (script 013): estado técnico del sistema, solo plataforma
+    public const string PlataformaSistemaConsultar = "plataforma.sistema.consultar";
     public const string RolesConsultar = "roles.consultar";
     public const string RolesConfigurar = "roles.configurar";
     public const string AuditoriaConsultar = "auditoria.consultar";
@@ -391,6 +396,12 @@ public static class Permisos
     // Bloque 8
     public const string TareasVerSeguimiento = "tareas.ver_seguimiento";
 
+    // Bloque 12
+    public const string EmpresaVerPermisosEfectivos = "empresa.ver_permisos_efectivos";
+
+    /// <summary>Permisos del Bloque 12 para empresas normales (catálogo insertado por el script 013).</summary>
+    public static readonly string[] Bloque12 = { EmpresaVerPermisosEfectivos };
+
     // Bloque 10
     public const string ReportesConsultar = "reportes.consultar";
     public const string ReportesExportar = "reportes.exportar";
@@ -453,7 +464,8 @@ public static class Permisos
         CalendarioConsultar, CalendarioGestionarEventos, CalendarioConfigurar, CalendarioVerFechasRelevantes, CalendarioVerAusenciasTodos,
         ProyectosConsultar, ProyectosConsultarTodos, ProyectosCrear, ProyectosModificar, ProyectosAsignar, ProyectosCambiarResponsable,
         ProyectosFinalizar, ProyectosReabrir, ProyectosConfigurarEstados, TareasGestionar, TareasActualizarAvance, TareasRevisar,
-        TareasComentar, NotificacionesConsultar, TareasVerSeguimiento, ReportesConsultar, ReportesExportar, ErroresConsultar
+        TareasComentar, NotificacionesConsultar, TareasVerSeguimiento, ReportesConsultar, ReportesExportar, ErroresConsultar,
+        EmpresaVerPermisosEfectivos
     };
 }
 /// <summary>Permisos exclusivos de la empresa de plataforma (nunca se asignan a roles de empresas normales).</summary>
@@ -461,7 +473,8 @@ public static class PermisosPlataforma
 {
     public static readonly string[] Todos =
     {
-        Permisos.PlataformaEmpresasConsultar, Permisos.PlataformaEmpresasCrear, Permisos.PlataformaEmpresasCambiarEstado
+        Permisos.PlataformaEmpresasConsultar, Permisos.PlataformaEmpresasCrear, Permisos.PlataformaEmpresasCambiarEstado,
+        Permisos.PlataformaRespaldosConsultar, Permisos.PlataformaRespaldosSolicitar, Permisos.PlataformaSistemaConsultar
     };
 }
 

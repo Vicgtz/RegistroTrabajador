@@ -9,6 +9,7 @@ public partial class RegistroTrabajoDbContext : DbContext
 
     public DbSet<Empresa> Empresas => Set<Empresa>();
     public DbSet<ConfiguracionEmpresa> ConfiguracionEmpresa => Set<ConfiguracionEmpresa>();
+    public DbSet<LogoEmpresa> LogosEmpresa => Set<LogoEmpresa>();
     public DbSet<Usuario> Usuarios => Set<Usuario>();
     public DbSet<Rol> Roles => Set<Rol>();
     public DbSet<PermisoSistema> PermisosSistema => Set<PermisoSistema>();
@@ -47,6 +48,21 @@ public partial class RegistroTrabajoDbContext : DbContext
             e.Property(x => x.Cultura).HasMaxLength(20);
             e.Property(x => x.FormatoFecha).HasMaxLength(30);
             e.Property(x => x.FormatoHora).HasMaxLength(20);
+            e.Property(x => x.NombreMostrado).HasMaxLength(100);
+            e.Property(x => x.TextoInstitucional).HasMaxLength(500);
+            e.Property(x => x.PrimerDiaSemana).HasDefaultValue((byte)1);
+            e.Property(x => x.Moneda).HasMaxLength(3).IsFixedLength().IsUnicode(false);
+        });
+
+        mb.Entity<LogoEmpresa>(e =>
+        {
+            e.ToTable("LogosEmpresa");
+            e.HasKey(x => x.EmpresaId);
+            e.Property(x => x.TipoContenido).HasMaxLength(50);
+            e.Property(x => x.HashSha256).HasMaxLength(64).IsFixedLength().IsUnicode(false);
+            e.Property(x => x.FechaActualizacionUtc).HasPrecision(0);
+            e.HasOne(x => x.Empresa).WithMany().HasForeignKey(x => x.EmpresaId).OnDelete(DeleteBehavior.NoAction)
+                .HasConstraintName("FK_LogosEmpresa_Empresas");
         });
 
         mb.Entity<Usuario>(e =>

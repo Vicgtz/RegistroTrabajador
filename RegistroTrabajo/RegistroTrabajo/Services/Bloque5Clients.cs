@@ -71,11 +71,8 @@ public class CerrarAsignacionBody
 
 public static class FormatoAsistencia
 {
-    private static string Local(DateTime? utc, string formato) =>
-        utc is null ? "—" : DateTime.SpecifyKind(utc.Value, DateTimeKind.Utc).ToLocalTime().ToString(formato);
-
-    public static string Hora(DateTime? utc) => Local(utc, "HH:mm");
-    public static string FechaHora(DateTime? utc) => Local(utc, "dd/MM/yyyy HH:mm");
+    public static string Hora(DateTime? utc) => utc is null ? "—" : FormatoEmpresa.Hora(utc.Value);
+    public static string FechaHora(DateTime? utc) => utc is null ? "—" : FormatoEmpresa.FechaHora(utc.Value);
 
     public static string Estado(byte estado) => estado switch
     {

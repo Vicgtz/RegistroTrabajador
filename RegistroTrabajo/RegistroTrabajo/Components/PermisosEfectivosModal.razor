@@ -1,0 +1,47 @@
+@inject ConfiguracionClient Api
+
+<Modal Visible="Visible" VisibleChanged="VisibleChanged" Titulo="@($"Permisos efectivos de {datos?.Usuario}")" Tamano="modal-lg">
+    <ChildContent>
+        @if (cargando) { <Cargando /> }
+        <Alerta Mensaje="@error" Tipo="danger" />
+        @if (datos is not null)
+        {
+            <div class="mb-2">
+                <span class="small text-muted">Roles:</span>
+                @foreach (var r in datos.Roles) { <span class="badge rounded-pill text-bg-primary me-1">@r</span> }
+                @if (datos.Roles.Count == 0) { <span class="small text-muted">sin roles</span> }
+            </div>
+            @if (datos.Estado != EstadoUsuario.Activo) { <div class="alert alert-warning py-1 small">La cuenta no está activa: estos permisos no se pueden ejercer.</div> }
+            @foreach (var g in datos.Permisos.GroupBy(p => p.Modulo))
+            {
+                <div class="fw-semibold mt-2">@g.Key</div>
+                <ul class="small mb-1">
+                    @foreach (var p in g) { <li><code>@p.Codigo</code> @(p.Descripcion is null ? "" : "— " + p.Descripcion)</li> }
+                </ul>
+            }
+            @if (datos.Permisos.Count == 0) { <div class="text-muted">Este usuario no tiene permisos.</div> }
+        }
+    </ChildContent>
+    <Footer><button class="btn btn-outline-secondary" @onclick="() => VisibleChanged.InvokeAsync(false)">Cerrar</button></Footer>
+</Modal>
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+    [Parameter] public Guid? UsuarioId { get; set; }
+
+    private PermisosEfectivosDto? datos;
+    private string? error;
+    private bool cargando;
+    private Guid? cargado;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!Visible || UsuarioId is null || cargado == UsuarioId) { if (!Visible) cargado = null; return; }
+        cargado = UsuarioId;
+        datos = null; error = null; cargando = true;
+        var r = await Api.PermisosEfectivosAsync(UsuarioId.Value);
+        if (r.Ok) datos = r.Data; else error = r.Error;
+        cargando = false;
+    }
+}

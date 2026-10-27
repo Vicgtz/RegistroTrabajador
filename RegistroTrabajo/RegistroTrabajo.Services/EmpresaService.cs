@@ -44,14 +44,18 @@ public class EmpresaService : IEmpresaService
         if (rfc is not null && await _db.Empresas.AnyAsync(x => x.RFC == rfc && x.EmpresaId != id, ct))
             throw ServiceException.Conflict("El RFC ya está registrado.");
 
+        var colorPrimario = Helpers.Limpiar(r.ColorPrimario);
+        if (colorPrimario is not null && !ContrasteSuficienteConBlanco(colorPrimario))
+            throw ServiceException.Validation("El color principal es demasiado claro: el texto blanco de los botones no se leería bien.");
+
         var antes = ToDto(e);
         e.Nombre = r.Nombre.Trim();
         e.NombreComercial = Helpers.Limpiar(r.NombreComercial);
         e.RFC = rfc;
         e.CorreoContacto = Helpers.Limpiar(r.CorreoContacto);
         e.TelefonoContacto = Helpers.Limpiar(r.TelefonoContacto);
-        e.LogoUrl = Helpers.Limpiar(r.LogoUrl);
-        e.ColorPrimario = Helpers.Limpiar(r.ColorPrimario);
+        // El logotipo solo se cambia con LogoEmpresaService (subida validada); LogoUrl del request se ignora.
+        e.ColorPrimario = colorPrimario;
         e.ColorSecundario = Helpers.Limpiar(r.ColorSecundario);
         e.FechaActualizacionUtc = _clock.GetUtcNow().UtcDateTime;
 
@@ -83,6 +87,10 @@ public class EmpresaService : IEmpresaService
         c.CierreSesionInactividadMinutos = r.CierreSesionInactividadMinutos;
         c.DuracionSesionMaximaHoras = r.DuracionSesionMaximaHoras;
         c.PermitirValidacionGps = r.PermitirValidacionGps;
+        c.NombreMostrado = Helpers.Limpiar(r.NombreMostrado);
+        c.TextoInstitucional = Helpers.Limpiar(r.TextoInstitucional);
+        c.PrimerDiaSemana = r.PrimerDiaSemana;
+        c.Moneda = Helpers.Limpiar(r.Moneda)?.ToUpperInvariant();
         c.FechaActualizacionUtc = _clock.GetUtcNow().UtcDateTime;
 
         _auditoria.Registrar("Empresa", nameof(ConfiguracionEmpresa), id.ToString(), "Actualizar", antes, ToDto(c));
@@ -101,11 +109,23 @@ public class EmpresaService : IEmpresaService
         { throw ServiceException.Validation("Zona horaria no válida."); }
         try { CultureInfo.GetCultureInfo(r.Cultura.Trim()); }
         catch (CultureNotFoundException) { throw ServiceException.Validation("Cultura no válida."); }
-        foreach (var f in new[] { r.FormatoFecha, r.FormatoHora })
-        {
-            try { _ = DateTime.UtcNow.ToString(f.Trim(), CultureInfo.InvariantCulture); }
-            catch (FormatException) { throw ServiceException.Validation("Formato de fecha u hora no válido."); }
-        }
+        if (!FormatosRegionales.Fecha.Contains(r.FormatoFecha.Trim()))
+            throw ServiceException.Validation("Formato de fecha no permitido.");
+        if (!FormatosRegionales.Hora.Contains(r.FormatoHora.Trim()))
+            throw ServiceException.Validation("Formato de hora no permitido.");
+        if (r.PrimerDiaSemana > 6) throw ServiceException.Validation("El primer día de la semana debe estar entre 0 y 6.");
+        var moneda = Helpers.Limpiar(r.Moneda);
+        if (moneda is not null && (moneda.Length != 3 || !moneda.All(char.IsAsciiLetter)))
+            throw ServiceException.Validation("La moneda debe ser un código de tres letras (por ejemplo MXN).");
+    }
+
+    /// <summary>Contraste mínimo 4.5:1 del color con texto blanco (WCAG AA).</summary>
+    internal static bool ContrasteSuficienteConBlanco(string hex)
+    {
+        static double Canal(int v) { var c = v / 255.0; return c <= 0.03928 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4); }
+        var rgb = Convert.ToInt32(hex.TrimStart('#'), 16);
+        var l = 0.2126 * Canal(rgb >> 16 & 0xFF) + 0.7152 * Canal(rgb >> 8 & 0xFF) + 0.0722 * Canal(rgb & 0xFF);
+        return 1.05 / (l + 0.05) >= 4.5;
     }
 
     internal static EmpresaDto ToDto(Empresa e) => new()
@@ -119,6 +139,7 @@ public class EmpresaService : IEmpresaService
     {
         ZonaHorariaId = c.ZonaHorariaId, Cultura = c.Cultura, FormatoFecha = c.FormatoFecha, FormatoHora = c.FormatoHora,
         CierreSesionInactividadMinutos = c.CierreSesionInactividadMinutos,
-        DuracionSesionMaximaHoras = c.DuracionSesionMaximaHoras, PermitirValidacionGps = c.PermitirValidacionGps
+        DuracionSesionMaximaHoras = c.DuracionSesionMaximaHoras, PermitirValidacionGps = c.PermitirValidacionGps,
+        NombreMostrado = c.NombreMostrado, TextoInstitucional = c.TextoInstitucional, PrimerDiaSemana = c.PrimerDiaSemana, Moneda = c.Moneda
     };
 }

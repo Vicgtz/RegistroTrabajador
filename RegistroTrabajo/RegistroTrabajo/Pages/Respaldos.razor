@@ -1,0 +1,140 @@
+@page "/plataforma/respaldos"
+@attribute [Authorize]
+@using System.Security.Claims
+
+<PageTitle>Respaldos - Registro de Trabajo</PageTitle>
+
+@if (user is not null && !Puede(Permisos.PlataformaRespaldosConsultar))
+{
+    <div class="tarjeta p-4 text-center">
+        <h1 class="h5">Sin permiso</h1>
+        <p class="text-muted mb-0">Tu cuenta no tiene autorización para ver esta sección.</p>
+    </div>
+}
+else
+{
+    <div class="d-flex flex-wrap justify-content-between align-items-start mb-3 gap-2">
+        <div>
+            <h1 class="h3 mb-0">Respaldos de la base de datos</h1>
+            <div class="small text-muted">Los archivos se guardan en una carpeta protegida del servidor y no se pueden descargar desde aquí. La restauración es un procedimiento técnico aparte.</div>
+        </div>
+        @if (Puede(Permisos.PlataformaRespaldosSolicitar))
+        {
+            <button class="btn btn-primary btn-sm" disabled="@ejecutando" @onclick="() => confirmar = true">Solicitar respaldo completo</button>
+        }
+    </div>
+
+    <div class="tarjeta p-3 mb-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-6 col-md-3"><label class="form-label small mb-0" for="rTipo">Tipo</label>
+                <select id="rTipo" class="form-select form-select-sm" @bind="filtro.Tipo">
+                    <option value="">Todos</option><option value="1">Completo</option><option value="2">Diferencial</option><option value="3">Restauración</option><option value="4">Verificación</option>
+                </select></div>
+            <div class="col-6 col-md-3"><label class="form-label small mb-0" for="rEstado">Estado</label>
+                <select id="rEstado" class="form-select form-select-sm" @bind="filtro.Estado">
+                    <option value="">Todos</option><option value="1">Iniciado</option><option value="2">Completado</option><option value="3">Fallido</option>
+                </select></div>
+            <div class="col-6 col-md-2"><label class="form-label small mb-0" for="rDesde">Desde</label><input id="rDesde" type="date" class="form-control form-control-sm" @bind="filtro.Desde" /></div>
+            <div class="col-6 col-md-2"><label class="form-label small mb-0" for="rHasta">Hasta</label><input id="rHasta" type="date" class="form-control form-control-sm" @bind="filtro.Hasta" /></div>
+            <div class="col-auto"><button class="btn btn-outline-primary btn-sm" @onclick="Buscar">Buscar</button></div>
+        </div>
+    </div>
+
+    <Alerta Mensaje="@error" Tipo="danger" />
+    <Alerta Mensaje="@aviso" Tipo="success" />
+
+    @if (cargando) { <Cargando /> }
+    else if (datos is not null)
+    {
+        <div class="tarjeta p-3">
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0 reporte-tabla">
+                    <thead><tr><th>Inicio</th><th>Tipo</th><th>Estado</th><th>Usuario</th><th>Archivo</th><th class="text-end">Tamaño</th><th>Resultado</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var o in datos.Items)
+                        {
+                            <tr>
+                                <td class="text-nowrap">@FormatoProyectos.FechaHora(o.FechaInicioUtc)</td>
+                                <td>@o.TipoNombre</td>
+                                <td><span class="badge @(o.Estado == 2 ? "text-bg-success" : o.Estado == 3 ? "text-bg-danger" : "text-bg-secondary")">@o.EstadoNombre</span></td>
+                                <td>@o.UsuarioNombre</td>
+                                <td class="small">@o.NombreArchivo</td>
+                                <td class="text-end text-nowrap">@Tamano(o.TamanoBytes)</td>
+                                <td class="small">@o.Mensaje</td>
+                                <td>
+                                    @if (Puede(Permisos.PlataformaRespaldosSolicitar) && (o.Tipo == 1 || o.Tipo == 2) && o.Estado == 2)
+                                    {
+                                        <button class="btn btn-sm btn-link p-0" disabled="@ejecutando" @onclick="() => Verificar(o)">Verificar</button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        @if (datos.Items.Count == 0) { <tr><td colspan="8" class="text-center text-muted">No hay operaciones registradas.</td></tr> }
+                    </tbody>
+                </table>
+            </div>
+            <Paginador Page="datos.Page" PageSize="datos.PageSize" Total="datos.Total" OnPage="IrAPagina" />
+        </div>
+    }
+
+    <Modal @bind-Visible="confirmar" Titulo="Solicitar respaldo completo">
+        <ChildContent>
+            <p class="mb-0">Se generará una copia completa de la base de datos, con información de todas las empresas. La operación puede tardar varios minutos. ¿Continuar?</p>
+        </ChildContent>
+        <Footer>
+            <button class="btn btn-outline-secondary btn-sm" @onclick="() => confirmar = false">Cancelar</button>
+            <button class="btn btn-primary btn-sm" @onclick="Solicitar">Solicitar respaldo</button>
+        </Footer>
+    </Modal>
+}
+
+@code {
+    [Inject] private RespaldosClient Api { get; set; } = default!;
+    [CascadingParameter] private Task<AuthenticationState>? Sesion { get; set; }
+
+    private ClaimsPrincipal? user;
+    private PagedResult<RespaldoDto>? datos;
+    private readonly RespaldoFiltro filtro = new() { PageSize = 20 };
+    private string? error, aviso;
+    private bool cargando = true, confirmar, ejecutando;
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = Sesion is null ? null : (await Sesion).User;
+        if (Puede(Permisos.PlataformaRespaldosConsultar)) await Cargar();
+        cargando = false;
+    }
+
+    private bool Puede(string permiso) => user?.TienePermiso(permiso) == true;
+
+    private async Task Cargar()
+    {
+        var r = await Api.ListarAsync(filtro);
+        if (r.Ok) datos = r.Data; else error = r.Error;
+    }
+
+    private async Task Buscar() { error = aviso = null; filtro.Page = 1; await Cargar(); }
+    private async Task IrAPagina(int p) { filtro.Page = p; await Cargar(); }
+
+    private async Task Solicitar()
+    {
+        confirmar = false;
+        await Ejecutar(() => Api.SolicitarAsync(1), "Respaldo");
+    }
+
+    private async Task Verificar(RespaldoDto o) => await Ejecutar(() => Api.VerificarAsync(o.OperacionRespaldoId), "Verificación");
+
+    private async Task Ejecutar(Func<Task<ApiResult<RespaldoDto>>> accion, string nombre)
+    {
+        error = aviso = null;
+        ejecutando = true;
+        var r = await accion();
+        ejecutando = false;
+        if (!r.Ok) error = r.Error;
+        else if (r.Data!.Estado == 2) aviso = $"{nombre} completado.";
+        else error = $"{nombre} fallido: {r.Data.Mensaje}";
+        await Cargar();
+    }
+
+    private static string Tamano(long? b) => b is null ? "" : b < 1048576 ? $"{b / 1024.0:0.#} KB" : b < 1073741824 ? $"{b / 1048576.0:0.#} MB" : $"{b / 1073741824.0:0.##} GB";
+}

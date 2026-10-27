@@ -64,6 +64,24 @@ public class ApiClient(HttpClient http, JsonSerializerOptions json, NavigationMa
         }
     }
 
+    /// <summary>Sube un archivo como multipart/form-data (campo <c>archivo</c>).</summary>
+    public async Task<ApiResult> SubirArchivoAsync(string url, string nombre, byte[] contenido, string tipo, CancellationToken ct = default)
+    {
+        try
+        {
+            using var form = new MultipartFormDataContent();
+            var parte = new ByteArrayContent(contenido);
+            parte.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(tipo);
+            form.Add(parte, "archivo", nombre);
+            using var response = await http.PostAsync(url, form, ct);
+            return response.IsSuccessStatusCode
+                ? new ApiResult(true, null, response.StatusCode)
+                : new ApiResult(false, await LeerErrorAsync(response, ct), response.StatusCode);
+        }
+        catch (HttpRequestException) { return new ApiResult(false, SinConexion, 0); }
+        catch (TaskCanceledException) when (!ct.IsCancellationRequested) { return new ApiResult(false, SinConexion, 0); }
+    }
+
     /// <summary>Descarga un archivo (p. ej. un reporte exportado). Los errores vuelven como ProblemDetails igual que en las demás llamadas.</summary>
     public async Task<ApiResult<byte[]>> GetBytesAsync(string url, CancellationToken ct = default)
     {

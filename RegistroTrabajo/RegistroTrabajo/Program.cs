@@ -62,5 +62,8 @@ builder.Services.AddScoped<DashboardClient>();
 builder.Services.AddScoped<ReportesClient>();
 builder.Services.AddScoped<BorradoresClient>();
 builder.Services.AddScoped<ErroresTecnicosClient>();
+builder.Services.AddScoped<RespaldosClient>();
+builder.Services.AddScoped<ConfiguracionClient>();
+builder.Services.AddScoped<TemaEmpresaService>();
 
 await builder.Build().RunAsync();

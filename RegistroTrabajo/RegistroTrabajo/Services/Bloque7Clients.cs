@@ -116,7 +116,7 @@ public static class FormatoProyectos
 
     public static string Fecha(DateOnly? d) => d is { } f ? f.ToString("dd/MM/yyyy") : "—";
 
-    public static string FechaHora(DateTime utc) => DateTime.SpecifyKind(utc, DateTimeKind.Utc).ToLocalTime().ToString("dd/MM/yyyy HH:mm");
+    public static string FechaHora(DateTime utc) => FormatoEmpresa.FechaHora(utc);
 
     public static string Pct(int p) => $"{Math.Clamp(p, 0, 100)}%";
 

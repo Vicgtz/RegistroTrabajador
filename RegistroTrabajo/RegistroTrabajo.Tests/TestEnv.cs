@@ -59,6 +59,28 @@ public class FakeEmailSender : IEmailSender
     }
 }
 
+public class FakeRespaldoEjecutor : IRespaldoEjecutor
+{
+    public List<string> Archivos { get; } = new();
+    public bool FallaRespaldo { get; set; }
+    public bool FallaVerificacion { get; set; }
+    public string Hash { get; set; } = "ABC123";
+    public long Tamano { get; set; } = 2048;
+
+    public Task<ResultadoArchivoRespaldo> RespaldarAsync(bool diferencial, string archivo, CancellationToken ct)
+    {
+        if (FallaRespaldo) throw new IOException(@"No se pudo escribir C:\secreto\clave=123");
+        Archivos.Add(archivo);
+        return Task.FromResult(new ResultadoArchivoRespaldo(Tamano, Hash));
+    }
+
+    public Task<ResultadoArchivoRespaldo> VerificarAsync(string archivo, CancellationToken ct)
+    {
+        if (FallaVerificacion) throw new InvalidDataException("checksum");
+        return Task.FromResult(new ResultadoArchivoRespaldo(Tamano, Hash));
+    }
+}
+
 public record EmpresaInfo(Guid EmpresaId, Guid AdminId, string AdminCorreo, Dictionary<string, Guid> Roles);
 
 public class TestEnv : IDisposable
@@ -71,6 +93,7 @@ public class TestEnv : IDisposable
     public FakeClock Clock { get; } = new();
     public FakeCurrentUser Current { get; } = new();
     public FakeEmailSender Correo { get; } = new();
+    public FakeRespaldoEjecutor Respaldo { get; } = new();
     public SecurityOptions Seguridad => Root.GetRequiredService<IOptions<SecurityOptions>>().Value;
 
     public RegistroTrabajoDbContext Db => Scope.ServiceProvider.GetRequiredService<RegistroTrabajoDbContext>();
@@ -87,6 +110,7 @@ public class TestEnv : IDisposable
         sc.AddSingleton<TimeProvider>(Clock);
         sc.AddSingleton<IAccessTokenFactory, FakeTokenFactory>();
         sc.AddSingleton<IEmailSender>(Correo);
+        sc.AddSingleton<IRespaldoEjecutor>(Respaldo);
         sc.AddRegistroTrabajoServices(o => { o.MaxFailedAttempts = 3; o.LockoutMinutes = 10; o.ActivityTouchSeconds = 0; });
         Root = sc.BuildServiceProvider();
         Scope = Root.CreateScope();

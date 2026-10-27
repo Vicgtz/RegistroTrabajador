@@ -12,7 +12,7 @@ main {
 }
 
 .sidebar {
-    background-image: linear-gradient(180deg, var(--rt-azul-oscuro) 0%, #174a73 100%);
+    background-image: linear-gradient(180deg, var(--rt-azul-oscuro) 0%, var(--rt-secundario, #174a73) 100%);
 }
 
 .top-row {

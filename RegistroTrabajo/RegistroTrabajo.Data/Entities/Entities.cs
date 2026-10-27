@@ -39,6 +39,13 @@ public class ConfiguracionEmpresa
     public byte DiasAlertaVencimiento { get; set; } = 3;
     /// <summary>Bloque 8 (script 009): días hábiles sin actualización para alertar; null desactiva la alerta.</summary>
     public short? DiasSinActualizacion { get; set; }
+    /// <summary>Bloque 12 (script 013): nombre que se muestra en la aplicación en lugar del nombre legal.</summary>
+    public string? NombreMostrado { get; set; }
+    public string? TextoInstitucional { get; set; }
+    /// <summary>0 domingo .. 6 sábado; 1 (lunes) por defecto.</summary>
+    public byte PrimerDiaSemana { get; set; } = 1;
+    /// <summary>Código ISO 4217 de tres letras; solo informativo hasta que alguna función lo use.</summary>
+    public string? Moneda { get; set; }
     public DateTime FechaCreacionUtc { get; set; }
     public DateTime? FechaActualizacionUtc { get; set; }
 

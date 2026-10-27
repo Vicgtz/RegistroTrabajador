@@ -1,0 +1,331 @@
+@page "/configuracion"
+@page "/empresa"
+@attribute [Authorize]
+@inject EmpresaClient Api
+@inject ConfiguracionClient ApiConfig
+@inject TemaEmpresaService Tema
+
+<PageTitle>Configuración - Registro de Trabajo</PageTitle>
+
+<SoloConPermiso Codigo="@Permisos.EmpresaConsultar">
+    <h1 class="h3 mb-1">Configuración de la empresa</h1>
+    <div class="small text-muted mb-3">Los cambios se auditan. La personalización no altera la seguridad ni los controles obligatorios del sistema.</div>
+
+    @if (cargando) { <Cargando /> }
+    else if (datos is not null && config is not null)
+    {
+        @if (!puedeEditar) { <div class="alert alert-info py-2">Tu cuenta solo puede consultar estos datos.</div> }
+
+        <ul class="nav nav-tabs mb-3">
+            @foreach (var (clave, titulo) in Pestanas)
+            {
+                <li class="nav-item"><button class="nav-link @(pestana == clave ? "active" : "")" @onclick="() => CambiarPestana(clave)">@titulo</button></li>
+            }
+        </ul>
+
+        @if (pestana == "datos")
+        {
+            <div class="tarjeta p-3">
+                <EditForm Model="datos" OnValidSubmit="GuardarDatos">
+                    <DataAnnotationsValidator />
+                    <fieldset disabled="@(!puedeEditar)">
+                        <div class="row g-3">
+                            <div class="col-md-6"><label class="form-label">Razón social</label><InputText class="form-control" @bind-Value="datos.Nombre" /><ValidationMessage For="() => datos.Nombre" /></div>
+                            <div class="col-md-6"><label class="form-label">Nombre comercial</label><InputText class="form-control" @bind-Value="datos.NombreComercial" /></div>
+                            <div class="col-md-4"><label class="form-label">RFC</label><InputText class="form-control" @bind-Value="datos.RFC" /><ValidationMessage For="() => datos.RFC" /></div>
+                            <div class="col-md-4"><label class="form-label">Teléfono</label><InputText class="form-control" @bind-Value="datos.TelefonoContacto" /></div>
+                            <div class="col-md-4"><label class="form-label">Correo de contacto</label><InputText type="email" class="form-control" @bind-Value="datos.CorreoContacto" /><ValidationMessage For="() => datos.CorreoContacto" /></div>
+                        </div>
+                    </fieldset>
+                    <Alerta Mensaje="@error" Tipo="danger" Clase="mt-3" />
+                    <Alerta Mensaje="@exito" Tipo="success" Clase="mt-3" />
+                    @if (puedeEditar) { <button class="btn btn-primary mt-3" type="submit" disabled="@guardando">Guardar datos</button> }
+                </EditForm>
+            </div>
+        }
+        else if (pestana == "apariencia")
+        {
+            <div class="row g-3">
+                <div class="col-12 col-xl-7">
+                    <div class="tarjeta p-3">
+                        <fieldset disabled="@(!puedeEditar)">
+                            <div class="row g-3">
+                                <div class="col-md-6"><label class="form-label">Nombre mostrado en la aplicación</label><InputText class="form-control" @bind-Value="config.NombreMostrado" placeholder="@datos.Nombre" maxlength="100" /></div>
+                                <div class="col-md-6"><label class="form-label">Texto institucional</label><InputText class="form-control" @bind-Value="config.TextoInstitucional" maxlength="500" /></div>
+                                <div class="col-6">
+                                    <label class="form-label" for="cp">Color principal</label>
+                                    <div class="d-flex gap-2"><input id="cp" type="color" class="form-control form-control-color" value="@(datos.ColorPrimario ?? ColorPorDefecto)" @onchange="e => CambiarColor(true, e.Value?.ToString())" />
+                                        <button class="btn btn-outline-secondary btn-sm" type="button" @onclick="() => CambiarColor(true, null)">Predeterminado</button></div>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label" for="cs">Color secundario</label>
+                                    <div class="d-flex gap-2"><input id="cs" type="color" class="form-control form-control-color" value="@(datos.ColorSecundario ?? ColorSecundarioPorDefecto)" @onchange="e => CambiarColor(false, e.Value?.ToString())" />
+                                        <button class="btn btn-outline-secondary btn-sm" type="button" @onclick="() => CambiarColor(false, null)">Predeterminado</button></div>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">Logotipo (PNG, JPEG o WebP, máx. 512 KB)</label>
+                                    <InputFile class="form-control" accept="image/png,image/jpeg,image/webp" OnChange="ElegirLogo" />
+                                    @if (Tema.Apariencia?.TieneLogo == true && logoPendiente is null)
+                                    {
+                                        <button class="btn btn-link btn-sm px-0" type="button" @onclick="QuitarLogo">Quitar logotipo actual</button>
+                                    }
+                                </div>
+                            </div>
+                        </fieldset>
+                        <Alerta Mensaje="@error" Tipo="danger" Clase="mt-3" />
+                        <Alerta Mensaje="@exito" Tipo="success" Clase="mt-3" />
+                        @if (puedeEditar)
+                        {
+                            <div class="mt-3 d-flex gap-2">
+                                <button class="btn btn-primary" @onclick="GuardarApariencia" disabled="@guardando">Guardar apariencia</button>
+                                <button class="btn btn-outline-secondary" @onclick="DescartarVistaPrevia" disabled="@guardando">Descartar cambios</button>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="col-12 col-xl-5">
+                    <div class="tarjeta p-3">
+                        <div class="small text-muted mb-2">Vista previa (los colores ya se muestran en esta pantalla; no se guardan hasta pulsar «Guardar apariencia»)</div>
+                        <div class="rounded p-3 mb-2 d-flex align-items-center text-white" style="background:linear-gradient(180deg,var(--rt-azul-oscuro),@(datos.ColorSecundario ?? ColorSecundarioPorDefecto))">
+                            @if (logoPendiente is not null) { <img src="@logoPendienteUrl" alt="Vista previa del logotipo" style="height:2rem;background:#fff;border-radius:.25rem;padding:2px;margin-right:.5rem" /> }
+                            else if (Tema.LogoDataUrl is not null) { <img src="@Tema.LogoDataUrl" alt="Logotipo actual" style="height:2rem;background:#fff;border-radius:.25rem;padding:2px;margin-right:.5rem" /> }
+                            <strong>@(string.IsNullOrWhiteSpace(config.NombreMostrado) ? datos.Nombre : config.NombreMostrado)</strong>
+                        </div>
+                        <button class="btn btn-primary btn-sm" type="button">Botón principal</button>
+                        <button class="btn btn-outline-primary btn-sm" type="button">Botón secundario</button>
+                        @if (!string.IsNullOrWhiteSpace(config.TextoInstitucional)) { <p class="small text-muted mt-3 mb-0">@config.TextoInstitucional</p> }
+                    </div>
+                </div>
+            </div>
+        }
+        else if (pestana == "regional")
+        {
+            <div class="tarjeta p-3">
+                <EditForm Model="config" OnValidSubmit="GuardarConfig">
+                    <DataAnnotationsValidator />
+                    <fieldset disabled="@(!puedeEditar)">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Zona horaria</label>
+                                <InputSelect class="form-select" @bind-Value="config.ZonaHorariaId">
+                                    @foreach (var z in Zonas) { <option value="@z">@z</option> }
+                                </InputSelect>
+                                <div class="form-text">Las fechas de asistencia, permisos, eventos y auditoría se interpretan con esta zona.</div>
+                            </div>
+                            <div class="col-md-3"><label class="form-label">Cultura</label><InputText class="form-control" @bind-Value="config.Cultura" /><ValidationMessage For="() => config.Cultura" /></div>
+                            <div class="col-md-3"><label class="form-label">Moneda (opcional)</label><InputText class="form-control" @bind-Value="config.Moneda" maxlength="3" placeholder="MXN" /><ValidationMessage For="() => config.Moneda" /></div>
+                            <div class="col-md-4">
+                                <label class="form-label">Formato de fecha</label>
+                                <InputSelect class="form-select" @bind-Value="config.FormatoFecha">@foreach (var f in FormatosRegionales.Fecha) { <option value="@f">@f</option> }</InputSelect>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Formato de hora</label>
+                                <InputSelect class="form-select" @bind-Value="config.FormatoHora"><option value="HH:mm">24 horas (HH:mm)</option><option value="hh:mm tt">12 horas (hh:mm AM/PM)</option><option value="h:mm tt">12 horas (h:mm AM/PM)</option></InputSelect>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Primer día de la semana</label>
+                                <InputSelect class="form-select" @bind-Value="config.PrimerDiaSemana"><option value="1">Lunes</option><option value="0">Domingo</option><option value="6">Sábado</option></InputSelect>
+                            </div>
+                        </div>
+                        <div class="small text-muted mt-3">Ejemplo: @Ejemplo()</div>
+                    </fieldset>
+                    <Alerta Mensaje="@error" Tipo="danger" Clase="mt-3" />
+                    <Alerta Mensaje="@exito" Tipo="success" Clase="mt-3" />
+                    @if (puedeEditar) { <button class="btn btn-primary mt-3" type="submit" disabled="@guardando">Guardar configuración regional</button> }
+                </EditForm>
+            </div>
+        }
+        else if (pestana == "parametros")
+        {
+            <div class="tarjeta p-3">
+                <EditForm Model="config" OnValidSubmit="GuardarConfig">
+                    <DataAnnotationsValidator />
+                    <fieldset disabled="@(!puedeEditar)">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Cierre por inactividad (minutos)</label>
+                                <InputNumber class="form-control" @bind-Value="config.CierreSesionInactividadMinutos" />
+                                <div class="form-text">Entre 5 y 1440.</div><ValidationMessage For="() => config.CierreSesionInactividadMinutos" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Duración máxima de sesión (horas)</label>
+                                <InputNumber class="form-control" @bind-Value="config.DuracionSesionMaximaHoras" />
+                                <div class="form-text">Entre 1 y 168.</div><ValidationMessage For="() => config.DuracionSesionMaximaHoras" />
+                            </div>
+                            <div class="col-12 form-check ms-2">
+                                <InputCheckbox class="form-check-input" id="gps" @bind-Value="config.PermitirValidacionGps" />
+                                <label class="form-check-label" for="gps">Permitir validación por GPS en la asistencia</label>
+                            </div>
+                        </div>
+                    </fieldset>
+                    <div class="small text-muted mt-3">Los parámetros de permisos, horarios, calendario, seguimiento y estados de proyecto se administran en sus pantallas (pestaña «Accesos»).</div>
+                    <Alerta Mensaje="@error" Tipo="danger" Clase="mt-3" />
+                    <Alerta Mensaje="@exito" Tipo="success" Clase="mt-3" />
+                    @if (puedeEditar) { <button class="btn btn-primary mt-3" type="submit" disabled="@guardando">Guardar parámetros</button> }
+                </EditForm>
+            </div>
+        }
+        else
+        {
+            <div class="row g-3">
+                @foreach (var a in Accesos.Where(x => Puede(x.Permiso)))
+                {
+                    <div class="col-12 col-md-6 col-xl-4">
+                        <NavLink class="tarjeta p-3 d-block text-decoration-none h-100" href="@a.Ruta">
+                            <div class="fw-semibold">@a.Titulo</div><div class="small text-muted">@a.Descripcion</div>
+                        </NavLink>
+                    </div>
+                }
+            </div>
+        }
+    }
+    <Alerta Mensaje="@errorCarga" Tipo="danger" Clase="mt-3" />
+</SoloConPermiso>
+
+@code {
+    private const string ColorPorDefecto = "#1f6fa8", ColorSecundarioPorDefecto = "#174a73";
+    private static readonly (string Clave, string Titulo)[] Pestanas =
+    {
+        ("datos", "Datos generales"), ("apariencia", "Apariencia"), ("regional", "Regional"), ("parametros", "Parámetros"), ("accesos", "Accesos")
+    };
+    private static readonly string[] Zonas =
+    {
+        "Central Standard Time (Mexico)", "Mountain Standard Time (Mexico)", "Pacific Standard Time (Mexico)", "Eastern Standard Time", "Central Standard Time",
+        "Mountain Standard Time", "Pacific Standard Time", "Central America Standard Time", "SA Pacific Standard Time", "Argentina Standard Time",
+        "Romance Standard Time", "UTC"
+    };
+    private record Acceso(string Titulo, string Descripcion, string Ruta, string Permiso);
+    private static readonly Acceso[] Accesos =
+    {
+        new("Departamentos y puestos", "Catálogos de la organización", "catalogos", Permisos.DepartamentosConsultar),
+        new("Tipos de permiso", "Ausencias, reglas y saldos", "permisos/configuracion", Permisos.PermisosConfigurar),
+        new("Horarios y turnos", "Horarios, descansos y festivos", "horarios", Permisos.HorariosConfigurar),
+        new("Estados de proyecto", "Estados permitidos para proyectos", "proyectos/estados", Permisos.ProyectosConfigurarEstados),
+        new("Calendario y eventos", "Eventos y fechas relevantes", "calendario/eventos", Permisos.CalendarioConfigurar),
+        new("Seguimiento de tareas", "Alertas de vencimiento y retrasos", "seguimiento", Permisos.TareasVerSeguimiento),
+        new("Usuarios", "Cuentas, estado y permisos efectivos", "usuarios", Permisos.UsuariosConsultar),
+        new("Roles y permisos", "Administración de roles", "roles", Permisos.RolesConsultar),
+        new("Sesiones activas", "Consultar y revocar sesiones", "sesiones", Permisos.SesionesConsultar),
+        new("Auditoría", "Registro de cambios importantes", "auditoria", Permisos.AuditoriaConsultar)
+    };
+
+    [CascadingParameter] private Task<AuthenticationState>? Estado { get; set; }
+    private System.Security.Claims.ClaimsPrincipal? user;
+    private ActualizarEmpresaRequest? datos;
+    private ConfiguracionEmpresaDto? config;
+    private bool cargando = true, puedeEditar, guardando;
+    private string? error, exito, errorCarga, pestana = "datos";
+    private byte[]? logoPendiente;
+    private string? logoPendienteTipo, logoPendienteNombre, logoPendienteUrl;
+
+    private bool Puede(string permiso) => user?.TienePermiso(permiso) == true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = Estado is null ? null : (await Estado).User;
+        puedeEditar = Puede(Permisos.EmpresaConfigurar);
+        if (!Puede(Permisos.EmpresaConsultar)) { cargando = false; return; }
+        if (Tema.Apariencia is null) await Tema.CargarAsync();
+        await Cargar();
+        cargando = false;
+    }
+
+    private async Task Cargar()
+    {
+        var e = await Api.ObtenerAsync();
+        var c = await Api.ConfiguracionAsync();
+        if (!e.Ok) errorCarga = e.Error;
+        else if (!c.Ok) errorCarga = c.Error;
+        else
+        {
+            var d = e.Data!;
+            datos = new ActualizarEmpresaRequest
+            {
+                Nombre = d.Nombre, NombreComercial = d.NombreComercial, RFC = d.RFC, CorreoContacto = d.CorreoContacto,
+                TelefonoContacto = d.TelefonoContacto, LogoUrl = d.LogoUrl, ColorPrimario = d.ColorPrimario, ColorSecundario = d.ColorSecundario
+            };
+            config = c.Data;
+        }
+    }
+
+    private async Task CambiarPestana(string clave)
+    {
+        if (pestana == "apariencia" && clave != "apariencia") await DescartarVistaPrevia();
+        pestana = clave; error = exito = null;
+    }
+
+    private async Task CambiarColor(bool primario, string? valor)
+    {
+        if (primario) datos!.ColorPrimario = valor; else datos!.ColorSecundario = valor;
+        await Tema.AplicarAsync(datos.ColorPrimario, datos.ColorSecundario, null);   // solo vista previa
+    }
+
+    private async Task DescartarVistaPrevia()
+    {
+        logoPendiente = null; logoPendienteUrl = null;
+        await Cargar();
+        await Tema.AplicarAsync(Tema.Apariencia?.ColorPrimario, Tema.Apariencia?.ColorSecundario, null);
+    }
+
+    private async Task ElegirLogo(InputFileChangeEventArgs e)
+    {
+        error = exito = null;
+        try
+        {
+            using var s = e.File.OpenReadStream(FormatosRegionales.MaxBytesLogo);
+            using var ms = new MemoryStream();
+            await s.CopyToAsync(ms);
+            logoPendiente = ms.ToArray();
+            logoPendienteNombre = e.File.Name;
+            logoPendienteTipo = FormatosRegionales.TiposLogo.Contains(e.File.ContentType) ? e.File.ContentType : "application/octet-stream";
+            logoPendienteUrl = $"data:{ConfiguracionClient.TipoImagen(logoPendiente)};base64,{Convert.ToBase64String(logoPendiente)}";
+        }
+        catch (IOException) { error = "El logotipo no puede pesar más de 512 KB."; logoPendiente = null; }
+    }
+
+    private async Task QuitarLogo()
+    {
+        var r = await ApiConfig.EliminarLogoAsync();
+        if (r.Ok) { await Tema.CargarAsync(); exito = "Logotipo eliminado."; } else error = r.Error;
+    }
+
+    private async Task GuardarDatos()
+    {
+        error = exito = null; guardando = true;
+        var r = await Api.ActualizarAsync(datos!);
+        if (r.Ok) { exito = "Datos guardados."; await Tema.CargarAsync(); } else error = r.Error;
+        guardando = false;
+    }
+
+    private async Task GuardarApariencia()
+    {
+        error = exito = null; guardando = true;
+        var r = await Api.ActualizarAsync(datos!);
+        if (r.Ok) { var c = await Api.ActualizarConfiguracionAsync(config!); if (!c.Ok) error = c.Error; } else error = r.Error;
+        if (error is null && logoPendiente is not null)
+        {
+            var l = await ApiConfig.SubirLogoAsync(logoPendienteNombre ?? "logo", logoPendiente, logoPendienteTipo ?? "application/octet-stream");
+            if (l.Ok) { logoPendiente = null; logoPendienteUrl = null; } else error = l.Error;
+        }
+        if (error is null) { exito = "Apariencia guardada."; await Tema.CargarAsync(); }
+        guardando = false;
+    }
+
+    private async Task GuardarConfig()
+    {
+        error = exito = null; guardando = true;
+        var r = await Api.ActualizarConfiguracionAsync(config!);
+        if (r.Ok) { exito = "Configuración guardada."; config = r.Data; await Tema.CargarAsync(); } else error = r.Error;
+        guardando = false;
+    }
+
+    private string Ejemplo()
+    {
+        try
+        {
+            var f = new DateTime(2026, 3, 9, 15, 30, 0);
+            return f.ToString(config!.FormatoFecha + " " + config.FormatoHora, System.Globalization.CultureInfo.GetCultureInfo(config.Cultura));
+        }
+        catch (Exception) { return "—"; }
+    }
+}

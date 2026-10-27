@@ -23,6 +23,8 @@ public class OperacionRespaldo
 
     public string? Mensaje { get; set; }
 
+    public string? HashArchivo { get; set; }
+
     public Usuario EjecutadaPorUsuario { get; set; } = null!;
 
     public Empresa? Empresa { get; set; }

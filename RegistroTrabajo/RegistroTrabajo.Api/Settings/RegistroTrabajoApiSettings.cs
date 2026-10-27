@@ -11,6 +11,7 @@ public class RegistroTrabajoApiSettings
     public JwtSettings JwtSettings { get; set; } = new();
     public SecurityOptions Security { get; set; } = new();
     public EmailOptions Email { get; set; } = new();
+    public RespaldosOptions Respaldos { get; set; } = new();
     public string AllowedHosts { get; set; } = "*";
     /// <summary>Orígenes (clientes Blazor) autorizados por CORS.</summary>
     public string[] AllowedOrigins { get; set; } = Array.Empty<string>();

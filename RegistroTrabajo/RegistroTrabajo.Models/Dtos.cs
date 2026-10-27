@@ -54,6 +54,11 @@ public class ConfiguracionEmpresaDto
     [Range(5, 1440)] public short CierreSesionInactividadMinutos { get; set; }
     [Range(1, 168)] public short DuracionSesionMaximaHoras { get; set; }
     public bool PermitirValidacionGps { get; set; }
+    // Bloque 12
+    [StringLength(100)] public string? NombreMostrado { get; set; }
+    [StringLength(500)] public string? TextoInstitucional { get; set; }
+    [Range(0, 6)] public byte PrimerDiaSemana { get; set; } = 1;
+    [RegularExpression("^[A-Za-z]{3}$")] public string? Moneda { get; set; }
 }
 
 // ---------- Usuarios ----------

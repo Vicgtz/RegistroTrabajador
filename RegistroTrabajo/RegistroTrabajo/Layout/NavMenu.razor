@@ -1,8 +1,15 @@
 ﻿<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand d-flex align-items-center" href="">
-            <svg class="marca" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4h6a1 1 0 0 1 1 1v2h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h3V5a1 1 0 0 1 1-1Zm1 3h4V6h-4v1Z" /></svg>
-            <span>Registro de Trabajo</span>
+            @if (Tema.LogoDataUrl is not null)
+            {
+                <img src="@Tema.LogoDataUrl" alt="Logotipo" style="height:1.9rem;max-width:2.8rem;object-fit:contain;margin-right:.5rem;background:#fff;border-radius:.25rem;padding:2px" />
+            }
+            else
+            {
+                <svg class="marca" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4h6a1 1 0 0 1 1 1v2h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h3V5a1 1 0 0 1 1-1Zm1 3h4V6h-4v1Z" /></svg>
+            }
+            <span>@(Tema.Apariencia?.Nombre ?? "Registro de Trabajo")</span>
         </a>
         <button title="Menú de navegación" class="navbar-toggler" @onclick="ToggleNavMenu">
             <span class="navbar-toggler-icon"></span>
@@ -160,8 +167,8 @@
             @if (context.User.TienePermiso(Permisos.EmpresaConsultar))
             {
                 <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="empresa">
-                        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21V3h12v6h6v12H3Zm4-4h2v-2H7v2Zm0-4h2v-2H7v2Zm0-4h2V7H7v2Zm4 8h2v-2h-2v2Zm0-4h2v-2h-2v2Zm0-4h2V7h-2v2Zm6 8h2v-2h-2v2Zm0-4h2v-2h-2v2Z" /></svg> Mi empresa
+                    <NavLink class="nav-link" href="configuracion">
+                        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21V3h12v6h6v12H3Zm4-4h2v-2H7v2Zm0-4h2v-2H7v2Zm0-4h2V7H7v2Zm4 8h2v-2h-2v2Zm0-4h2v-2h-2v2Zm0-4h2V7h-2v2Zm6 8h2v-2h-2v2Zm0-4h2v-2h-2v2Z" /></svg> Configuración
                     </NavLink>
                 </div>
             }
@@ -195,6 +202,22 @@
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="plataforma/empresas">
                         <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm6.9 6h-2.9a15.7 15.7 0 0 0-1.4-3.6A8 8 0 0 1 18.9 8ZM12 4c.8 1.2 1.5 2.5 1.9 4h-3.8c.4-1.5 1.1-2.8 1.9-4ZM4.3 14a8 8 0 0 1 0-4h3.4a16.5 16.5 0 0 0 0 4H4.3Zm.8 2h2.9a15.7 15.7 0 0 0 1.4 3.6A8 8 0 0 1 5.1 16Zm2.9-8H5.1a8 8 0 0 1 4.3-3.6A15.7 15.7 0 0 0 8 8Zm4 12c-.8-1.2-1.5-2.5-1.9-4h3.8c-.4 1.5-1.1 2.8-1.9 4Zm2.3-6H9.7a14.7 14.7 0 0 1 0-4h4.6a14.7 14.7 0 0 1 0 4Zm.3 5.6A15.7 15.7 0 0 0 16 16h2.9a8 8 0 0 1-4.3 3.6ZM16.3 14a16.5 16.5 0 0 0 0-4h3.4a8 8 0 0 1 0 4h-3.4Z" /></svg> Empresas
+                    </NavLink>
+                </div>
+            }
+            @if (context.User.TienePermiso(Permisos.PlataformaSistemaConsultar))
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="plataforma/sistema">
+                        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm-1 15-4-4 1.400-1.400L11 14.200l5.600-5.600L18 10l-7 7Z" /></svg> Estado del sistema
+                    </NavLink>
+                </div>
+            }
+            @if (context.User.TienePermiso(Permisos.PlataformaRespaldosConsultar))
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="plataforma/respaldos">
+                        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3C7.6 3 4 4.3 4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6c0-1.7-3.6-3-8-3Zm0 2c3.9 0 6 .9 6 1s-2.100 1-6 1-6-.9-6-1 2.100-1 6-1Zm6 13c0 .1-2.100 1-6 1s-6-.9-6-1v-2.200c1.500.800 3.700 1.200 6 1.200s4.500-.400 6-1.200V18Zm0-4c0 .1-2.100 1-6 1s-6-.9-6-1v-2.200c1.500.800 3.700 1.200 6 1.200s4.500-.400 6-1.200V14Z" /></svg> Respaldos
                     </NavLink>
                 </div>
             }

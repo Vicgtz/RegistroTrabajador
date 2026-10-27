@@ -767,6 +767,7 @@ public partial class RegistroTrabajoDbContext
                 .HasDefaultValueSql("(sysutcdatetime())");
             entity.Property(e => e.Mensaje).HasMaxLength(1000);
             entity.Property(e => e.UbicacionArchivo).HasMaxLength(1000);
+            entity.Property(e => e.HashArchivo).HasMaxLength(128);
 
             entity.HasOne(d => d.EjecutadaPorUsuario).WithMany()
                 .HasForeignKey(d => d.EjecutadaPorUsuarioId)

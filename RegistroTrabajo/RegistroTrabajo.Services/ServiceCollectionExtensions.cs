@@ -10,8 +10,17 @@ namespace RegistroTrabajo.Services;
 public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddRegistroTrabajoServices(this IServiceCollection services,
-        Action<SecurityOptions>? configure = null, Action<EmailOptions>? configureEmail = null)
+        Action<SecurityOptions>? configure = null, Action<EmailOptions>? configureEmail = null,
+        Action<RespaldosOptions>? configureRespaldos = null)
     {
+        services.AddOptions<RespaldosOptions>();
+        if (configureRespaldos is not null) services.Configure(configureRespaldos);
+        services.TryAddScoped<IRespaldoEjecutor, SqlServerRespaldoEjecutor>();
+        services.AddScoped<IRespaldoService, RespaldoService>();
+        services.AddScoped<ILogoEmpresaService, LogoEmpresaService>();
+        services.AddScoped<IAparienciaService, AparienciaService>();
+        services.AddScoped<IPermisosEfectivosService, PermisosEfectivosService>();
+        services.AddScoped<IEstadoSistemaService, EstadoSistemaService>();
         services.AddOptions<SecurityOptions>();
         if (configure is not null) services.Configure(configure);
         services.AddOptions<EmailOptions>();

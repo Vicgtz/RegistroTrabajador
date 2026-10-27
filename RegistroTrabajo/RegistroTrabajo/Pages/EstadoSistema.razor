@@ -1,0 +1,50 @@
+@page "/plataforma/sistema"
+@attribute [Authorize]
+@inject ConfiguracionClient Api
+
+<PageTitle>Estado del sistema - Registro de Trabajo</PageTitle>
+
+<SoloConPermiso Codigo="@Permisos.PlataformaSistemaConsultar">
+    <div class="d-flex justify-content-between align-items-start mb-3">
+        <div>
+            <h1 class="h3 mb-0">Estado del sistema</h1>
+            <div class="small text-muted">Información técnica básica. No incluye credenciales, cadenas de conexión ni datos de las empresas.</div>
+        </div>
+        <button class="btn btn-outline-primary btn-sm" @onclick="Cargar" disabled="@cargando">Actualizar</button>
+    </div>
+    <Alerta Mensaje="@error" Tipo="danger" />
+    @if (cargando && datos is null) { <Cargando /> }
+    else if (datos is not null)
+    {
+        <div class="row g-3">
+            <div class="col-6 col-lg-3"><div class="tarjeta p-3 resumen-tarjeta"><div class="small text-muted">Versión</div><div class="fw-semibold">@datos.Version</div></div></div>
+            <div class="col-6 col-lg-3"><div class="tarjeta p-3 resumen-tarjeta"><div class="small text-muted">Entorno</div><div class="fw-semibold">@datos.Entorno</div></div></div>
+            <div class="col-6 col-lg-3"><div class="tarjeta p-3 resumen-tarjeta"><div class="small text-muted">Base de datos</div>
+                <span class="badge @(datos.BaseDatosDisponible ? "text-bg-success" : "text-bg-danger")">@(datos.BaseDatosDisponible ? "Disponible" : "Sin conexión")</span></div></div>
+            <div class="col-6 col-lg-3"><div class="tarjeta p-3 resumen-tarjeta"><div class="small text-muted">Errores técnicos (24 h)</div><div class="fw-semibold">@datos.ErroresTecnicosUltimas24Horas</div></div></div>
+            <div class="col-12 col-lg-6"><div class="tarjeta p-3"><div class="small text-muted">Último respaldo completado</div>
+                <div class="fw-semibold">@(datos.UltimoRespaldoCompletadoUtc is { } f ? FormatoEmpresa.FechaHora(f) : "Aún no hay respaldos")</div></div></div>
+            <div class="col-12 col-lg-6"><div class="tarjeta p-3"><div class="small text-muted">Hora del servidor (UTC)</div><div class="fw-semibold">@datos.FechaUtc.ToString("yyyy-MM-dd HH:mm:ss")</div></div></div>
+        </div>
+        <div class="mt-3 d-flex gap-2">
+            <NavLink class="btn btn-outline-primary btn-sm" href="plataforma/respaldos">Ver respaldos</NavLink>
+            <NavLink class="btn btn-outline-primary btn-sm" href="errores-tecnicos">Ver errores técnicos</NavLink>
+        </div>
+    }
+</SoloConPermiso>
+
+@code {
+    private EstadoSistemaDto? datos;
+    private string? error;
+    private bool cargando = true;
+
+    protected override async Task OnInitializedAsync() => await Cargar();
+
+    private async Task Cargar()
+    {
+        cargando = true; error = null;
+        var r = await Api.EstadoSistemaAsync();
+        if (r.Ok) datos = r.Data; else error = r.Error;
+        cargando = false;
+    }
+}

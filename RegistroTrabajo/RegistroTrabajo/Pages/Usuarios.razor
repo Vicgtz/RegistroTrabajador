@@ -67,6 +67,7 @@
                                 <td class="text-end text-nowrap">
                                     @if (Puede(Permisos.UsuariosEditar)) { <button class="btn btn-sm btn-outline-primary" @onclick="() => Editar(u)">Editar</button> }
                                     @if (Puede(Permisos.RolesConsultar)) { <button class="btn btn-sm btn-outline-primary" @onclick="() => AbrirRoles(u)">Roles</button> }
+                                    @if (Puede(Permisos.EmpresaVerPermisosEfectivos)) { <button class="btn btn-sm btn-outline-primary" @onclick="() => { efectivosUsuario = u.UsuarioId; efectivosVisible = true; }">Permisos</button> }
                                     <div class="btn-group">
                                         <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" @onclick="() => MenuAbierto = MenuAbierto == u.UsuarioId ? null : u.UsuarioId">Más</button>
                                         @if (MenuAbierto == u.UsuarioId)
@@ -155,6 +156,13 @@
         </button>
     </Footer>
 </Modal>
+
+@code {
+    private Guid? efectivosUsuario;
+    private bool efectivosVisible;
+}
+
+<PermisosEfectivosModal @bind-Visible="efectivosVisible" UsuarioId="efectivosUsuario" />
 
 @* ---- Roles del usuario ---- *@
 <Modal @bind-Visible="rolesVisible" Titulo="@($"Roles de {usuarioRoles?.Nombre} {usuarioRoles?.Apellido}")">
