@@ -42,6 +42,10 @@ public partial class Trabajadores
 
     private bool Puede(string permiso) => user?.TienePermiso(permiso) == true;
 
+    /// <summary>Quien solo tiene el rol Trabajador consulta el directorio, pero no abre expedientes (su información está en «Mi perfil»).</summary>
+    private bool PuedeVerExpedientes => user is not null
+        && user.Claims.Where(c => c.Type == ClaimTypes.Role).Any(c => c.Value != NombresRol.Trabajador);
+
     private async Task Cargar()
     {
         cargando = true;

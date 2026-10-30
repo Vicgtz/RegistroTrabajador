@@ -23,7 +23,7 @@
 
             <div class="mb-3">
                 <label for="contra" class="form-label">Contraseña</label>
-                <InputText id="contra" type="password" class="form-control" @bind-Value="modelo.Contrasena" autocomplete="current-password" disabled="@cargando" />
+                <CampoContrasena id="contra"class="form-control" @bind-Value="modelo.Contrasena" autocomplete="current-password" disabled="@cargando" />
                 <ValidationMessage For="() => modelo.Contrasena" />
             </div>
 

@@ -1,0 +1,60 @@
+@page "/tareas"
+@page "/mis-tareas"
+@page "/seguimiento"
+@attribute [Authorize]
+@using System.Security.Claims
+@inject NavigationManager Navegacion
+
+<PageTitle>Tareas - Registro de Trabajo</PageTitle>
+
+@if (user is not null && !Puede(Permisos.ProyectosConsultar))
+{
+    <div class="tarjeta p-4 text-center">
+        <h1 class="h5">Sin permiso</h1>
+        <p class="text-muted mb-0">Tu cuenta no tiene autorización para ver esta sección.</p>
+    </div>
+}
+else if (user is not null)
+{
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h1 class="h3 mb-0">Tareas</h1>
+            <div class="small text-muted">Tus actividades pendientes y el seguimiento de retrasos y revisiones</div>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" href="proyectos">Ver proyectos</a>
+        </div>
+    </div>
+
+    <ul class="nav nav-tabs mb-3" role="tablist">
+        <li class="nav-item"><button class="nav-link @(pestana == Mias ? "active" : "")" role="tab" aria-selected="@(pestana == Mias ? "true" : "false")" @onclick="() => Cambiar(Mias)">Mis tareas</button></li>
+        <li class="nav-item"><button class="nav-link @(pestana == Seguimiento ? "active" : "")" role="tab" aria-selected="@(pestana == Seguimiento ? "true" : "false")" @onclick="() => Cambiar(Seguimiento)">Seguimiento</button></li>
+    </ul>
+
+    @* Cada pestaña se carga al abrirla por primera vez y luego se conserva (con sus filtros) al cambiar de una a otra. *@
+    @if (visitadas.Contains(Mias)) { <div class="@(pestana == Mias ? "" : "d-none")"><TareasMias /></div> }
+    @if (visitadas.Contains(Seguimiento)) { <div class="@(pestana == Seguimiento ? "" : "d-none")"><TareasSeguimiento /></div> }
+}
+
+@code {
+    private const string Mias = "mias";
+    private const string Seguimiento = "seguimiento";
+
+    [CascadingParameter] private Task<AuthenticationState>? Sesion { get; set; }
+
+    private ClaimsPrincipal? user;
+    private string pestana = Mias;
+    private readonly HashSet<string> visitadas = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = Sesion is null ? null : (await Sesion).User;
+        // Las rutas anteriores siguen funcionando: /seguimiento abre directamente esa pestaña.
+        pestana = Navegacion.ToBaseRelativePath(Navegacion.Uri).StartsWith("seguimiento", StringComparison.OrdinalIgnoreCase) ? Seguimiento : Mias;
+        visitadas.Add(pestana);
+    }
+
+    private bool Puede(string permiso) => user?.TienePermiso(permiso) == true;
+
+    private void Cambiar(string destino) { pestana = destino; visitadas.Add(destino); }
+}

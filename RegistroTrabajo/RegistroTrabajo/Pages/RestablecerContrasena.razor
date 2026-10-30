@@ -28,7 +28,7 @@
                     <label for="nueva" class="form-label">Contraseña nueva</label>
                     <div class="input-group">
                         <input id="nueva" type="@(ver ? "text" : "password")" class="form-control" autocomplete="new-password" @bind="modelo.Nueva" @bind:event="oninput" disabled="@cargando" />
-                        <button type="button" class="btn btn-outline-secondary" @onclick="() => ver = !ver" aria-label="@(ver ? "Ocultar contraseñas" : "Mostrar contraseñas")">@(ver ? "Ocultar" : "Mostrar")</button>
+                        <button type="button" class="btn btn-outline-secondary" @onclick="() => ver = !ver" aria-label="@(ver ? "Ocultar contraseñas" : "Mostrar contraseñas")" title="@(ver ? "Ocultar contraseñas" : "Mostrar contraseñas")"><IconoOjo Tachado="ver" /></button>
                     </div>
                     <div class="form-text">Entre 10 y 128 caracteres, con mayúsculas, minúsculas y números.</div>
                     <ValidationMessage For="() => modelo.Nueva" />

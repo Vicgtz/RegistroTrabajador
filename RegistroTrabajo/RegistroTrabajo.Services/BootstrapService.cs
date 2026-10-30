@@ -89,6 +89,9 @@ public interface IBootstrapService
     /// <summary>Crea (si no existe) un usuario con un rol de sistema en la primera empresa. Uso de inicialización/desarrollo, sin usuario autenticado.</summary>
     Task<bool> CrearUsuarioConRolAsync(string rolNombre, string correo, string nombre, string apellido,
         string contrasena, CancellationToken ct, bool restablecerContrasena = false);
+
+    /// <summary>Restablece la contraseña de una cuenta existente (cualquier empresa) y limpia intentos fallidos y bloqueo. Uso de desarrollo, sin usuario autenticado. Devuelve false si el correo no existe.</summary>
+    Task<bool> RestablecerContrasenaExistenteAsync(string correo, string contrasena, CancellationToken ct);
 }
 
 public class BootstrapService : IBootstrapService
@@ -145,6 +148,23 @@ public class BootstrapService : IBootstrapService
         await _db.SaveSafeAsync(ct);
         await tx.CommitAsync(ct);
         return e.EmpresaId;
+    }
+
+    public async Task<bool> RestablecerContrasenaExistenteAsync(string correo, string contrasena, CancellationToken ct)
+    {
+        _passwords.ValidarPolitica(contrasena);
+        var normalizado = Helpers.NormalizarCorreo(correo);
+        var usuario = await _db.Usuarios.FirstOrDefaultAsync(u => u.CorreoNormalizado == normalizado, ct);
+        if (usuario is null) return false;
+
+        usuario.HashContrasena = _passwords.Hash(usuario, contrasena);
+        usuario.IntentosFallidos = 0;
+        usuario.BloqueadoHastaUtc = null;
+        usuario.FechaActualizacionUtc = _clock.GetUtcNow().UtcDateTime;
+        _auditoria.Registrar("Usuarios", nameof(Usuario), usuario.UsuarioId.ToString(), "RestablecerContrasenaDesarrollo",
+            empresaId: usuario.EmpresaId, usuarioId: usuario.UsuarioId);
+        await _db.SaveSafeAsync(ct);
+        return true;
     }
 
     public async Task<bool> CrearUsuarioConRolAsync(string rolNombre, string correo, string nombre, string apellido,

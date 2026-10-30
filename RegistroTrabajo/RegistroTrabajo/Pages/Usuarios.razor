@@ -121,7 +121,7 @@
             {
                 <div class="col-12">
                     <label class="form-label">Contraseña inicial</label>
-                    <InputText type="password" class="form-control" @bind-Value="form.Contrasena" autocomplete="new-password" />
+                    <CampoContrasena class="form-control" @bind-Value="form.Contrasena"autocomplete="new-password" />
                     <div class="form-text">Entre 10 y 128 caracteres, con mayúsculas, minúsculas y números.</div>
                     <ValidationMessage For="() => form.Contrasena" />
                 </div>
@@ -192,7 +192,10 @@
 <Modal @bind-Visible="resetVisible" Titulo="@($"Restablecer contraseña de {usuarioReset?.Nombre} {usuarioReset?.Apellido}")"><ChildContent>
     <p class="text-muted">Se asignará esta contraseña, se cerrarán sus sesiones y deberá cambiarla al entrar.</p>
     <label class="form-label" for="nuevaContra">Contraseña nueva</label>
-    <input id="nuevaContra" type="password" class="form-control" autocomplete="new-password" @bind="resetContrasena" />
+    <div class="input-group">
+        <input id="nuevaContra" type="@(verReset ? "text" : "password")" class="form-control" autocomplete="new-password" @bind="resetContrasena" @bind:event="oninput" />
+        <button type="button" class="btn btn-outline-secondary" @onclick="() => verReset = !verReset" aria-label="@(verReset ? "Ocultar contraseña" : "Ver contraseña")" title="@(verReset ? "Ocultar contraseña" : "Ver contraseña")"><IconoOjo Tachado="verReset" /></button>
+    </div>
     <div class="form-text">Entre 10 y 128 caracteres, con mayúsculas, minúsculas y números.</div>
     <Alerta Mensaje="@errorReset" Tipo="danger" Clase="mt-3 mb-0" /></ChildContent>
     <Footer>

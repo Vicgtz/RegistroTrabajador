@@ -113,7 +113,8 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p => p
     .AllowAnyMethod()
     .WithExposedHeaders(CorrelationIdMiddleware.Header)));
 
-builder.Services.AddControllers();
+builder.Services.AddControllers(o => ValidacionEnEspanol.ConfigurarEnlaceDeModelo(o.ModelBindingMessageProvider))
+    .ConfigureApiBehaviorOptions(o => o.InvalidModelStateResponseFactory = ValidacionEnEspanol.RespuestaInvalida);
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
@@ -124,6 +125,8 @@ if (args.Contains("bootstrap-platform"))
     return await Bootstrap.RunPlatformAsync(app);
 if (args.Contains("seed-dev-users"))
     return await Bootstrap.SeedDevUsersAsync(app);
+if (args.Contains("reset-dev-password"))
+    return await Bootstrap.ResetDevPasswordAsync(app);
 
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<ErrorHandlingMiddleware>();
@@ -201,6 +204,39 @@ static class Bootstrap
         catch (ServiceException ex)
         {
             Console.Error.WriteLine($"No se pudo crear los usuarios: {ex.Message}");
+            return 1;
+        }
+    }
+
+    // Solo desarrollo: dotnet run --project RegistroTrabajo.Api -- reset-dev-password
+    // Restablece la contraseña de una cuenta existente (RESET_EMAIL y RESET_PASSWORD por variable de entorno o user-secrets),
+    // limpia sus intentos fallidos y el bloqueo. No hay contraseñas por defecto en el código.
+    public static async Task<int> ResetDevPasswordAsync(WebApplication app)
+    {
+        if (!app.Environment.IsDevelopment())
+        {
+            Console.Error.WriteLine("reset-dev-password solo está permitido en el entorno Development.");
+            return 1;
+        }
+
+        var correo = app.Configuration["RESET_EMAIL"];
+        var password = app.Configuration["RESET_PASSWORD"];
+        if (string.IsNullOrWhiteSpace(correo) || string.IsNullOrWhiteSpace(password))
+        {
+            Console.Error.WriteLine("Defina RESET_EMAIL y RESET_PASSWORD (variable de entorno o user-secrets).");
+            return 1;
+        }
+
+        using var scope = app.Services.CreateScope();
+        try
+        {
+            var hecho = await scope.ServiceProvider.GetRequiredService<IBootstrapService>().RestablecerContrasenaExistenteAsync(correo, password, CancellationToken.None);
+            Console.WriteLine(hecho ? $"Contraseña restablecida para {correo}." : $"No existe una cuenta con el correo {correo}.");
+            return hecho ? 0 : 1;
+        }
+        catch (ServiceException ex)
+        {
+            Console.Error.WriteLine($"No se pudo restablecer: {ex.Message}");
             return 1;
         }
     }

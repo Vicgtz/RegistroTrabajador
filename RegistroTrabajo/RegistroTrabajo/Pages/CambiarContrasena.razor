@@ -16,20 +16,20 @@
 
         <div class="mb-3">
             <label for="actual" class="form-label">Contraseña actual</label>
-            <InputText id="actual" type="password" class="form-control" @bind-Value="modelo.Actual" autocomplete="current-password" disabled="@guardando" />
+            <CampoContrasena id="actual"class="form-control" @bind-Value="modelo.Actual" autocomplete="current-password" disabled="@guardando" />
             <ValidationMessage For="() => modelo.Actual" />
         </div>
 
         <div class="mb-3">
             <label for="nueva" class="form-label">Contraseña nueva</label>
-            <InputText id="nueva" type="password" class="form-control" @bind-Value="modelo.Nueva" autocomplete="new-password" disabled="@guardando" />
+            <CampoContrasena id="nueva"class="form-control" @bind-Value="modelo.Nueva" autocomplete="new-password" disabled="@guardando" />
             <div class="form-text">Entre 10 y 128 caracteres, con mayúsculas, minúsculas y números.</div>
             <ValidationMessage For="() => modelo.Nueva" />
         </div>
 
         <div class="mb-3">
             <label for="confirmar" class="form-label">Confirmar contraseña nueva</label>
-            <InputText id="confirmar" type="password" class="form-control" @bind-Value="modelo.Confirmar" autocomplete="new-password" disabled="@guardando" />
+            <CampoContrasena id="confirmar"class="form-control" @bind-Value="modelo.Confirmar" autocomplete="new-password" disabled="@guardando" />
             <ValidationMessage For="() => modelo.Confirmar" />
         </div>
 

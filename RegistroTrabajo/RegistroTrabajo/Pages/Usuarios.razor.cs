@@ -41,6 +41,7 @@ public partial class Usuarios
     private bool resetVisible;
     private UsuarioDto? usuarioReset;
     private string resetContrasena = "";
+    private bool verReset;
     private string? errorReset;
 
     // confirmación

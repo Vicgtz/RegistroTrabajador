@@ -42,13 +42,8 @@
                     </NavLink>
                 </div>
                 <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="mis-tareas">
-                        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 3h-4.2a3 3 0 0 0-5.6 0H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2Zm-7 0a1 1 0 1 1-1 1 1 1 0 0 1 1-1Zm-2 14-4-4 1.4-1.4L10 14.2l6.6-6.6L18 9l-8 8Z" /></svg> Mis tareas
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="seguimiento">
-                        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13h2v8H3v-8Zm4-6h2v14H7V7Zm4 3h2v11h-2V10Zm4-7h2v18h-2V3Zm4 9h2v9h-2v-9Z" /></svg> Seguimiento
+                    <NavLink class="nav-link" href="tareas">
+                        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 3h-4.2a3 3 0 0 0-5.6 0H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2Zm-7 0a1 1 0 1 1-1 1 1 1 0 0 1 1-1Zm-2 14-4-4 1.4-1.4L10 14.2l6.6-6.6L18 9l-8 8Z" /></svg> Tareas
                     </NavLink>
                 </div>
                 @if (context.User.TienePermiso(Permisos.TareasRevisar))
