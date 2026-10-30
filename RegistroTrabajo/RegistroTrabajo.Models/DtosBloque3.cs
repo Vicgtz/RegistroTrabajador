@@ -69,7 +69,23 @@ public class CrearTrabajadorRequest
     public Guid? DepartamentoId { get; set; }
     public Guid? PuestoId { get; set; }
     public DateOnly FechaIngreso { get; set; }
+    /// <summary>Vincula una cuenta que ya existe. No se combina con <see cref="Cuenta"/>.</summary>
     public Guid? UsuarioId { get; set; }
+    /// <summary>
+    /// Cuenta de acceso que se crea junto con el trabajador (mismos nombres y apellidos). La API la exige al dar de alta
+    /// salvo que se indique <see cref="UsuarioId"/>. Se ignora al actualizar.
+    /// </summary>
+    public CuentaTrabajadorRequest? Cuenta { get; set; }
+}
+
+/// <summary>Datos de acceso del usuario que se crea al registrar un trabajador.</summary>
+public class CuentaTrabajadorRequest
+{
+    [Required, EmailAddress, StringLength(254)] public string Correo { get; set; } = null!;
+    [Required, StringLength(128, MinimumLength = 10)] public string Contrasena { get; set; } = null!;
+    public bool DebeCambiarContrasena { get; set; } = true;
+    /// <summary>Rol de la cuenta; si no se indica se asigna el rol de sistema «Trabajador».</summary>
+    public Guid? RolId { get; set; }
 }
 
 public class ActualizarTrabajadorRequest : CrearTrabajadorRequest

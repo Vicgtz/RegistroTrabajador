@@ -60,11 +60,12 @@ public class TrabajadorService : ITrabajadorService
     private readonly IPermisoService _permisos;
     private readonly IAuditoriaService _auditoria;
     private readonly TimeProvider _clock;
+    private readonly IUsuarioService _usuarios;
 
     public TrabajadorService(RegistroTrabajoDbContext db, ICurrentUser current, IPermisoService permisos,
-        IAuditoriaService auditoria, TimeProvider clock)
+        IAuditoriaService auditoria, TimeProvider clock, IUsuarioService usuarios)
     {
-        _db = db; _current = current; _permisos = permisos; _auditoria = auditoria; _clock = clock;
+        _db = db; _current = current; _permisos = permisos; _auditoria = auditoria; _clock = clock; _usuarios = usuarios;
     }
 
     // ---------------- Consulta ----------------
@@ -144,25 +145,56 @@ public class TrabajadorService : ITrabajadorService
         await ValidarDuplicadosAsync(empresaId, null, numero, correo, nombres, apellidos, r.FechaNacimiento, ct);
         await ValidarCatalogoAsync(empresaId, r.DepartamentoId, r.PuestoId, null, null, ct);
         var usuario = await ValidarUsuarioAsync(empresaId, r.UsuarioId, null, ct);
+        if (r.Cuenta is not null && r.UsuarioId is not null)
+            throw ServiceException.Validation("Indique una cuenta nueva o un usuario existente, no ambos.");
+        if (r.Cuenta is not null)
+        {
+            await _permisos.AsegurarPermisoAsync(Permisos.UsuariosCrear, ct);
+            if (nombres.Length > 100 || apellidos.Length > 150)
+                throw ServiceException.Validation("Para crear la cuenta, los nombres no pueden superar 100 caracteres ni los apellidos 150.");
+        }
+
+        // Alta conjunta: el usuario se guarda primero (la cuenta y el expediente se apuntan entre sí) y todo va en una sola transacción.
+        await using var tx = await _db.Database.BeginTransactionAsync(ct);
+        Usuario? cuentaNueva = null;
+        if (r.Cuenta is { } cuenta)
+        {
+            var rolId = cuenta.RolId ?? await RolTrabajadorAsync(empresaId, ct);
+            cuentaNueva = await _usuarios.PrepararAltaAsync(new CrearUsuarioRequest
+            {
+                Correo = cuenta.Correo, Nombre = nombres, Apellido = apellidos, Contrasena = cuenta.Contrasena,
+                DebeCambiarContrasena = cuenta.DebeCambiarContrasena, RolIds = new[] { rolId }
+            }, ct);
+            await _db.SaveSafeAsync(ct);
+        }
+        var usuarioIdVinculado = cuentaNueva?.UsuarioId ?? r.UsuarioId;
 
         var t = new Trabajador
         {
-            TrabajadorId = Guid.NewGuid(), EmpresaId = empresaId, UsuarioId = r.UsuarioId, NumeroEmpleado = numero,
+            TrabajadorId = Guid.NewGuid(), EmpresaId = empresaId, UsuarioId = usuarioIdVinculado, NumeroEmpleado = numero,
             Nombres = nombres, Apellidos = apellidos, FechaNacimiento = r.FechaNacimiento, CorreoContacto = correo,
             Telefono = Helpers.Limpiar(r.Telefono), Direccion = Helpers.Limpiar(r.Direccion),
             DepartamentoId = r.DepartamentoId, PuestoId = r.PuestoId, FechaIngreso = r.FechaIngreso,
             EstadoLaboral = EstadoLaboral.Activo, FechaCreacionUtc = now
         };
         _db.Trabajadores.Add(t);
-        if (usuario is not null) usuario.TrabajadorId = t.TrabajadorId;
+        var cuentaVinculada = cuentaNueva ?? usuario;
+        if (cuentaVinculada is not null) cuentaVinculada.TrabajadorId = t.TrabajadorId;
 
         var asignacion = await NombresAsignacionAsync(empresaId, t.DepartamentoId, t.PuestoId, ct);
         _db.HistorialLaboral.Add(TrabajadorHelper.Historial(t, TipoCambioLaboral.Ingreso, null, asignacion, r.FechaIngreso, null, actorId, now));
         _auditoria.Registrar("Trabajadores", nameof(Trabajador), t.TrabajadorId.ToString(), "Crear", null,
-            new { t.NumeroEmpleado, t.Nombres, t.Apellidos, t.DepartamentoId, t.PuestoId, t.FechaIngreso, t.UsuarioId });
+            new { t.NumeroEmpleado, t.Nombres, t.Apellidos, t.DepartamentoId, t.PuestoId, t.FechaIngreso, t.UsuarioId, cuentaCreada = cuentaNueva is not null });
         await _db.SaveSafeAsync(ct);
+        await tx.CommitAsync(ct);
+        if (cuentaNueva is not null) await _usuarios.NotificarAltaAsync(cuentaNueva, ct);
         return await ConstruirDetalleAsync(t, ct);
     }
+
+    private async Task<Guid> RolTrabajadorAsync(Guid empresaId, CancellationToken ct) =>
+        await _db.Roles.AsNoTracking().Where(x => x.EmpresaId == empresaId && x.EsSistema && x.Nombre == NombresRol.Trabajador)
+            .Select(x => (Guid?)x.RolId).FirstOrDefaultAsync(ct)
+        ?? throw ServiceException.Validation("No existe el rol «Trabajador» en la empresa; elija un rol para la cuenta.");
 
     public async Task<TrabajadorDetalleDto> ActualizarAsync(Guid trabajadorId, ActualizarTrabajadorRequest r, CancellationToken ct)
     {

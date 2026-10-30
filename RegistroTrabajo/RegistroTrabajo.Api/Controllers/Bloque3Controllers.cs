@@ -77,6 +77,9 @@ public class TrabajadoresController : ControllerBase
     [HttpPost, RequierePermiso(Permisos.TrabajadoresCrear)]
     public async Task<IActionResult> Crear(CrearTrabajadorRequest r, CancellationToken ct)
     {
+        // Todo trabajador nuevo tiene cuenta de acceso: se crea junto con el expediente (o se vincula una existente).
+        if (r.Cuenta is null && r.UsuarioId is null)
+            throw ServiceException.Validation("Indique el correo y la contraseña de la cuenta del trabajador.");
         var t = await _trabajadores.CrearAsync(r, ct);
         return CreatedAtAction(nameof(Obtener), new { id = t.TrabajadorId }, t);
     }

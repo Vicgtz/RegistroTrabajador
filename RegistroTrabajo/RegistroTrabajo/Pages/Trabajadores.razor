@@ -156,6 +156,40 @@
                     <ValidationMessage For="() => form.Direccion" />
                 </div>
             </div>
+
+            <hr class="my-3" />
+            <h2 class="h6">Cuenta de acceso</h2>
+            @if (!Puede(Permisos.UsuariosCrear))
+            {
+                <div class="text-muted small">Tu cuenta no puede crear usuarios, y cada trabajador nuevo necesita uno. Pide a un administrador que lo registre.</div>
+            }
+            else
+            {
+                <div class="small text-muted mb-2">Se crea un usuario con los mismos nombres y apellidos. Deberá cambiar la contraseña al entrar.</div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Correo de acceso</label>
+                        <InputText type="email" class="form-control" autocomplete="off" @bind-Value="form.CorreoAcceso" />
+                        <ValidationMessage For="() => form.CorreoAcceso" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Contraseña inicial</label>
+                        <CampoContrasena class="form-control" autocomplete="new-password" @bind-Value="form.Contrasena" />
+                        <div class="form-text">Entre 10 y 128 caracteres, con mayúsculas, minúsculas y números.</div>
+                        <ValidationMessage For="() => form.Contrasena" />
+                    </div>
+                    @if (Puede(Permisos.RolesConsultar) && roles.Count > 0)
+                    {
+                        <div class="col-md-6">
+                            <label class="form-label">Rol</label>
+                            <select class="form-select" @bind="form.RolId">
+                                <option value="">Trabajador (predeterminado)</option>
+                                @foreach (var r in roles.Where(x => x.Estado)) { <option value="@r.RolId">@r.Nombre</option> }
+                            </select>
+                        </div>
+                    }
+                </div>
+            }
             <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
         </EditForm>
     </ChildContent>

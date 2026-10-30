@@ -11,6 +11,10 @@ public interface IUsuarioService
     Task<PagedResult<UsuarioDto>> ListarAsync(UsuarioFiltro filtro, CancellationToken ct);
     Task<UsuarioDto> ObtenerAsync(Guid usuarioId, CancellationToken ct);
     Task<UsuarioDto> CrearAsync(CrearUsuarioRequest request, CancellationToken ct);
+    /// <summary>Valida y agrega el usuario al contexto SIN guardar (para altas conjuntas, p. ej. trabajador + cuenta). Quien llama guarda y luego usa <see cref="NotificarAltaAsync"/>.</summary>
+    Task<Usuario> PrepararAltaAsync(CrearUsuarioRequest request, CancellationToken ct);
+    /// <summary>Genera el enlace de confirmación de correo de un usuario recién guardado (nunca falla el alta).</summary>
+    Task NotificarAltaAsync(Usuario usuario, CancellationToken ct);
     Task<UsuarioDto> ActualizarAsync(Guid usuarioId, ActualizarUsuarioRequest request, CancellationToken ct);
     Task DesactivarAsync(Guid usuarioId, CancellationToken ct);
     Task ActivarAsync(Guid usuarioId, CancellationToken ct);
@@ -70,6 +74,16 @@ public class UsuarioService : IUsuarioService
 
     public async Task<UsuarioDto> CrearAsync(CrearUsuarioRequest r, CancellationToken ct)
     {
+        var u = await PrepararAltaAsync(r, ct);
+        await _db.SaveSafeAsync(ct);
+        await EnviarConfirmacionSinFallarAsync(u, ct);
+        return await ObtenerAsync(u.UsuarioId, ct);
+    }
+
+    public Task NotificarAltaAsync(Usuario usuario, CancellationToken ct) => EnviarConfirmacionSinFallarAsync(usuario, ct);
+
+    public async Task<Usuario> PrepararAltaAsync(CrearUsuarioRequest r, CancellationToken ct)
+    {
         var actorId = _current.RequireUsuarioId();
         var empresaId = _current.RequireEmpresaId();
         _passwords.ValidarPolitica(r.Contrasena);
@@ -105,9 +119,7 @@ public class UsuarioService : IUsuarioService
 
         _auditoria.Registrar("Usuarios", nameof(Usuario), u.UsuarioId.ToString(), "Crear", null,
             new { usuario = Snapshot(u), roles = roles.Select(x => x.Nombre) });
-        await _db.SaveSafeAsync(ct);
-        await EnviarConfirmacionSinFallarAsync(u, ct);
-        return await ObtenerAsync(u.UsuarioId, ct);
+        return u;
     }
 
     public async Task<UsuarioDto> ActualizarAsync(Guid usuarioId, ActualizarUsuarioRequest r, CancellationToken ct)

@@ -17,6 +17,8 @@ public partial class Trabajadores
 
     private ClaimsPrincipal? user;
     private PagedResult<TrabajadorResumenDto>? datos;
+    [Inject] private RolesClient RolesApi { get; set; } = default!;
+    private List<RolDto> roles = new();
     private List<CatalogoItemDto> departamentos = new(), puestos = new();
     private readonly TrabajadorFiltro filtro = new() { PageSize = 20 };
     private bool cargando = true, guardando, formVisible;
@@ -36,6 +38,11 @@ public partial class Trabajadores
         {
             var p = await Catalogos.PuestosAsync();
             if (p.Ok) puestos = p.Data ?? new();
+        }
+        if (Puede(Permisos.RolesConsultar))
+        {
+            var ro = await RolesApi.ListarAsync();
+            if (ro.Ok) roles = ro.Data ?? new();
         }
         await Cargar();
     }
@@ -77,7 +84,8 @@ public partial class Trabajadores
                 NumeroEmpleado = form.NumeroEmpleado, Nombres = form.Nombres, Apellidos = form.Apellidos,
                 FechaNacimiento = form.FechaNacimiento, CorreoContacto = form.CorreoContacto, Telefono = form.Telefono,
                 Direccion = form.Direccion, DepartamentoId = form.DepartamentoId, PuestoId = form.PuestoId,
-                FechaIngreso = form.FechaIngreso
+                FechaIngreso = form.FechaIngreso,
+                Cuenta = new CuentaTrabajadorRequest { Correo = form.CorreoAcceso, Contrasena = form.Contrasena, RolId = form.RolId }
             });
             if (!r.Ok) { errorForm = r.Error; return; }
             Navegacion.NavigateTo($"trabajadores/{r.Data!.TrabajadorId}");
@@ -97,5 +105,8 @@ public partial class Trabajadores
         [StringLength(300)] public string? Direccion { get; set; }
         public Guid? DepartamentoId { get; set; }
         public Guid? PuestoId { get; set; }
+        [Required(ErrorMessage = "Ingresa el correo de acceso"), EmailAddress(ErrorMessage = "Correo no válido"), StringLength(254)] public string CorreoAcceso { get; set; } = "";
+        [Required(ErrorMessage = "Ingresa la contraseña inicial"), StringLength(128, MinimumLength = 10, ErrorMessage = "Entre 10 y 128 caracteres")] public string Contrasena { get; set; } = "";
+        public Guid? RolId { get; set; }
     }
 }
