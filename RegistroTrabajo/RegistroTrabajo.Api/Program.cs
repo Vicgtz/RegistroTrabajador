@@ -21,6 +21,10 @@ if (string.IsNullOrWhiteSpace(settings.JwtSettings.SecretKey) || settings.JwtSet
         $"Falta JwtSettings:SecretKey (mínimo 32 caracteres). Entorno actual: '{builder.Environment.EnvironmentName}' " +
         "(los user-secrets solo se cargan en 'Development'). Configúrela con user-secrets o variables de entorno; no la guarde en el repositorio.");
 
+// Registro de errores en archivo (carpeta «logs» junto a la API; configurable con Logs:Carpeta). La app de IIS necesita permiso de escritura.
+builder.Logging.AddProvider(new ArchivoErroresLoggerProvider(
+    Path.Combine(builder.Environment.ContentRootPath, builder.Configuration["Logs:Carpeta"] ?? "logs")));
+
 builder.Services.AddSingleton(settings);
 builder.Services.AddDbContext<RegistroTrabajoDbContext>(o =>
     o.UseSqlServer(settings.DbSettings.BuildConnectionString()));
@@ -105,6 +109,10 @@ builder.Services.AddRateLimiter(o =>
     o.AddPolicy("login", ctx => RateLimitPartition.GetFixedWindowLimiter(
         ctx.Connection.RemoteIpAddress?.ToString() ?? "anon",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
+    // Errores del navegador: públicos pero acotados para que no se pueda llenar el disco con basura.
+    o.AddPolicy("cliente-errores", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "anon",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1) }));
 });
 
 builder.Services.AddCors(o => o.AddDefaultPolicy(p => p

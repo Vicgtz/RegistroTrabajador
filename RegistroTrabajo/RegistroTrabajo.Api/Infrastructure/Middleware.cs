@@ -113,7 +113,7 @@ public class ErrorHandlingMiddleware
 public class ForzarCambioContrasenaMiddleware
 {
     public const string ItemKey = "DebeCambiarContrasena";
-    private static readonly string[] Permitidas = { "/api/auth/me", "/api/auth/cambiar-contrasena", "/api/auth/logout" };
+    private static readonly string[] Permitidas = { "/api/auth/me", "/api/auth/cambiar-contrasena", "/api/auth/logout", "/api/cliente/errores" };
     private readonly RequestDelegate _next;
     public ForzarCambioContrasenaMiddleware(RequestDelegate next) => _next = next;
 

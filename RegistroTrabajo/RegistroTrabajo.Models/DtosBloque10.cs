@@ -244,3 +244,12 @@ public class ErrorTecnicoFiltro : PageQuery
     public DateOnly? Hasta { get; set; }
     [StringLength(100)] public string? Buscar { get; set; }
 }
+
+/// <summary>Error ocurrido en el navegador (cliente Blazor), enviado a la API para guardarlo en el registro de errores.</summary>
+public class ErrorClienteRequest
+{
+    [Required, StringLength(500)] public string Mensaje { get; set; } = null!;
+    [StringLength(4000)] public string? Detalle { get; set; }
+    [StringLength(300)] public string? Url { get; set; }
+    [StringLength(150)] public string? Origen { get; set; }
+}

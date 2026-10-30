@@ -18,6 +18,10 @@ CultureInfo.DefaultThreadCurrentUICulture = cultura;
 var apiUrl = builder.Configuration["ApiSettings:BaseUrl"]
     ?? throw new InvalidOperationException("Falta ApiSettings:BaseUrl en wwwroot/appsettings.json");
 
+// Los errores del navegador se envían a la API para guardarlos en su registro de errores.
+var reportadorErrores = new ErroresClienteLoggerProvider(apiUrl);
+builder.Logging.AddProvider(reportadorErrores);
+
 builder.Services.AddBlazoredLocalStorage();
 builder.Services.AddSingleton(new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
@@ -66,4 +70,6 @@ builder.Services.AddScoped<RespaldosClient>();
 builder.Services.AddScoped<ConfiguracionClient>();
 builder.Services.AddScoped<TemaEmpresaService>();
 
-await builder.Build().RunAsync();
+var host = builder.Build();
+reportadorErrores.Servicios = host.Services;
+await host.RunAsync();
