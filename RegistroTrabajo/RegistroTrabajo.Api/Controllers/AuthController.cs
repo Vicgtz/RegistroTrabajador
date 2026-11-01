@@ -12,10 +12,19 @@ public class AuthController : ControllerBase
 {
     private readonly IAuthService _auth;
     private readonly ICuentaService _cuentas;
+    private readonly IRegistroConClaveService _registro;
 
-    public AuthController(IAuthService auth, ICuentaService cuentas)
+    public AuthController(IAuthService auth, ICuentaService cuentas, IRegistroConClaveService registro)
     {
-        _auth = auth; _cuentas = cuentas;
+        _auth = auth; _cuentas = cuentas; _registro = registro;
+    }
+
+    /// <summary>Alta de una cuenta de trabajador con la clave de registro de la empresa (Bloque 13). Respuesta de error única.</summary>
+    [HttpPost("registro"), AllowAnonymous, EnableRateLimiting("registro")]
+    public async Task<IActionResult> Registro(RegistroConClaveRequest request, CancellationToken ct)
+    {
+        await _registro.RegistrarAsync(request, ct);
+        return StatusCode(StatusCodes.Status201Created, new MensajeResponse { Mensaje = "Cuenta creada. Ya puedes iniciar sesión." });
     }
 
     [HttpPost("login"), AllowAnonymous, EnableRateLimiting("login")]

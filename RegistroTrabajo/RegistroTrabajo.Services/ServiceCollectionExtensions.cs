@@ -21,6 +21,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAparienciaService, AparienciaService>();
         services.AddScoped<IPermisosEfectivosService, PermisosEfectivosService>();
         services.AddScoped<IEstadoSistemaService, EstadoSistemaService>();
+        services.AddScoped<IClaveRegistroService, ClaveRegistroService>();
+        services.AddScoped<IRegistroConClaveService, RegistroConClaveService>();
         services.AddOptions<SecurityOptions>();
         if (configure is not null) services.Configure(configure);
         services.AddOptions<EmailOptions>();

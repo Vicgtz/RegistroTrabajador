@@ -50,6 +50,9 @@ public class AuthClient(ApiClient api, SesionStore store)
     public Task<ApiResult<MensajeResponse>> OlvideContrasenaAsync(string correo) =>
         api.PostAsync<MensajeResponse>("api/auth/olvide-contrasena", new OlvideContrasenaRequest { Correo = correo.Trim() });
 
+    public Task<ApiResult<MensajeResponse>> RegistrarAsync(RegistroConClaveRequest request) =>
+        api.PostAsync<MensajeResponse>("api/auth/registro", request);
+
     public Task<ApiResult> RestablecerContrasenaAsync(string token, string nueva) =>
         api.SendAsync(HttpMethod.Post, "api/auth/restablecer-contrasena", new RestablecerContrasenaRequest { Token = token, ContrasenaNueva = nueva });
 

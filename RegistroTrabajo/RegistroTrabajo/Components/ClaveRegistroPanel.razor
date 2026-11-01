@@ -1,0 +1,67 @@
+@inject ConfiguracionClient Api
+
+@* Administración de la clave de registro de la empresa. Solo visual: la API exige empresa.configurar en cada llamada. *@
+<div class="tarjeta p-3 mb-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+            <h2 class="h6 mb-1">Clave de registro</h2>
+            @if (cargando) { <span class="text-muted small">Cargando…</span> }
+            else if (estado?.Activa == true)
+            {
+                <span class="badge text-bg-success">Activa</span>
+                <span class="small text-muted ms-1">Generada el @estado.GeneradaUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+            }
+            else { <span class="badge text-bg-secondary">Desactivada</span> <span class="small text-muted ms-1">Nadie puede registrarse por su cuenta.</span> }
+            <div class="small text-muted mt-1">Quien conozca la clave puede crear su propia cuenta de trabajador desde «Crear cuenta» en la pantalla de inicio de sesión.</div>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary btn-sm" @onclick="Generar" disabled="@ocupado">@(estado?.Activa == true ? "Generar clave nueva" : "Activar registro")</button>
+            @if (estado?.Activa == true)
+            {
+                <button class="btn btn-outline-danger btn-sm" @onclick="Desactivar" disabled="@ocupado">Desactivar</button>
+            }
+        </div>
+    </div>
+
+    @if (claveNueva is not null)
+    {
+        <div class="alert alert-warning mt-3 mb-0">
+            <div class="fw-semibold mb-1">Copia la clave ahora: no se volverá a mostrar.</div>
+            <code class="fs-5 user-select-all">@claveNueva</code>
+            <div class="small mt-1">La clave anterior, si existía, dejó de funcionar.</div>
+        </div>
+    }
+    <Alerta Mensaje="@error" Tipo="danger" Clase="mt-3 mb-0" />
+</div>
+
+@code {
+    private ClaveRegistroEstadoDto? estado;
+    private string? claveNueva, error;
+    private bool cargando = true, ocupado;
+
+    protected override async Task OnInitializedAsync() => await Cargar();
+
+    private async Task Cargar()
+    {
+        var r = await Api.ClaveRegistroAsync();
+        if (r.Ok) estado = r.Data; else error = r.Error;
+        cargando = false;
+    }
+
+    private async Task Generar()
+    {
+        ocupado = true; error = null;
+        var r = await Api.GenerarClaveRegistroAsync();
+        ocupado = false;
+        if (r.Ok && r.Data is not null) { claveNueva = r.Data.Clave; await Cargar(); }
+        else error = r.Error;
+    }
+
+    private async Task Desactivar()
+    {
+        ocupado = true; error = null; claveNueva = null;
+        var r = await Api.DesactivarClaveRegistroAsync();
+        ocupado = false;
+        if (r.Ok) await Cargar(); else error = r.Error;
+    }
+}

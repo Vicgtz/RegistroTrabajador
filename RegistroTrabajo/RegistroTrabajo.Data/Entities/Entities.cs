@@ -46,6 +46,9 @@ public class ConfiguracionEmpresa
     public byte PrimerDiaSemana { get; set; } = 1;
     /// <summary>Código ISO 4217 de tres letras; solo informativo hasta que alguna función lo use.</summary>
     public string? Moneda { get; set; }
+    /// <summary>Bloque 13 (script 014): SHA-256 de la clave de registro; null = registro con clave desactivado.</summary>
+    public byte[]? ClaveRegistroHash { get; set; }
+    public DateTime? ClaveRegistroGeneradaUtc { get; set; }
     public DateTime FechaCreacionUtc { get; set; }
     public DateTime? FechaActualizacionUtc { get; set; }
 

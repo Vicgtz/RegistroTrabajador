@@ -52,6 +52,10 @@ public partial class RegistroTrabajoDbContext : DbContext
             e.Property(x => x.TextoInstitucional).HasMaxLength(500);
             e.Property(x => x.PrimerDiaSemana).HasDefaultValue((byte)1);
             e.Property(x => x.Moneda).HasMaxLength(3).IsFixedLength().IsUnicode(false);
+            e.Property(x => x.ClaveRegistroHash).HasMaxLength(32);
+            e.Property(x => x.ClaveRegistroGeneradaUtc).HasPrecision(0);
+            e.HasIndex(x => x.ClaveRegistroHash).IsUnique().HasDatabaseName("UX_ConfigEmpresa_ClaveRegistro")
+                .HasFilter("[ClaveRegistroHash] IS NOT NULL");
         });
 
         mb.Entity<LogoEmpresa>(e =>
