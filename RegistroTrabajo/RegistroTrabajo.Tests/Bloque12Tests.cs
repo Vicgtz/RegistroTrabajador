@@ -182,7 +182,8 @@ public class Bloque12Tests : IDisposable
 
         var dto = await _t.Svc<IPermisosEfectivosService>().ObtenerAsync(luis, default);
         Assert.Contains(NombresRol.Trabajador, dto.Roles);
-        Assert.Contains(dto.Permisos, p => p.Codigo == Permisos.ReportesConsultar);
+        Assert.Contains(dto.Permisos, p => p.Codigo == Permisos.CalendarioConsultar);
+        Assert.DoesNotContain(dto.Permisos, p => p.Codigo == Permisos.ReportesConsultar);
         Assert.DoesNotContain(dto.Permisos, p => p.Codigo == Permisos.UsuariosCrear);
 
         await RechazaCon(ServiceErrorKind.NotFound, () => _t.Svc<IPermisosEfectivosService>().ObtenerAsync(b.AdminId, default));

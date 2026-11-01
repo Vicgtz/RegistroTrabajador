@@ -518,11 +518,10 @@ public static class PermisosPorDefecto
         },
         [NombresRol.Trabajador] = new[]
         {
-            Permisos.EmpresaConsultar, Permisos.TrabajadoresConsultar, Permisos.DepartamentosConsultar,
-            Permisos.PuestosConsultar, Permisos.PerfilSolicitar, Permisos.PermisosSolicitar,
+            Permisos.TrabajadoresConsultar, Permisos.PerfilSolicitar, Permisos.PermisosSolicitar,
             Permisos.AsistenciaRegistrar, Permisos.AsistenciaConsultarPropia,
             Permisos.CalendarioConsultar, Permisos.CalendarioVerFechasRelevantes, Permisos.CalendarioVerAusenciasTodos,
-            Permisos.ProyectosConsultar, Permisos.TareasActualizarAvance, Permisos.TareasComentar, Permisos.NotificacionesConsultar, Permisos.ReportesConsultar
+            Permisos.ProyectosConsultar, Permisos.TareasActualizarAvance, Permisos.TareasComentar, Permisos.NotificacionesConsultar
         }
     };
 }

@@ -175,7 +175,8 @@ public class Bloque1Tests : IDisposable
         Assert.True(await _t.Svc<IPermisoService>().TienePermisoAsync(Permisos.UsuariosCrear, default));
 
         _t.Current.As(a, trab);
-        Assert.True(await _t.Svc<IPermisoService>().TienePermisoAsync(Permisos.EmpresaConsultar, default));
+        Assert.True(await _t.Svc<IPermisoService>().TienePermisoAsync(Permisos.CalendarioConsultar, default));
+        Assert.False(await _t.Svc<IPermisoService>().TienePermisoAsync(Permisos.EmpresaConsultar, default));
         Assert.False(await _t.Svc<IPermisoService>().TienePermisoAsync(Permisos.UsuariosCrear, default));
         var ex = await Rechaza(() => _t.Svc<IPermisoService>().AsegurarPermisoAsync(Permisos.UsuariosCrear, default));
         Assert.Equal(ServiceErrorKind.Forbidden, ex.Kind);

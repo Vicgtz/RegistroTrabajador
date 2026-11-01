@@ -82,7 +82,7 @@ public class Bloque10Tests : IDisposable
         Como(s, s.UsuarioRita);
         Assert.Equal(3, (await Rep.ConsultarAsync(TipoReporte.Trabajadores, new ReporteFiltro(), default)).Total);
 
-        // El supervisor ve a su equipo y a sí mismo; el trabajador, solo lo suyo.
+        // El supervisor ve a su equipo y a sí mismo; el trabajador no consulta reportes.
         Como(s, s.UsuarioSara);
         var sara = await Rep.ConsultarAsync(TipoReporte.Trabajadores, new ReporteFiltro(), default);
         Assert.Equal(2, sara.Total);
@@ -90,9 +90,7 @@ public class Bloque10Tests : IDisposable
         await RechazaCon(ServiceErrorKind.NotFound, () => Rep.ConsultarAsync(TipoReporte.Trabajadores, new ReporteFiltro { TrabajadorId = s.Otro }, default));
 
         Como(s, s.UsuarioLuis);
-        var luis = await Rep.ConsultarAsync(TipoReporte.Trabajadores, new ReporteFiltro(), default);
-        Assert.Equal(1, luis.Total);
-        Assert.Contains("Luis", luis.Filas[0][Indice(luis, "nombre")]);
+        await RechazaCon(ServiceErrorKind.Forbidden, () => Rep.ConsultarAsync(TipoReporte.Trabajadores, new ReporteFiltro(), default));
     }
 
     [Fact]
@@ -151,7 +149,7 @@ public class Bloque10Tests : IDisposable
         Assert.Equal("Baja", fila[Indice(r, "tipo")]);
         Assert.NotEmpty(await FilasAsync(TipoReporte.Movimientos));
         Como(s, s.UsuarioLuis);
-        Assert.All(await FilasAsync(TipoReporte.Movimientos), f => Assert.Contains("Luis", f[1]));
+        await RechazaCon(ServiceErrorKind.Forbidden, () => Rep.ConsultarAsync(TipoReporte.Movimientos, new ReporteFiltro(), default));
     }
 
     // 2. Reportes de permisos ------------------------------------------------------------------
@@ -195,7 +193,7 @@ public class Bloque10Tests : IDisposable
         await RechazaCon(ServiceErrorKind.NotFound, () => Rep.ConsultarAsync(TipoReporte.Permisos, new ReporteFiltro { TrabajadorId = s.Otro }, default));
 
         Como(s, s.UsuarioLuis);
-        Assert.Equal(1, (await Rep.ConsultarAsync(TipoReporte.Permisos, new ReporteFiltro(), default)).Total);
+        await RechazaCon(ServiceErrorKind.Forbidden, () => Rep.ConsultarAsync(TipoReporte.Permisos, new ReporteFiltro(), default));
     }
 
     // 3. Reportes de asistencia ----------------------------------------------------------------
@@ -215,11 +213,11 @@ public class Bloque10Tests : IDisposable
 
         Como(s, s.UsuarioSara);
         Assert.Equal(1, (await Rep.ConsultarAsync(TipoReporte.Asistencia, new ReporteFiltro(), default)).Total);
-        Como(s, s.UsuarioLuis);
-        Assert.Equal(1, (await Rep.ConsultarAsync(TipoReporte.Asistencia, new ReporteFiltro(), default)).Total);
-        Como(s, s.UsuarioOtro);
-        Assert.Equal(0, (await Rep.ConsultarAsync(TipoReporte.Asistencia, new ReporteFiltro(), default)).Total);
-        await RechazaCon(ServiceErrorKind.NotFound, () => Rep.ConsultarAsync(TipoReporte.Asistencia, new ReporteFiltro { TrabajadorId = s.Luis }, default));
+        foreach (var trabajador in new[] { s.UsuarioLuis, s.UsuarioOtro })
+        {
+            Como(s, trabajador);
+            await RechazaCon(ServiceErrorKind.Forbidden, () => Rep.ConsultarAsync(TipoReporte.Asistencia, new ReporteFiltro(), default));
+        }
     }
 
     // 4. Proyectos y tareas --------------------------------------------------------------------
@@ -261,11 +259,11 @@ public class Bloque10Tests : IDisposable
         Assert.Contains("Luis", luis[0]);
         Assert.Equal("1", luis[Indice(carga, "abiertas")]);
 
-        // Quien no participa en el proyecto no lo ve en ningún reporte.
+        // Un trabajador no consulta reportes (participe o no en el proyecto).
         Como(s, s.UsuarioOtro);
-        Assert.Empty((await Rep.ConsultarAsync(TipoReporte.Proyectos, new ReporteFiltro(), default)).Filas);
-        Assert.Empty((await Rep.ConsultarAsync(TipoReporte.Tareas, new ReporteFiltro(), default)).Filas);
-        Assert.Empty((await Rep.ConsultarAsync(TipoReporte.CargaTrabajo, new ReporteFiltro(), default)).Filas);
+        await RechazaCon(ServiceErrorKind.Forbidden, () => Rep.ConsultarAsync(TipoReporte.Proyectos, new ReporteFiltro(), default));
+        await RechazaCon(ServiceErrorKind.Forbidden, () => Rep.ConsultarAsync(TipoReporte.Tareas, new ReporteFiltro(), default));
+        await RechazaCon(ServiceErrorKind.Forbidden, () => Rep.ConsultarAsync(TipoReporte.CargaTrabajo, new ReporteFiltro(), default));
 
         var otra = await _t.CrearEmpresaAsync("Otra", "admin@o.com");
         _t.NewScope(); _t.Current.As(otra, otra.AdminId);
@@ -348,6 +346,7 @@ public class Bloque10Tests : IDisposable
         Assert.Single((await Bor.ListarAsync(new BorradorFiltro(), default)).Items);
 
         // No aparece como permiso ni en reportes, aprobaciones o notificaciones.
+        ComoAdmin(s);
         Assert.Equal(0, (await Rep.ConsultarAsync(TipoReporte.Permisos, new ReporteFiltro(), default)).Total);
         Como(s, s.UsuarioSara);
         Assert.Empty((await _t.Svc<ISolicitudesPermisoService>().BandejaAsync(new SolicitudPermisoFiltro(), default)).Items);
@@ -511,7 +510,9 @@ public class Bloque10Tests : IDisposable
         Assert.Contains(Permisos.ReportesExportar, PermisosPorDefecto.PorRol[NombresRol.RecursosHumanos]);
         Assert.DoesNotContain(Permisos.ReportesExportar, PermisosPorDefecto.PorRol[NombresRol.Supervisor]);
         Assert.DoesNotContain(Permisos.ReportesExportar, PermisosPorDefecto.PorRol[NombresRol.Trabajador]);
-        Assert.All(NombresRol.Iniciales, r => Assert.Contains(Permisos.ReportesConsultar, PermisosPorDefecto.PorRol[r]));
+        Assert.All(new[] { NombresRol.Administrador, NombresRol.RecursosHumanos, NombresRol.Supervisor },
+            r => Assert.Contains(Permisos.ReportesConsultar, PermisosPorDefecto.PorRol[r]));
+        Assert.DoesNotContain(Permisos.ReportesConsultar, PermisosPorDefecto.PorRol[NombresRol.Trabajador]);
         Assert.Contains(Permisos.ErroresConsultar, PermisosPorDefecto.PorRol[NombresRol.Administrador]);
         Assert.DoesNotContain(Permisos.ErroresConsultar, PermisosPorDefecto.PorRol[NombresRol.RecursosHumanos]);
     }

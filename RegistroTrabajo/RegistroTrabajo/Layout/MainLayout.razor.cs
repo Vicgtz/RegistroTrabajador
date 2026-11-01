@@ -11,7 +11,13 @@ public partial class MainLayout : IDisposable
     [Inject] private TemaEmpresaService Tema { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthState { get; set; } = default!;
 
-    protected override void OnInitialized() => Tema.Cambio += Redibujar;
+    protected override async Task OnInitializedAsync()
+    {
+        Tema.Cambio += Redibujar;
+        // El menú sale del perfil guardado en el navegador: al abrir o recargar la aplicación se vuelve a pedir
+        // para que los cambios de roles y permisos se apliquen sin tener que cerrar sesión.
+        await Auth.ActualizarPerfilAsync();
+    }
 
     // Se ejecuta en cada navegación: tras iniciar sesión (el layout se conserva) carga el tema una sola vez.
     protected override async Task OnParametersSetAsync()
