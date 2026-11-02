@@ -2,7 +2,7 @@
   RegistroTrabajo - Bloque 6: calendario laboral y eventos de la empresa.
   Idempotente y aditivo: no elimina tablas ni datos. Aplicar ANTES de ejecutar la versión nueva de la API
   (la inicialización de empresas exige que el catálogo PermisosSistema esté completo).
-    sqlcmd -S localhost -d RegistroTrabajo -E -b -I -i 007_bloque6.sql      (-I = QUOTED_IDENTIFIER ON, necesario para índices filtrados)
+    sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -I -i 007_bloque6.sql      (-I = QUOTED_IDENTIFIER ON, necesario para índices filtrados)
 
   Cambios:
    1. EventosEmpresa: Estado (activo/cancelado), visibilidad (empresa o departamento), datos de modificación y cancelación

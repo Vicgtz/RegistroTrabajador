@@ -6,7 +6,7 @@ Registro de entrada y salida con hora del servidor, turnos y horarios con vigenc
 `RegistroTrabajo.Data/Scripts/006_bloque5.sql` (idempotente y aditivo; **aplicarlo antes de levantar la API**, porque el arranque exige el catálogo de permisos completo). Las 8 tablas del bloque ya existían:
 
 ```powershell
-sqlcmd -S localhost -d RegistroTrabajo -E -b -I -i RegistroTrabajo.Data\Scripts\006_bloque5.sql
+sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -I -i RegistroTrabajo.Data\Scripts\006_bloque5.sql
 ```
 Contenido:
 - Índice único filtrado `UX_Asistencia_JornadaAbierta` en `RegistrosAsistencia (EmpresaId, TrabajadorId) WHERE Estado = 1 AND SalidaUtc IS NULL`: un trabajador solo puede tener una jornada abierta (defensa final contra entradas duplicadas concurrentes).

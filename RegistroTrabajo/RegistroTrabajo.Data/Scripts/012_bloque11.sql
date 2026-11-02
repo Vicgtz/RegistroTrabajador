@@ -2,7 +2,7 @@
   RegistroTrabajo - Bloque 11: respaldos, recuperación y continuidad.
   Idempotente y aditivo: no elimina tablas ni datos. Aplicar ANTES de ejecutar la versión nueva de la API
   (la inicialización de la empresa de plataforma exige que el catálogo PermisosSistema esté completo).
-    sqlcmd -S localhost -d RegistroTrabajo -E -b -I -i 012_bloque11.sql
+    sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -I -i 012_bloque11.sql
 
   Cambios:
    1. Permisos plataforma.respaldos.consultar y plataforma.respaldos.solicitar y su asignación a los roles de la empresa

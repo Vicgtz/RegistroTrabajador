@@ -2,7 +2,7 @@
   RegistroTrabajo - Bloque 8: seguimiento avanzado de tareas y actividades.
   Idempotente y aditivo: no elimina tablas ni datos. Aplicar ANTES de ejecutar la versión nueva de la API
   (la inicialización de empresas exige que el catálogo PermisosSistema esté completo). Requiere el script 008.
-    sqlcmd -S localhost -d RegistroTrabajo -E -b -I -i 009_bloque8.sql      (-I = QUOTED_IDENTIFIER ON)
+    sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -I -i 009_bloque8.sql      (-I = QUOTED_IDENTIFIER ON)
 
   Cambios:
    1. EventosSeguimientoTarea: línea de tiempo de operaciones (fecha límite, asignaciones, revisión, reapertura...) con valores anterior/nuevo.

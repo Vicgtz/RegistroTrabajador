@@ -7,7 +7,7 @@ Dashboard por rol, reportes consultables y exportables (Excel y PDF), borradores
 `Data/Scripts/011_bloque10.sql` (idempotente y aditivo):
 
 ```
-sqlcmd -S localhost -d RegistroTrabajo -E -b -I -i RegistroTrabajo.Data\Scripts\011_bloque10.sql
+sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -I -i RegistroTrabajo.Data\Scripts\011_bloque10.sql
 ```
 
 - Permisos: `reportes.consultar` (todos los roles), `reportes.exportar` (Administrador y Recursos Humanos), `errores.consultar` (Administrador).

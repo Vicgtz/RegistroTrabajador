@@ -2,7 +2,7 @@
   RegistroTrabajo - Bloque 4: permisos, vacaciones y ausencias.
   Idempotente y aditivo: no elimina ni recrea nada. Aplicar ANTES de ejecutar la versión nueva de la API
   (la inicialización de empresas exige que el catálogo PermisosSistema esté completo).
-    sqlcmd -S localhost -d RegistroTrabajo -E -b -I -i 005_bloque4.sql      (-I = QUOTED_IDENTIFIER ON, necesario para índices filtrados)
+    sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -I -i 005_bloque4.sql      (-I = QUOTED_IDENTIFIER ON, necesario para índices filtrados)
 
   Cambios:
    1. SolicitudesPermiso: RowVersion (concurrencia) y ClaveIdempotencia (un reintento no duplica la solicitud).

@@ -2,7 +2,7 @@
   RegistroTrabajo - Bloque 7: gestión de proyectos y tareas.
   Idempotente y aditivo: no elimina tablas ni datos. Aplicar ANTES de ejecutar la versión nueva de la API
   (la inicialización de empresas exige que el catálogo PermisosSistema esté completo).
-    sqlcmd -S localhost -d RegistroTrabajo -E -b -I -i 008_bloque7.sql      (-I = QUOTED_IDENTIFIER ON, necesario para índices filtrados)
+    sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -I -i 008_bloque7.sql      (-I = QUOTED_IDENTIFIER ON, necesario para índices filtrados)
 
   Cambios:
    1. Tareas.Prioridad (1 Baja, 2 Media, 3 Alta, 4 Urgente), igual que Proyectos.Prioridad.

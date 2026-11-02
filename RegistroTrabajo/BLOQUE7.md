@@ -7,7 +7,7 @@ Organiza proyectos, distribuye el trabajo entre los trabajadores, da seguimiento
 Las tablas ya existían desde el Bloque 2. El script `Data/Scripts/008_bloque7.sql` es idempotente y aditivo:
 
 ```
-sqlcmd -S localhost -d RegistroTrabajo -E -b -I -i RegistroTrabajo.Data\Scripts\008_bloque7.sql
+sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -I -i RegistroTrabajo.Data\Scripts\008_bloque7.sql
 ```
 
 Aplicarlo **antes** de levantar la API (el bootstrap exige el catálogo de permisos completo). Hace cuatro cosas:

@@ -1284,7 +1284,7 @@ public partial class RegistroTrabajoDbContext
         AjustarParaSqlite(modelBuilder);
     }
 
-    // SQLite (solo pruebas) no tiene newsequentialid/sysutcdatetime ni rowversion: los valores se generan en la aplicaciÃ³n.
+    // SQLite (solo pruebas) no tiene newsequentialid/sysutcdatetime ni rowversion: los valores se generan en la aplicación.
     private void AjustarParaSqlite(ModelBuilder modelBuilder)
     {
         if (Database.ProviderName != "Microsoft.EntityFrameworkCore.Sqlite") return;

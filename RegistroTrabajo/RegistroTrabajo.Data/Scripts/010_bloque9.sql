@@ -1,7 +1,7 @@
 /*
   RegistroTrabajo - Bloque 9: sistema de notificaciones.
   Idempotente y aditivo: no elimina tablas ni datos. Las tablas Notificaciones y PreferenciasNotificacion ya existían (Bloque 2).
-    sqlcmd -S localhost -d RegistroTrabajo -E -b -I -i 010_bloque9.sql      (-I = QUOTED_IDENTIFIER ON, necesario para índices filtrados)
+    sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -I -i 010_bloque9.sql      (-I = QUOTED_IDENTIFIER ON, necesario para índices filtrados)
 
   Cambios:
    1. Notificaciones.ClaveDeduplicacion + índice único filtrado: un mismo evento no genera dos avisos para el mismo usuario.

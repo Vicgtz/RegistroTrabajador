@@ -1,7 +1,7 @@
 /*
   RegistroTrabajo - Bloque 1: faltantes (administrador de plataforma, confirmación de correo, nuevos permisos).
   Idempotente y aditivo: no elimina ni recrea nada. Aplicar ANTES de ejecutar la versión nueva de la API.
-    sqlcmd -S localhost -d RegistroTrabajo -E -b -i 003_bloque1_faltantes.sql
+    sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -i 003_bloque1_faltantes.sql
 
   Cambios:
    1. Empresas.EsPlataforma (bit): marca la única empresa de plataforma, cuyos administradores dan de alta empresas.

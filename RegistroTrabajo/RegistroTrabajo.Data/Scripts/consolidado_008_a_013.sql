@@ -2,7 +2,7 @@
   RegistroTrabajo - Cambios pendientes de base de datos: scripts 008 a 013 (Bloques 7 a 12) en un solo archivo.
   Idempotente y aditivo: no elimina tablas ni datos. Se detiene ante el primer error (:on error exit).
   Hacer respaldo antes. Aplicar con sqlcmd (-I = QUOTED_IDENTIFIER ON, necesario para los indices filtrados):
-    sqlcmd -S localhost -d RegistroTrabajo -E -C -b -I -i consolidado_008_a_013.sql
+    sqlcmd -S localhost -d RegistroTrabajo -E -C -f 65001 -b -I -i consolidado_008_a_013.sql
   Contenido de cada bloque: ver el encabezado del script original (008..013) mas abajo.
 */
 :on error exit
@@ -14,7 +14,7 @@ GO
   RegistroTrabajo - Bloque 7: gestión de proyectos y tareas.
   Idempotente y aditivo: no elimina tablas ni datos. Aplicar ANTES de ejecutar la versión nueva de la API
   (la inicialización de empresas exige que el catálogo PermisosSistema esté completo).
-    sqlcmd -S localhost -d RegistroTrabajo -E -b -I -i 008_bloque7.sql      (-I = QUOTED_IDENTIFIER ON, necesario para índices filtrados)
+    sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -I -i 008_bloque7.sql      (-I = QUOTED_IDENTIFIER ON, necesario para índices filtrados)
 
   Cambios:
    1. Tareas.Prioridad (1 Baja, 2 Media, 3 Alta, 4 Urgente), igual que Proyectos.Prioridad.
@@ -116,7 +116,7 @@ GO
   RegistroTrabajo - Bloque 8: seguimiento avanzado de tareas y actividades.
   Idempotente y aditivo: no elimina tablas ni datos. Aplicar ANTES de ejecutar la versión nueva de la API
   (la inicialización de empresas exige que el catálogo PermisosSistema esté completo). Requiere el script 008.
-    sqlcmd -S localhost -d RegistroTrabajo -E -b -I -i 009_bloque8.sql      (-I = QUOTED_IDENTIFIER ON)
+    sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -I -i 009_bloque8.sql      (-I = QUOTED_IDENTIFIER ON)
 
   Cambios:
    1. EventosSeguimientoTarea: línea de tiempo de operaciones (fecha límite, asignaciones, revisión, reapertura...) con valores anterior/nuevo.
@@ -215,7 +215,7 @@ GO
 /*
   RegistroTrabajo - Bloque 9: sistema de notificaciones.
   Idempotente y aditivo: no elimina tablas ni datos. Las tablas Notificaciones y PreferenciasNotificacion ya existían (Bloque 2).
-    sqlcmd -S localhost -d RegistroTrabajo -E -b -I -i 010_bloque9.sql      (-I = QUOTED_IDENTIFIER ON, necesario para índices filtrados)
+    sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -I -i 010_bloque9.sql      (-I = QUOTED_IDENTIFIER ON, necesario para índices filtrados)
 
   Cambios:
    1. Notificaciones.ClaveDeduplicacion + índice único filtrado: un mismo evento no genera dos avisos para el mismo usuario.
@@ -258,7 +258,7 @@ GO
   RegistroTrabajo - Bloque 10: panel principal, reportes y seguimiento administrativo.
   Idempotente y aditivo: no elimina tablas ni datos. Aplicar ANTES de ejecutar la versión nueva de la API
   (la inicialización de empresas exige que el catálogo PermisosSistema esté completo).
-    sqlcmd -S localhost -d RegistroTrabajo -E -b -I -i 011_bloque10.sql
+    sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -I -i 011_bloque10.sql
 
   Cambios:
    1. Permisos reportes.consultar (todos los roles de sistema), reportes.exportar (Administrador y Recursos Humanos)
@@ -318,7 +318,7 @@ GO
   RegistroTrabajo - Bloque 11: respaldos, recuperación y continuidad.
   Idempotente y aditivo: no elimina tablas ni datos. Aplicar ANTES de ejecutar la versión nueva de la API
   (la inicialización de la empresa de plataforma exige que el catálogo PermisosSistema esté completo).
-    sqlcmd -S localhost -d RegistroTrabajo -E -b -I -i 012_bloque11.sql
+    sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -I -i 012_bloque11.sql
 
   Cambios:
    1. Permisos plataforma.respaldos.consultar y plataforma.respaldos.solicitar y su asignación a los roles de la empresa
@@ -381,7 +381,7 @@ GO
   RegistroTrabajo - Bloque 12: configuración de la empresa y mantenimiento.
   Idempotente y aditivo: no elimina tablas ni datos. Aplicar ANTES de ejecutar la versión nueva de la API
   (la inicialización de empresas exige que el catálogo PermisosSistema esté completo).
-    sqlcmd -S localhost -d RegistroTrabajo -E -b -I -i 013_bloque12.sql
+    sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -I -i 013_bloque12.sql
 
   Cambios:
    1. ConfiguracionEmpresa: NombreMostrado, TextoInstitucional, PrimerDiaSemana (0 domingo .. 6 sábado; por defecto 1 lunes) y Moneda.

@@ -7,7 +7,7 @@ Centro personal de avisos dentro de la aplicación. Reutiliza lo que ya existía
 `Data/Scripts/010_bloque9.sql` (idempotente y aditivo):
 
 ```
-sqlcmd -S localhost -d RegistroTrabajo -E -b -I -i RegistroTrabajo.Data\Scripts\010_bloque9.sql
+sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -I -i RegistroTrabajo.Data\Scripts\010_bloque9.sql
 ```
 
 - `Notificaciones.ClaveDeduplicacion` + índice único filtrado `(EmpresaId, UsuarioDestinoId, ClaveDeduplicacion)`.

@@ -2,7 +2,7 @@
   RegistroTrabajo - El rol de sistema Trabajador ya no ve Departamentos y puestos ni Configuración de la empresa.
   Idempotente; no elimina filas: marca Permitido = 0 en las asignaciones empresa.consultar, departamentos.consultar y
   puestos.consultar del rol Trabajador de cada empresa. Los demás roles no cambian. Las empresas nuevas ya no las reciben (PermisosPorDefecto).
-    sqlcmd -S localhost -d RegistroTrabajo -E -C -b -I -i 016_quitar_catalogos_y_configuracion_trabajador.sql
+    sqlcmd -S localhost -d RegistroTrabajo -E -C -f 65001 -b -I -i 016_quitar_catalogos_y_configuracion_trabajador.sql
 */
 SET NOCOUNT ON;
 SET XACT_ABORT ON;

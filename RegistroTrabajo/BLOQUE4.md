@@ -6,7 +6,7 @@ Tipos de permiso configurables por empresa, solicitudes con validación de regla
 `RegistroTrabajo.Data/Scripts/005_bloque4.sql` (idempotente y aditivo; **aplicarlo antes de levantar la API**, porque el arranque exige el catálogo de permisos completo):
 
 ```powershell
-sqlcmd -S localhost -d RegistroTrabajo -E -b -I -i RegistroTrabajo.Data\Scripts\005_bloque4.sql
+sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -I -i RegistroTrabajo.Data\Scripts\005_bloque4.sql
 ```
 (`-I` activa QUOTED_IDENTIFIER, necesario para los índices filtrados.) Contenido:
 - `SolicitudesPermiso`: columnas `RowVersion` y `ClaveIdempotencia`; índice único filtrado `(EmpresaId, TrabajadorId, ClaveIdempotencia)`.

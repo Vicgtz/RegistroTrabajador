@@ -6,7 +6,7 @@ Cada empresa administra sus datos, apariencia, formatos regionales y parámetros
 Aplicar **antes** de levantar la API (el bootstrap exige el catálogo de permisos completo):
 
 ```powershell
-sqlcmd -S localhost -d RegistroTrabajo -E -b -I -i RegistroTrabajo.Data\Scripts\013_bloque12.sql
+sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -I -i RegistroTrabajo.Data\Scripts\013_bloque12.sql
 ```
 
 `013_bloque12.sql` (idempotente): `ConfiguracionEmpresa.NombreMostrado`, `TextoInstitucional`, `PrimerDiaSemana` (0..6, por defecto 1) y `Moneda`; tabla `LogosEmpresa` (un logotipo por empresa, máx. 512 KB); permisos `empresa.ver_permisos_efectivos` (rol Administrador) y `plataforma.sistema.consultar` (Administrador de plataforma).

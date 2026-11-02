@@ -7,7 +7,7 @@ Complementa el Bloque 7 (que organiza proyectos y tareas) con trazabilidad: lín
 `Data/Scripts/009_bloque8.sql` (idempotente y aditivo; requiere el 008). Aplicar **antes** de levantar la API:
 
 ```
-sqlcmd -S localhost -d RegistroTrabajo -E -b -I -i RegistroTrabajo.Data\Scripts\009_bloque8.sql
+sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -I -i RegistroTrabajo.Data\Scripts\009_bloque8.sql
 ```
 
 | Objeto | Función |

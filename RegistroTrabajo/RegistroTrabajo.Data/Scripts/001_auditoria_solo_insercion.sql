@@ -9,7 +9,7 @@
     2) Ejecute este script.
     3) Agregue ese usuario al rol:  ALTER ROLE rol_app_registrotrabajo ADD MEMBER [usuario_app_registrotrabajo];
     4) Configure DbSettings (UserId/Password, UseIntegratedSecurity = false) con ese usuario.
-  Idempotente. Ejecutar:  sqlcmd -S localhost -d RegistroTrabajo -E -b -i 001_auditoria_solo_insercion.sql
+  Idempotente. Ejecutar:  sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -i 001_auditoria_solo_insercion.sql
 */
 SET NOCOUNT ON;
 

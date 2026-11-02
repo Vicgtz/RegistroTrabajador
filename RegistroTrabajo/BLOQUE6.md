@@ -6,7 +6,7 @@ Un calendario que reúne eventos de la empresa, festivos, ausencias aprobadas y 
 `RegistroTrabajo.Data/Scripts/007_bloque6.sql` (idempotente y aditivo; **aplicarlo antes de levantar la API**, porque el arranque exige el catálogo de permisos completo):
 
 ```powershell
-sqlcmd -S localhost -d RegistroTrabajo -E -b -I -i RegistroTrabajo.Data\Scripts\007_bloque6.sql
+sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -I -i RegistroTrabajo.Data\Scripts\007_bloque6.sql
 ```
 Contenido:
 - `EventosEmpresa` (la tabla ya existía con 10 columnas): `Estado`, `Visibilidad`, `DepartamentoId` (FK compuesta), `ModificadoPorUsuarioId`/`FechaModificacionUtc`, `CanceladoPorUsuarioId`/`FechaCancelacionUtc`/`MotivoCancelacion` y `RowVersion`; CHECK de coherencia visibilidad↔departamento; índice `(EmpresaId, FechaInicio)`.

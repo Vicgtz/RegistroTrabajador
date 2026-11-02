@@ -2,7 +2,7 @@
   RegistroTrabajo - El rol de sistema Trabajador ya no consulta reportes.
   Idempotente; no elimina filas: marca Permitido = 0 en la asignación reportes.consultar del rol Trabajador de cada empresa
   (el script 011 la había concedido). Los demás roles no cambian. Las empresas nuevas ya no reciben el permiso (PermisosPorDefecto).
-    sqlcmd -S localhost -d RegistroTrabajo -E -C -b -I -i 015_quitar_reportes_trabajador.sql
+    sqlcmd -S localhost -d RegistroTrabajo -E -C -f 65001 -b -I -i 015_quitar_reportes_trabajador.sql
 */
 SET NOCOUNT ON;
 SET XACT_ABORT ON;

@@ -2,7 +2,7 @@
   RegistroTrabajo - Bloque 12: configuración de la empresa y mantenimiento.
   Idempotente y aditivo: no elimina tablas ni datos. Aplicar ANTES de ejecutar la versión nueva de la API
   (la inicialización de empresas exige que el catálogo PermisosSistema esté completo).
-    sqlcmd -S localhost -d RegistroTrabajo -E -b -I -i 013_bloque12.sql
+    sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -I -i 013_bloque12.sql
 
   Cambios:
    1. ConfiguracionEmpresa: NombreMostrado, TextoInstitucional, PrimerDiaSemana (0 domingo .. 6 sábado; por defecto 1 lunes) y Moneda.

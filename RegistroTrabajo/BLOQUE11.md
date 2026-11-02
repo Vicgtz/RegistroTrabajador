@@ -7,7 +7,7 @@ El respaldo cubre **toda** la base (todas las empresas), por eso solo lo adminis
 Sin paquetes nuevos. Aplicar el script **antes** de levantar la API (el bootstrap exige el catálogo de permisos completo):
 
 ```powershell
-sqlcmd -S localhost -d RegistroTrabajo -E -b -I -i RegistroTrabajo.Data\Scripts\012_bloque11.sql
+sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -I -i RegistroTrabajo.Data\Scripts\012_bloque11.sql
 ```
 
 `012_bloque11.sql` (idempotente): permisos `plataforma.respaldos.consultar` y `plataforma.respaldos.solicitar` (solo rol *Administrador de plataforma*),

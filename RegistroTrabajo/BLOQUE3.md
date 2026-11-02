@@ -4,7 +4,7 @@ Todas las rutas requieren JWT. La empresa sale siempre del token: ninguna ruta n
 
 ## Aplicar antes de usar
 ```powershell
-sqlcmd -S localhost -d RegistroTrabajo -E -b -i RegistroTrabajo.Data\Scripts\004_bloque3_permisos.sql
+sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -i RegistroTrabajo.Data\Scripts\004_bloque3_permisos.sql
 ```
 Idempotente. Inserta 12 permisos y los asigna a los roles de sistema existentes. Sin él, `bootstrap-*` falla ("catálogo incompleto").
 

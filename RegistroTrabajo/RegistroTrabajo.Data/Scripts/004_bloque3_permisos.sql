@@ -2,7 +2,7 @@
   RegistroTrabajo - Bloque 3: permisos de administración de trabajadores y estructura organizacional.
   Idempotente y aditivo: no elimina ni recrea nada. Aplicar ANTES de ejecutar la versión nueva de la API
   (la inicialización de empresas exige que el catálogo PermisosSistema esté completo).
-    sqlcmd -S localhost -d RegistroTrabajo -E -b -i 004_bloque3_permisos.sql
+    sqlcmd -S localhost -d RegistroTrabajo -E -f 65001 -b -i 004_bloque3_permisos.sql
 
   Cambios:
    1. Permisos nuevos en PermisosSistema.

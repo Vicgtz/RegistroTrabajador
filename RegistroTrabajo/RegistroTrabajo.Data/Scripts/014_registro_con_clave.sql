@@ -1,7 +1,7 @@
 /*
   RegistroTrabajo - Bloque 13: registro de cuentas con clave de registro por empresa.
   Idempotente y aditivo: no elimina tablas ni datos. Requiere los scripts anteriores (hasta el 013).
-    sqlcmd -S localhost -d RegistroTrabajo -E -C -b -I -i 014_registro_con_clave.sql      (-I = QUOTED_IDENTIFIER ON, necesario para el índice filtrado)
+    sqlcmd -S localhost -d RegistroTrabajo -E -C -f 65001 -b -I -i 014_registro_con_clave.sql      (-I = QUOTED_IDENTIFIER ON, necesario para el índice filtrado)
 
   Cambios:
    1. ConfiguracionEmpresa.ClaveRegistroHash (SHA-256 de la clave; NULL = registro desactivado) y ClaveRegistroGeneradaUtc.
