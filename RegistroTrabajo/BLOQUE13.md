@@ -25,4 +25,4 @@ Permite que un trabajador cree su propia cuenta si conoce la **clave de registro
 Script `014_registro_con_clave.sql` (idempotente; aplicar con `-I`): `ClaveRegistroHash varbinary(32) NULL`, `ClaveRegistroGeneradaUtc datetime2(0) NULL` e índice `UX_ConfigEmpresa_ClaveRegistro`. Sin permisos nuevos.
 
 ## Código
-`Bloque13Services.cs` (`ClaveRegistroService`, `RegistroConClaveService`), `DtosBloque13.cs`, `AuthController.Registro`, `ClaveRegistroController` (en `Bloque12Controllers.cs`), cliente `AuthClient.RegistrarAsync` / `ConfiguracionClient.*ClaveRegistro*`, pantallas `Registro.razor` y componente `ClaveRegistroPanel.razor`. Pruebas en `Bloque13Tests.cs`.
+`ClaveRegistroService.cs`, `RegistroConClaveService.cs` y `ClaveRegistroHelper.cs`, `DtosBloque13.cs`, `AuthController.Registro`, `ClaveRegistroController` (`ClaveRegistroController.cs`), cliente `AuthClient.RegistrarAsync` / `ConfiguracionClient.*ClaveRegistro*`, pantallas `Registro.razor` y componente `ClaveRegistroPanel.razor`. Pruebas en `Bloque13Tests.cs`.
