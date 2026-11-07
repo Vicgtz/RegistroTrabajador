@@ -1,15 +1,46 @@
 @using System.Diagnostics.CodeAnalysis
+@using System.Security.Cryptography
 @inherits InputBase<string>
 
-@* Campo de contraseña con botón para verla u ocultarla. Se usa igual que InputText (@bind-Value, ValidationMessage, id, autocomplete…). *@
+@* Campo de contraseña con botón para verla u ocultarla. Se usa igual que InputText (@bind-Value, ValidationMessage, id, autocomplete…).
+   Con PermitirGenerar muestra además un botón que rellena una contraseña aleatoria que cumple la política (para contraseñas iniciales). *@
 <div class="input-group">
     <input @attributes="AdditionalAttributes" type="@(ver ? "text" : "password")" class="@CssClass" @bind="CurrentValueAsString" @bind:event="oninput" />
     <button type="button" class="btn btn-outline-secondary" @onclick="() => ver = !ver" aria-pressed="@(ver ? "true" : "false")" title="@(ver ? "Ocultar contraseña" : "Ver contraseña")"
-            aria-label="@(ver ? "Ocultar contraseña" : "Ver contraseña")" disabled="@(AdditionalAttributes?.ContainsKey("disabled") == true && AdditionalAttributes["disabled"] is true)"><IconoOjo Tachado="ver" /></button>
+            aria-label="@(ver ? "Ocultar contraseña" : "Ver contraseña")" disabled="@Deshabilitado"><IconoOjo Tachado="ver" /></button>
+    @if (PermitirGenerar)
+    {
+        <button type="button" class="btn btn-outline-secondary" @onclick="Generar" title="Generar una contraseña que cumple los requisitos" disabled="@Deshabilitado">Generar</button>
+    }
 </div>
 
 @code {
+    private const int LongitudGenerada = 10;   // mínimo de la política (SecurityServices.ValidarPolitica)
+    private const string Mayusculas = "ABCDEFGHJKLMNPQRSTUVWXYZ";   // sin I ni O
+    private const string Minusculas = "abcdefghijkmnopqrstuvwxyz";  // sin l
+    private const string Digitos = "23456789";                      // sin 0 ni 1
+
     private bool ver;
+
+    /// <summary>Muestra el botón "Generar".</summary>
+    [Parameter] public bool PermitirGenerar { get; set; }
+
+    private bool Deshabilitado => AdditionalAttributes?.ContainsKey("disabled") == true && AdditionalAttributes["disabled"] is true;
+
+    private void Generar()
+    {
+        const string todos = Mayusculas + Minusculas + Digitos;
+        var c = new char[LongitudGenerada];
+        c[0] = Elegir(Mayusculas);
+        c[1] = Elegir(Minusculas);
+        c[2] = Elegir(Digitos);
+        for (var i = 3; i < c.Length; i++) c[i] = Elegir(todos);
+        RandomNumberGenerator.Shuffle(c.AsSpan());
+        CurrentValueAsString = new string(c);
+        ver = true;   // quien la crea necesita verla para entregarla
+    }
+
+    private static char Elegir(string set) => set[RandomNumberGenerator.GetInt32(set.Length)];
 
     protected override bool TryParseValueFromString(string? value, [MaybeNullWhen(false)] out string result, [NotNullWhen(false)] out string? validationErrorMessage)
     {

@@ -126,7 +126,7 @@
             {
                 <div class="col-12">
                     <label class="form-label">Contraseña inicial</label>
-                    <CampoContrasena class="form-control" @bind-Value="form.Contrasena"autocomplete="new-password" />
+                    <CampoContrasena class="form-control" @bind-Value="form.Contrasena" autocomplete="new-password" PermitirGenerar="true" />
                     <div class="form-text">Entre 10 y 128 caracteres, con mayúsculas, minúsculas y números.</div>
                     <ValidationMessage For="() => form.Contrasena" />
                 </div>

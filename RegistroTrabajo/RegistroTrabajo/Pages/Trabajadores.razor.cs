@@ -100,7 +100,20 @@ public partial class Trabajadores
         [StringLength(40)] public string? NumeroEmpleado { get; set; }
         public DateOnly FechaIngreso { get; set; }
         public DateOnly? FechaNacimiento { get; set; }
-        [EmailAddress(ErrorMessage = "Correo no válido"), StringLength(254)] public string? CorreoContacto { get; set; }
+        private string? correoContacto;
+        private bool mismoCorreo;
+        [EmailAddress(ErrorMessage = "Correo no válido"), StringLength(254)]
+        public string? CorreoContacto
+        {
+            get => correoContacto;
+            set { correoContacto = value; if (mismoCorreo) CorreoAcceso = value ?? ""; }
+        }
+        /// <summary>Usa el correo de contacto también como correo de acceso (se mantiene sincronizado mientras esté marcado).</summary>
+        public bool MismoCorreo
+        {
+            get => mismoCorreo;
+            set { mismoCorreo = value; if (value) CorreoAcceso = correoContacto ?? ""; }
+        }
         [StringLength(30)] public string? Telefono { get; set; }
         [StringLength(300)] public string? Direccion { get; set; }
         public Guid? DepartamentoId { get; set; }
