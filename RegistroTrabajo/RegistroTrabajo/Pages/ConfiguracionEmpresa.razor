@@ -27,7 +27,7 @@
         {
             <div class="tarjeta p-3">
                 <EditForm Model="datos" OnValidSubmit="GuardarDatos">
-                    <DataAnnotationsValidator />
+                    <ValidadorEnEspanol />
                     <fieldset disabled="@(!puedeEditar)">
                         <div class="row g-3">
                             <div class="col-md-6"><label class="form-label">Razón social</label><InputText class="form-control" @bind-Value="datos.Nombre" /><ValidationMessage For="() => datos.Nombre" /></div>
@@ -102,7 +102,7 @@
         {
             <div class="tarjeta p-3">
                 <EditForm Model="config" OnValidSubmit="GuardarConfig">
-                    <DataAnnotationsValidator />
+                    <ValidadorEnEspanol />
                     <fieldset disabled="@(!puedeEditar)">
                         <div class="row g-3">
                             <div class="col-md-6">
@@ -139,17 +139,17 @@
         {
             <div class="tarjeta p-3">
                 <EditForm Model="config" OnValidSubmit="GuardarConfig">
-                    <DataAnnotationsValidator />
+                    <ValidadorEnEspanol />
                     <fieldset disabled="@(!puedeEditar)">
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label">Cierre por inactividad (minutos)</label>
-                                <InputNumber class="form-control" @bind-Value="config.CierreSesionInactividadMinutos" />
+                                <InputNumber class="form-control" @bind-Value="config.CierreSesionInactividadMinutos" DisplayName="Cierre por inactividad" ParsingErrorMessage="El campo {0} debe ser un número entero válido." />
                                 <div class="form-text">Entre 5 y 1440.</div><ValidationMessage For="() => config.CierreSesionInactividadMinutos" />
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Duración máxima de sesión (horas)</label>
-                                <InputNumber class="form-control" @bind-Value="config.DuracionSesionMaximaHoras" />
+                                <InputNumber class="form-control" @bind-Value="config.DuracionSesionMaximaHoras" DisplayName="Duración máxima de sesión" ParsingErrorMessage="El campo {0} debe ser un número entero válido." />
                                 <div class="form-text">Entre 1 y 168.</div><ValidationMessage For="() => config.DuracionSesionMaximaHoras" />
                             </div>
                             <div class="col-12 form-check ms-2">

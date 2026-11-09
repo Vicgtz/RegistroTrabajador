@@ -104,7 +104,7 @@
 @* ---- Crear / editar ---- *@
 <Modal @bind-Visible="formVisible" Titulo="@(editandoId is null ? "Nuevo usuario" : "Editar usuario")"><ChildContent>
     <EditForm Model="form" OnValidSubmit="Guardar" id="formUsuario">
-        <DataAnnotationsValidator />
+        <ValidadorEnEspanol />
         <div class="row g-3">
             <div class="col-md-6">
                 <label class="form-label">Nombre</label>

@@ -18,7 +18,7 @@
         {
             <p class="text-center text-muted mb-4">Necesitas la clave de registro que te dio tu empresa.</p>
             <EditForm Model="modelo" OnValidSubmit="Registrar">
-                <DataAnnotationsValidator />
+                <ValidadorEnEspanol />
                 <div class="mb-3">
                     <label for="clave" class="form-label">Clave de registro</label>
                     <InputText id="clave" class="form-control text-uppercase" @bind-Value="modelo.Clave" autocomplete="off" placeholder="XXXX-XXXX-XXXX-XXXX" disabled="@cargando" />

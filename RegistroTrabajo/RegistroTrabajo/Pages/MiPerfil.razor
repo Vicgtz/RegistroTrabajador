@@ -41,7 +41,7 @@ else
                 else
                 {
                     <EditForm Model="form" OnValidSubmit="Solicitar">
-                        <DataAnnotationsValidator />
+                        <ValidadorEnEspanol />
                         <div class="mb-2"><label class="form-label">Correo de contacto</label><InputText type="email" class="form-control" @bind-Value="form.CorreoContacto" /><ValidationMessage For="() => form.CorreoContacto" /></div>
                         <div class="mb-2"><label class="form-label">Teléfono</label><InputText class="form-control" @bind-Value="form.Telefono" /></div>
                         <div class="mb-3"><label class="form-label">Dirección</label><InputText class="form-control" @bind-Value="form.Direccion" /></div>

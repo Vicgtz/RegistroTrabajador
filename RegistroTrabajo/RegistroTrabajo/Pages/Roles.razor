@@ -106,7 +106,7 @@
 <Modal @bind-Visible="formVisible" Titulo="@(editandoId is null ? "Nuevo rol" : "Editar rol")" Tamano="modal-sm">
     <ChildContent>
         <EditForm Model="form" OnValidSubmit="GuardarRol" id="formRol">
-            <DataAnnotationsValidator />
+            <ValidadorEnEspanol />
             <div class="mb-3">
                 <label class="form-label">Nombre</label>
                 <InputText class="form-control" @bind-Value="form.Nombre" />

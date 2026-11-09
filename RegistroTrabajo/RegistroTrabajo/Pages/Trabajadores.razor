@@ -99,7 +99,7 @@
 <Modal @bind-Visible="formVisible" Titulo="Nuevo trabajador" Tamano="modal-lg">
     <ChildContent>
         <EditForm Model="form" OnValidSubmit="Guardar" id="formTrabajador">
-            <DataAnnotationsValidator />
+            <ValidadorEnEspanol />
             <div class="row g-3">
                 <div class="col-md-6">
                     <label class="form-label">Nombres</label>
@@ -118,7 +118,7 @@
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Fecha de ingreso</label>
-                    <InputDate class="form-control" @bind-Value="form.FechaIngreso" />
+                    <InputDate ParsingErrorMessage="Escribe una fecha válida." class="form-control" @bind-Value="form.FechaIngreso" />
                     <ValidationMessage For="() => form.FechaIngreso" />
                 </div>
                 <div class="col-md-4">
@@ -133,7 +133,7 @@
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Fecha de nacimiento</label>
-                    <InputDate class="form-control" @bind-Value="form.FechaNacimiento" />
+                    <InputDate ParsingErrorMessage="Escribe una fecha válida." class="form-control" @bind-Value="form.FechaNacimiento" />
                     <ValidationMessage For="() => form.FechaNacimiento" />
                 </div>
                 <div class="col-md-6">

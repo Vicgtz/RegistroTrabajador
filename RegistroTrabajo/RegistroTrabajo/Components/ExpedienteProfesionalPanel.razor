@@ -114,7 +114,7 @@ else if (exp is not null)
 <Modal @bind-Visible="estudioVisible" Titulo="@(estudioId is null ? "Nuevo estudio" : "Editar estudio")" Tamano="modal-lg">
     <ChildContent>
         <EditForm Model="estudioForm" OnValidSubmit="GuardarEstudio" id="formEstudio">
-            <DataAnnotationsValidator />
+            <ValidadorEnEspanol />
             <div class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label">Tipo</label>
@@ -124,8 +124,8 @@ else if (exp is not null)
                 </div>
                 <div class="col-md-8"><label class="form-label">Título o nombre</label><InputText class="form-control" @bind-Value="estudioForm.Titulo" placeholder="Ej. Ingeniería en Sistemas" /><ValidationMessage For="() => estudioForm.Titulo" /></div>
                 <div class="col-12"><label class="form-label">Institución</label><InputText class="form-control" @bind-Value="estudioForm.Institucion" /></div>
-                <div class="col-md-4"><label class="form-label">Inicio</label><InputDate class="form-control" @bind-Value="estudioForm.FechaInicio" /></div>
-                <div class="col-md-4"><label class="form-label">Fin</label><InputDate class="form-control" @bind-Value="estudioForm.FechaFin" disabled="@estudioForm.EnCurso" /></div>
+                <div class="col-md-4"><label class="form-label">Inicio</label><InputDate ParsingErrorMessage="Escribe una fecha válida." class="form-control" @bind-Value="estudioForm.FechaInicio" /></div>
+                <div class="col-md-4"><label class="form-label">Fin</label><InputDate ParsingErrorMessage="Escribe una fecha válida." class="form-control" @bind-Value="estudioForm.FechaFin" disabled="@estudioForm.EnCurso" /></div>
                 <div class="col-md-4 d-flex align-items-end">
                     <div class="form-check mb-2">
                         <InputCheckbox class="form-check-input" id="enCurso" @bind-Value="estudioForm.EnCurso" />
@@ -147,14 +147,14 @@ else if (exp is not null)
 <Modal @bind-Visible="habilidadVisible" Titulo="@(habilidadEditando ? "Editar habilidad" : "Nueva habilidad")" Tamano="modal-sm">
     <ChildContent>
         <EditForm Model="habilidadForm" OnValidSubmit="GuardarHabilidad" id="formHabilidad">
-            <DataAnnotationsValidator />
+            <ValidadorEnEspanol />
             <div class="mb-3">
                 <label class="form-label">Habilidad</label>
                 <InputText class="form-control" list="catalogoHabilidades" readonly="@habilidadEditando" @bind-Value="habilidadForm.Nombre" placeholder="Ej. C#, Python, SQL" @oninput="BuscarCatalogo" />
                 <datalist id="catalogoHabilidades">
                     @foreach (var h in catalogo) { <option value="@h.Nombre"></option> }
                 </datalist>
-                <div class="form-text">Elige una de la lista o escribe una nueva.</div>
+                <div class="form-text">Haz clic en el campo y elige una habilidad del catálogo, o escribe una nueva.</div>
                 <ValidationMessage For="() => habilidadForm.Nombre" />
             </div>
             <div class="mb-3">
@@ -165,7 +165,7 @@ else if (exp is not null)
                     <option value="@NivelHabilidad.Avanzado">Avanzado</option>
                 </InputSelect>
             </div>
-            <div class="mb-3"><label class="form-label">Años de experiencia</label><InputNumber class="form-control" @bind-Value="habilidadForm.AniosExperiencia" /><ValidationMessage For="() => habilidadForm.AniosExperiencia" /></div>
+            <div class="mb-3"><label class="form-label">Años de experiencia</label><InputNumber class="form-control" @bind-Value="habilidadForm.AniosExperiencia" DisplayName="Años de experiencia" ParsingErrorMessage="El campo {0} debe ser un número entero válido." /><ValidationMessage For="() => habilidadForm.AniosExperiencia" /></div>
             <div class="mb-1"><label class="form-label">Notas</label><InputText class="form-control" @bind-Value="habilidadForm.Notas" /></div>
             <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
         </EditForm>

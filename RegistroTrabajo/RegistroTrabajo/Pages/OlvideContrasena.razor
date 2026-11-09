@@ -21,7 +21,7 @@
         else
         {
             <EditForm Model="modelo" OnValidSubmit="Enviar">
-                <DataAnnotationsValidator />
+                <ValidadorEnEspanol />
                 <div class="mb-3">
                     <label for="correo" class="form-label">Correo</label>
                     <InputText id="correo" type="email" class="form-control" @bind-Value="modelo.Correo" autocomplete="username" disabled="@cargando" />

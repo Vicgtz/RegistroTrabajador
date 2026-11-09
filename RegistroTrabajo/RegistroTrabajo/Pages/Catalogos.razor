@@ -74,7 +74,7 @@ else
 <Modal @bind-Visible="formVisible" Titulo="@TituloForm" Tamano="modal-sm">
     <ChildContent>
         <EditForm Model="form" OnValidSubmit="Guardar" id="formCatalogo">
-            <DataAnnotationsValidator />
+            <ValidadorEnEspanol />
             <div class="mb-3">
                 <label class="form-label">Nombre</label>
                 <InputText class="form-control" @bind-Value="form.Nombre" />

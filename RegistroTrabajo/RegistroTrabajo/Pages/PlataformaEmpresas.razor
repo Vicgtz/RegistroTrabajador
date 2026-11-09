@@ -60,7 +60,7 @@
 <Modal @bind-Visible="formVisible" Titulo="Nueva empresa" Tamano="modal-lg">
     <ChildContent>
         <EditForm Model="form" OnValidSubmit="Crear" id="formEmpresa">
-            <DataAnnotationsValidator />
+            <ValidadorEnEspanol />
             <h3 class="h6 text-muted">Empresa</h3>
             <div class="row g-3 mb-3">
                 <div class="col-md-8"><label class="form-label">Nombre</label><InputText class="form-control" @bind-Value="form.Nombre" /><ValidationMessage For="() => form.Nombre" /></div>
