@@ -1,0 +1,108 @@
+@page "/registro"
+@layout LoginLayout
+@attribute [AllowAnonymous]
+@inject AuthClient Auth
+
+<PageTitle>Crear cuenta - Registro de Trabajo</PageTitle>
+
+<div class="card login-card border-0">
+    <div class="card-body p-4">
+        <h1 class="h4 text-center mb-1">Crear cuenta</h1>
+
+        @if (listo)
+        {
+            <Alerta Mensaje="@mensaje" Tipo="success" Clase="mt-3" />
+            <a class="btn btn-primary w-100" href="login">Iniciar sesión</a>
+        }
+        else
+        {
+            <p class="text-center text-muted mb-4">Necesitas la clave de registro que te dio tu empresa.</p>
+            <EditForm Model="modelo" OnValidSubmit="Registrar">
+                <DataAnnotationsValidator />
+                <div class="mb-3">
+                    <label for="clave" class="form-label">Clave de registro</label>
+                    <InputText id="clave" class="form-control text-uppercase" @bind-Value="modelo.Clave" autocomplete="off" placeholder="XXXX-XXXX-XXXX-XXXX" disabled="@cargando" />
+                    <ValidationMessage For="() => modelo.Clave" />
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-12 col-sm-6">
+                        <label for="nombre" class="form-label">Nombre</label>
+                        <InputText id="nombre" class="form-control" @bind-Value="modelo.Nombre" autocomplete="given-name" disabled="@cargando" />
+                        <ValidationMessage For="() => modelo.Nombre" />
+                    </div>
+                    <div class="col-12 col-sm-6">
+                        <label for="apellido" class="form-label">Apellido</label>
+                        <InputText id="apellido" class="form-control" @bind-Value="modelo.Apellido" autocomplete="family-name" disabled="@cargando" />
+                        <ValidationMessage For="() => modelo.Apellido" />
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="correo" class="form-label">Correo</label>
+                    <InputText id="correo" type="email" class="form-control" @bind-Value="modelo.Correo" autocomplete="username" disabled="@cargando" />
+                    <ValidationMessage For="() => modelo.Correo" />
+                </div>
+                <div class="mb-3">
+                    <label for="contra" class="form-label">Contraseña</label>
+                    <CampoContrasena id="contra" class="form-control" @bind-Value="modelo.Contrasena" autocomplete="new-password" disabled="@cargando" />
+                    <div class="form-text">Entre 10 y 128 caracteres, con mayúsculas, minúsculas y números.</div>
+                    <ValidationMessage For="() => modelo.Contrasena" />
+                </div>
+                <div class="mb-3">
+                    <label for="confirmar" class="form-label">Confirmar contraseña</label>
+                    <CampoContrasena id="confirmar" class="form-control" @bind-Value="modelo.Confirmar" autocomplete="new-password" disabled="@cargando" />
+                    @if (modelo.Confirmar.Length > 0 && modelo.Confirmar != modelo.Contrasena)
+                    {
+                        <div class="form-text text-danger">Ambas contraseñas deben coincidir.</div>
+                    }
+                </div>
+                <Alerta Mensaje="@error" Tipo="danger" />
+                <button type="submit" class="btn btn-primary w-100" disabled="@cargando">
+                    @if (cargando) { <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> }
+                    Crear cuenta
+                </button>
+                <div class="text-center mt-3"><a href="login">Ya tengo cuenta</a></div>
+            </EditForm>
+        }
+    </div>
+</div>
+
+@code {
+    private readonly Modelo modelo = new();
+    private bool cargando, listo;
+    private string? error, mensaje;
+
+    private async Task Registrar()
+    {
+        error = null;
+        if (modelo.Confirmar != modelo.Contrasena) { error = "Ambas contraseñas deben coincidir."; return; }
+        cargando = true;
+        var r = await Auth.RegistrarAsync(new RegistroConClaveRequest
+        {
+            Clave = modelo.Clave.Trim(), Correo = modelo.Correo.Trim(), Nombre = modelo.Nombre.Trim(),
+            Apellido = modelo.Apellido.Trim(), Contrasena = modelo.Contrasena
+        });
+        cargando = false;
+        if (r.Ok) { listo = true; mensaje = r.Data?.Mensaje ?? "Cuenta creada. Ya puedes iniciar sesión."; }
+        else error = r.Error;
+    }
+
+    private class Modelo
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Ingresa la clave de registro")]
+        [System.ComponentModel.DataAnnotations.StringLength(64, MinimumLength = 8, ErrorMessage = "Clave no válida")]
+        public string Clave { get; set; } = "";
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Ingresa tu nombre")]
+        [System.ComponentModel.DataAnnotations.StringLength(100)]
+        public string Nombre { get; set; } = "";
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Ingresa tu apellido")]
+        [System.ComponentModel.DataAnnotations.StringLength(150)]
+        public string Apellido { get; set; } = "";
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Ingresa tu correo")]
+        [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "Correo inválido")]
+        public string Correo { get; set; } = "";
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Ingresa una contraseña")]
+        [System.ComponentModel.DataAnnotations.StringLength(128, MinimumLength = 10, ErrorMessage = "Mínimo 10 caracteres")]
+        public string Contrasena { get; set; } = "";
+        public string Confirmar { get; set; } = "";
+    }
+}

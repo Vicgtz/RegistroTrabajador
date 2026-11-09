@@ -9,6 +9,7 @@
         <div class="top-row px-4">
             <AuthorizeView>
                 <div class="empresa" title="Empresa">@context.User.FindFirst("empresa")?.Value</div>
+                <button type="button" class="btn-tema" onclick="rtTema.alternar()" title="Cambiar entre tema claro y oscuro" aria-label="Cambiar entre tema claro y oscuro"><svg class="ico-luna" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg><svg class="ico-sol" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 7a5 5 0 1 0 5 5 5 5 0 0 0-5-5Zm0-5h0a1 1 0 0 1 1 1v1a1 1 0 0 1-2 0V3a1 1 0 0 1 1-1Zm0 18a1 1 0 0 1 1 1v1a1 1 0 0 1-2 0v-1a1 1 0 0 1 1-1ZM4.2 4.2a1 1 0 0 1 1.4 0l.7.7a1 1 0 0 1-1.4 1.4l-.7-.7a1 1 0 0 1 0-1.4Zm13.5 13.5a1 1 0 0 1 1.4 0l.7.7a1 1 0 0 1-1.4 1.4l-.7-.7a1 1 0 0 1 0-1.4ZM2 12a1 1 0 0 1 1-1h1a1 1 0 0 1 0 2H3a1 1 0 0 1-1-1Zm18 0a1 1 0 0 1 1-1h1a1 1 0 0 1 0 2h-1a1 1 0 0 1-1-1ZM4.2 19.8a1 1 0 0 1 0-1.4l.7-.7a1 1 0 0 1 1.4 1.4l-.7.7a1 1 0 0 1-1.4 0ZM17.7 6.3a1 1 0 0 1 0-1.4l.7-.7a1 1 0 0 1 1.4 1.4l-.7.7a1 1 0 0 1-1.4 0Z"/></svg></button>
                 <CampanaNotificaciones Visible="@context.User.TienePermiso(Permisos.NotificacionesConsultar)" />
                 <div class="usuario">
                     <span class="avatar" aria-hidden="true">@Inicial(context.User.Identity?.Name)</span>

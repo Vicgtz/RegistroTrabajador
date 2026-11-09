@@ -5,7 +5,7 @@
 }
 <div class="d-flex align-items-center gap-3">
     <svg viewBox="0 0 42 42" width="110" height="110" role="img" aria-label="@Descripcion">
-        <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#e3e8ef" stroke-width="6" />
+        <circle cx="21" cy="21" r="15.915" fill="transparent" style="stroke:var(--rt-hover)" stroke-width="6" />
         @if (total > 0)
         {
             @foreach (var s in Segmentos.Where(x => x.Valor > 0))

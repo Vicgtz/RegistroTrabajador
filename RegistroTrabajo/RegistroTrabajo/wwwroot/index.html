@@ -7,6 +7,10 @@
     <title>Registro de Trabajo</title>
     <base href="/" />
     <meta name="theme-color" content="#0f2f4a" />
+    <script>
+        // Aplica claro/oscuro antes de pintar para evitar el parpadeo. Preferencia guardada o la del sistema.
+        (function () { try { var m = localStorage.getItem("rt-modo"); var o = m === "oscuro" || (m !== "claro" && window.matchMedia("(prefers-color-scheme: dark)").matches); document.documentElement.setAttribute("data-bs-theme", o ? "dark" : "light"); } catch (e) { } })();
+    </script>
     <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="css/app.css" />
     <link rel="icon" type="image/png" href="favicon.png" />

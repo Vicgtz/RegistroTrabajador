@@ -1,0 +1,44 @@
+﻿@page "/confirmar-correo"
+@layout LoginLayout
+@attribute [AllowAnonymous]
+@inject AuthClient Auth
+
+<PageTitle>Confirmar correo - Registro de Trabajo</PageTitle>
+
+<div class="card shadow border-0" style="background-color: rgba(255, 255, 255, 0.96);">
+    <div class="card-body p-4 text-center">
+        <h1 class="h4 mb-3">Confirmación de correo</h1>
+        @if (cargando) { <Cargando Texto="Confirmando tu correo..." /> }
+        else if (ok)
+        {
+            <Alerta Mensaje="Tu correo quedó confirmado." Tipo="success" />
+            <a class="btn btn-primary w-100" href="login">Iniciar sesión</a>
+        }
+        else
+        {
+            <Alerta Mensaje="@error" Tipo="danger" />
+            <a class="btn btn-outline-primary w-100" href="login">Ir a iniciar sesión</a>
+        }
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? Token { get; set; }
+    private bool cargando = true, ok;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Token))
+        {
+            error = "El enlace está incompleto.";
+        }
+        else
+        {
+            var r = await Auth.ConfirmarCorreoAsync(Token);
+            ok = r.Ok;
+            error = r.Error;
+        }
+        cargando = false;
+    }
+}
