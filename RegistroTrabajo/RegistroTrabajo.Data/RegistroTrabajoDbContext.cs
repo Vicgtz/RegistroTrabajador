@@ -215,5 +215,6 @@ public partial class RegistroTrabajoDbContext : DbContext
                 .OnDelete(DeleteBehavior.NoAction).HasConstraintName("FK_TokenConf_Usuario");
         });
         ConfigurarLaboral(mb);
+        ConfigurarExpediente(mb);
     }
 }

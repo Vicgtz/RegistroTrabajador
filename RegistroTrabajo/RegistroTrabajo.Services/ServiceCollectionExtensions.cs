@@ -56,6 +56,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ITrabajadorService, TrabajadorService>();
         services.AddScoped<ISupervisionService, SupervisionService>();
         services.AddScoped<IContactoEmergenciaService, ContactoEmergenciaService>();
+        services.AddScoped<IExpedienteProfesionalService, ExpedienteProfesionalService>();
+        services.AddScoped<ICurriculumService, CurriculumService>();
         services.AddScoped<ISolicitudCambioPerfilService, SolicitudCambioPerfilService>();
         services.AddScoped<ITiposPermisoService, TiposPermisoService>();
         services.AddScoped<ICalculoDuracionService, CalculoDuracionService>();

@@ -176,6 +176,14 @@
                     </div>
                 </div>
             }
+
+            @if (Puede(Permisos.ExpedienteConsultar) || Puede(Permisos.ExpedienteEditar))
+            {
+                <div class="col-12">
+                    <h2 class="h4 mt-2">Perfil profesional</h2>
+                    <ExpedienteProfesionalPanel TrabajadorId="Id" />
+                </div>
+            }
         </div>
     }
 </SoloConPermiso>

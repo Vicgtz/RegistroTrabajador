@@ -1,0 +1,399 @@
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Forms
+@inject ExpedienteClient Api
+@inject IJSRuntime Js
+
+@* Bloque 14: estudios, habilidades y currículum de un trabajador. RH (expediente.editar) registra directo; el propio trabajador propone y queda pendiente. *@
+
+<Alerta Mensaje="@error" Tipo="danger" Clase="mt-2" />
+<Alerta Mensaje="@exito" Tipo="success" Clase="mt-2" />
+
+@if (cargando) { <Cargando /> }
+else if (exp is not null)
+{
+    @if (exp.EsPropio && !exp.PuedeEditar)
+    {
+        <div class="alert alert-info small py-2">Lo que agregues o cambies quedará <strong>pendiente</strong> hasta que Recursos Humanos lo apruebe; solo entonces aparecerá en las búsquedas.</div>
+    }
+
+    <div class="row g-3">
+        <div class="col-12 col-xl-7">
+            <div class="tarjeta p-3 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h2 class="h5 mb-0">Estudios y certificados</h2>
+                    @if (PuedeAgregar) { <button class="btn btn-sm btn-primary" @onclick="NuevoEstudio">Agregar</button> }
+                </div>
+                <ul class="list-group list-group-flush">
+                    @foreach (var e in exp.Estudios)
+                    {
+                        <li class="list-group-item px-0 d-flex justify-content-between align-items-start gap-2">
+                            <div>
+                                <span class="badge text-bg-secondary me-1">@TipoEstudio.Nombre(e.Tipo)</span>
+                                <strong>@e.Titulo</strong>
+                                @if (e.Estado != EstadoExpediente.Aprobado) { <span class="badge @ClaseEstado(e.Estado) ms-1">@EstadoExpediente.Nombre(e.Estado)</span> }
+                                <div class="small text-muted">
+                                    @(e.Institucion ?? "—") · @Periodo(e)
+                                </div>
+                                @if (!string.IsNullOrEmpty(e.Notas)) { <div class="small">@e.Notas</div> }
+                                @if (e.Estado == EstadoExpediente.Rechazado && !string.IsNullOrEmpty(e.MotivoRechazo)) { <div class="small text-danger">Motivo: @e.MotivoRechazo</div> }
+                            </div>
+                            @if (PuedeAgregar)
+                            {
+                                <div class="btn-group btn-group-sm text-nowrap">
+                                    <button class="btn btn-outline-primary" @onclick="() => EditarEstudio(e)">Editar</button>
+                                    <button class="btn btn-outline-danger" @onclick="() => PedirQuitarEstudio(e)">Quitar</button>
+                                </div>
+                            }
+                        </li>
+                    }
+                    @if (exp.Estudios.Count == 0) { <li class="list-group-item px-0 text-muted">Sin estudios registrados.</li> }
+                </ul>
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-5">
+            <div class="tarjeta p-3 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h2 class="h5 mb-0">Habilidades</h2>
+                    @if (PuedeAgregar) { <button class="btn btn-sm btn-primary" @onclick="NuevaHabilidad">Agregar</button> }
+                </div>
+                @foreach (var nivel in new[] { NivelHabilidad.Avanzado, NivelHabilidad.Intermedio, NivelHabilidad.Basico })
+                {
+                    var delNivel = exp.Habilidades.Where(h => h.Nivel == nivel).ToList();
+                    if (delNivel.Count == 0) continue;
+                    <div class="mb-2">
+                        <div class="small text-muted mb-1">@NivelHabilidad.Nombre(nivel)</div>
+                        <div class="d-flex flex-wrap gap-2">
+                            @foreach (var h in delNivel)
+                            {
+                                <span class="badge rounded-pill @ClaseHabilidad(h) d-inline-flex align-items-center gap-1 py-2 px-3" title="@TituloHabilidad(h)">
+                                    @h.Nombre@(h.AniosExperiencia is { } a ? $" · {a} a." : "")
+                                    @if (h.Estado != EstadoExpediente.Aprobado) { <span>(@EstadoExpediente.Nombre(h.Estado).ToLower())</span> }
+                                    @if (PuedeAgregar)
+                                    {
+                                        <button type="button" class="btn btn-link btn-sm p-0 text-reset" title="Editar" @onclick="() => EditarHabilidad(h)">✎</button>
+                                        <button type="button" class="btn btn-link btn-sm p-0 text-reset" title="Quitar" @onclick="() => PedirQuitarHabilidad(h)">✕</button>
+                                    }
+                                </span>
+                            }
+                        </div>
+                    </div>
+                }
+                @if (exp.Habilidades.Count == 0) { <div class="text-muted">Sin habilidades registradas.</div> }
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="tarjeta p-3">
+                <h2 class="h5">Currículum</h2>
+                @if (exp.Curriculum is { } cv)
+                {
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <div class="me-auto">
+                            <strong>@cv.NombreArchivo</strong>
+                            <div class="small text-muted">@(cv.TamanoBytes / 1024) KB · actualizado @Formato.Local(cv.FechaActualizacionUtc)</div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary" @onclick="DescargarCv" disabled="@guardando">Descargar</button>
+                        @if (PuedeAgregarCv) { <button class="btn btn-sm btn-outline-danger" @onclick="PedirQuitarCv">Quitar</button> }
+                    </div>
+                }
+                else { <div class="text-muted mb-2">Sin currículum cargado.</div> }
+                @if (PuedeAgregarCv)
+                {
+                    <div class="mt-2">
+                        <label class="form-label small mb-1">@(exp.Curriculum is null ? "Subir currículum" : "Reemplazar currículum") (PDF, DOC o DOCX, máx. 5 MB)</label>
+                        <InputFile class="form-control" accept=".pdf,.doc,.docx" OnChange="SubirCv" disabled="@guardando" />
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@* ---- Estudio ---- *@
+<Modal @bind-Visible="estudioVisible" Titulo="@(estudioId is null ? "Nuevo estudio" : "Editar estudio")" Tamano="modal-lg">
+    <ChildContent>
+        <EditForm Model="estudioForm" OnValidSubmit="GuardarEstudio" id="formEstudio">
+            <DataAnnotationsValidator />
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Tipo</label>
+                    <InputSelect class="form-select" @bind-Value="estudioForm.Tipo">
+                        @foreach (var t in TipoEstudio.Todos) { <option value="@t">@TipoEstudio.Nombre(t)</option> }
+                    </InputSelect>
+                </div>
+                <div class="col-md-8"><label class="form-label">Título o nombre</label><InputText class="form-control" @bind-Value="estudioForm.Titulo" placeholder="Ej. Ingeniería en Sistemas" /><ValidationMessage For="() => estudioForm.Titulo" /></div>
+                <div class="col-12"><label class="form-label">Institución</label><InputText class="form-control" @bind-Value="estudioForm.Institucion" /></div>
+                <div class="col-md-4"><label class="form-label">Inicio</label><InputDate class="form-control" @bind-Value="estudioForm.FechaInicio" /></div>
+                <div class="col-md-4"><label class="form-label">Fin</label><InputDate class="form-control" @bind-Value="estudioForm.FechaFin" disabled="@estudioForm.EnCurso" /></div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <div class="form-check mb-2">
+                        <InputCheckbox class="form-check-input" id="enCurso" @bind-Value="estudioForm.EnCurso" />
+                        <label class="form-check-label" for="enCurso">En curso</label>
+                    </div>
+                </div>
+                <div class="col-12"><label class="form-label">Notas</label><InputText class="form-control" @bind-Value="estudioForm.Notas" /></div>
+            </div>
+            <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
+        </EditForm>
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => estudioVisible = false">Cancelar</button>
+        <button class="btn btn-primary" type="submit" form="formEstudio" disabled="@guardando">Guardar</button>
+    </Footer>
+</Modal>
+
+@* ---- Habilidad ---- *@
+<Modal @bind-Visible="habilidadVisible" Titulo="@(habilidadEditando ? "Editar habilidad" : "Nueva habilidad")" Tamano="modal-sm">
+    <ChildContent>
+        <EditForm Model="habilidadForm" OnValidSubmit="GuardarHabilidad" id="formHabilidad">
+            <DataAnnotationsValidator />
+            <div class="mb-3">
+                <label class="form-label">Habilidad</label>
+                <InputText class="form-control" list="catalogoHabilidades" readonly="@habilidadEditando" @bind-Value="habilidadForm.Nombre" placeholder="Ej. C#, Python, SQL" @oninput="BuscarCatalogo" />
+                <datalist id="catalogoHabilidades">
+                    @foreach (var h in catalogo) { <option value="@h.Nombre"></option> }
+                </datalist>
+                <div class="form-text">Elige una de la lista o escribe una nueva.</div>
+                <ValidationMessage For="() => habilidadForm.Nombre" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Nivel</label>
+                <InputSelect class="form-select" @bind-Value="habilidadForm.Nivel">
+                    <option value="@NivelHabilidad.Basico">Básico</option>
+                    <option value="@NivelHabilidad.Intermedio">Intermedio</option>
+                    <option value="@NivelHabilidad.Avanzado">Avanzado</option>
+                </InputSelect>
+            </div>
+            <div class="mb-3"><label class="form-label">Años de experiencia</label><InputNumber class="form-control" @bind-Value="habilidadForm.AniosExperiencia" /><ValidationMessage For="() => habilidadForm.AniosExperiencia" /></div>
+            <div class="mb-1"><label class="form-label">Notas</label><InputText class="form-control" @bind-Value="habilidadForm.Notas" /></div>
+            <Alerta Mensaje="@errorForm" Tipo="danger" Clase="mt-3 mb-0" />
+        </EditForm>
+    </ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => habilidadVisible = false">Cancelar</button>
+        <button class="btn btn-primary" type="submit" form="formHabilidad" disabled="@guardando">Guardar</button>
+    </Footer>
+</Modal>
+
+@* ---- Confirmación ---- *@
+<Modal @bind-Visible="confirmarVisible" Titulo="Confirmar" Tamano="modal-sm">
+    <ChildContent><p class="mb-0">@confirmarTexto</p></ChildContent>
+    <Footer>
+        <button class="btn btn-outline-secondary" @onclick="() => confirmarVisible = false">Cancelar</button>
+        <button class="btn btn-danger" @onclick="EjecutarConfirmacion" disabled="@guardando">Confirmar</button>
+    </Footer>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public Guid TrabajadorId { get; set; }
+
+    private ExpedienteProfesionalDto? exp;
+    private List<HabilidadDto> catalogo = new();
+    private bool cargando = true, guardando;
+    private string? error, exito, errorForm;
+    private Guid cargado;
+
+    private bool estudioVisible, habilidadVisible, habilidadEditando, confirmarVisible;
+    private Guid? estudioId;
+    private EstudioForm estudioForm = new();
+    private HabilidadForm habilidadForm = new();
+    private string confirmarTexto = "";
+    private Func<Task>? confirmarAccion;
+
+    // Quien edita (RH) o el propio trabajador pueden agregar; el servidor vuelve a validar.
+    private bool PuedeAgregar => exp is { } e && (e.PuedeEditar || e.EsPropio);
+    private bool PuedeAgregarCv => PuedeAgregar;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (cargado == TrabajadorId) return;
+        cargado = TrabajadorId;
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        cargando = exp is null;
+        var r = await Api.ObtenerAsync(TrabajadorId);
+        if (r.Ok) { exp = r.Data; error = null; } else { error = r.Error; exp = null; }
+        cargando = false;
+    }
+
+    private static string ClaseEstado(byte e) => e == EstadoExpediente.Pendiente ? "text-bg-warning" : e == EstadoExpediente.Rechazado ? "text-bg-danger" : "text-bg-success";
+
+    private static string ClaseHabilidad(TrabajadorHabilidadDto h) =>
+        h.Estado == EstadoExpediente.Pendiente ? "text-bg-warning" : h.Estado == EstadoExpediente.Rechazado ? "text-bg-danger"
+        : h.Nivel == NivelHabilidad.Avanzado ? "text-bg-primary" : h.Nivel == NivelHabilidad.Intermedio ? "text-bg-info" : "text-bg-secondary";
+
+    private static string TituloHabilidad(TrabajadorHabilidadDto h) =>
+        h.Estado == EstadoExpediente.Rechazado && !string.IsNullOrEmpty(h.MotivoRechazo) ? "Rechazada: " + h.MotivoRechazo : (h.Notas ?? "");
+
+    private static string Periodo(EstudioDto e)
+    {
+        var ini = e.FechaInicio?.ToString("MM/yyyy");
+        var fin = e.EnCurso ? "en curso" : e.FechaFin?.ToString("MM/yyyy");
+        return ini is null && fin is null ? "sin fechas" : $"{ini ?? "?"} – {fin ?? "?"}";
+    }
+
+    // ---------------- Estudios ----------------
+    private void NuevoEstudio() { estudioId = null; estudioForm = new(); errorForm = null; estudioVisible = true; }
+
+    private void EditarEstudio(EstudioDto e)
+    {
+        estudioId = e.EstudioId;
+        estudioForm = new EstudioForm
+        {
+            Tipo = e.Tipo, Titulo = e.Titulo, Institucion = e.Institucion, FechaInicio = e.FechaInicio, FechaFin = e.FechaFin, EnCurso = e.EnCurso, Notas = e.Notas
+        };
+        errorForm = null;
+        estudioVisible = true;
+    }
+
+    private async Task GuardarEstudio()
+    {
+        errorForm = null; guardando = true;
+        try
+        {
+            var req = new GuardarEstudioRequest
+            {
+                Tipo = (byte)estudioForm.Tipo, Titulo = estudioForm.Titulo, Institucion = estudioForm.Institucion, FechaInicio = estudioForm.FechaInicio,
+                FechaFin = estudioForm.EnCurso ? null : estudioForm.FechaFin, EnCurso = estudioForm.EnCurso, Notas = estudioForm.Notas
+            };
+            var r = estudioId is { } id ? await Api.ActualizarEstudioAsync(TrabajadorId, id, req) : await Api.CrearEstudioAsync(TrabajadorId, req);
+            if (!r.Ok) { errorForm = r.Error; return; }
+            estudioVisible = false;
+            exito = exp is { PuedeEditar: false } ? "Estudio enviado. Quedará visible cuando sea aprobado." : "Estudio guardado.";
+            await Cargar();
+        }
+        finally { guardando = false; }
+    }
+
+    private void PedirQuitarEstudio(EstudioDto e) => Confirmar($"¿Quitar «{e.Titulo}» del expediente?", async () =>
+    {
+        var r = await Api.EliminarEstudioAsync(TrabajadorId, e.EstudioId);
+        if (!r.Ok) { error = r.Error; return; }
+        exito = "Estudio eliminado.";
+        await Cargar();
+    });
+
+    // ---------------- Habilidades ----------------
+    private async Task NuevaHabilidad()
+    {
+        habilidadEditando = false; habilidadForm = new(); errorForm = null;
+        await CargarCatalogo(null);
+        habilidadVisible = true;
+    }
+
+    private void EditarHabilidad(TrabajadorHabilidadDto h)
+    {
+        habilidadEditando = true;
+        habilidadForm = new HabilidadForm { Nombre = h.Nombre, Nivel = h.Nivel, AniosExperiencia = h.AniosExperiencia, Notas = h.Notas };
+        errorForm = null;
+        habilidadVisible = true;
+    }
+
+    private async Task CargarCatalogo(string? texto)
+    {
+        var r = await Api.HabilidadesAsync(texto);
+        if (r.Ok) catalogo = r.Data ?? new();
+    }
+
+    private async Task BuscarCatalogo(ChangeEventArgs e) => await CargarCatalogo(e.Value?.ToString());
+
+    private async Task GuardarHabilidad()
+    {
+        errorForm = null; guardando = true;
+        try
+        {
+            var r = await Api.GuardarHabilidadAsync(TrabajadorId, new GuardarHabilidadRequest
+            {
+                Nombre = habilidadForm.Nombre, Nivel = (byte)habilidadForm.Nivel,
+                AniosExperiencia = habilidadForm.AniosExperiencia is { } a ? (byte)a : null, Notas = habilidadForm.Notas
+            });
+            if (!r.Ok) { errorForm = r.Error; return; }
+            habilidadVisible = false;
+            exito = exp is { PuedeEditar: false } ? "Habilidad enviada. Quedará visible cuando sea aprobada." : "Habilidad guardada.";
+            await Cargar();
+        }
+        finally { guardando = false; }
+    }
+
+    private void PedirQuitarHabilidad(TrabajadorHabilidadDto h) => Confirmar($"¿Quitar la habilidad «{h.Nombre}»?", async () =>
+    {
+        var r = await Api.EliminarHabilidadAsync(TrabajadorId, h.TrabajadorHabilidadId);
+        if (!r.Ok) { error = r.Error; return; }
+        exito = "Habilidad eliminada.";
+        await Cargar();
+    });
+
+    // ---------------- Currículum ----------------
+    private async Task SubirCv(InputFileChangeEventArgs e)
+    {
+        error = exito = null; guardando = true;
+        try
+        {
+            using var s = e.File.OpenReadStream(LimitesCurriculum.MaxBytes);
+            using var ms = new MemoryStream();
+            await s.CopyToAsync(ms);
+            var r = await Api.SubirCurriculumAsync(TrabajadorId, e.File.Name, ms.ToArray(), string.IsNullOrEmpty(e.File.ContentType) ? "application/octet-stream" : e.File.ContentType);
+            if (!r.Ok) { error = r.Error; return; }
+            exito = "Currículum guardado.";
+            await Cargar();
+        }
+        catch (IOException) { error = "El archivo supera el límite de 5 MB."; }
+        finally { guardando = false; }
+    }
+
+    private async Task DescargarCv()
+    {
+        error = exito = null; guardando = true;
+        try
+        {
+            var r = await Api.DescargarCurriculumAsync(TrabajadorId);
+            if (!r.Ok || r.Data is null) { error = r.Error ?? "No se pudo descargar el currículum."; return; }
+            var cv = exp!.Curriculum!;
+            var ok = await Js.InvokeAsync<bool>("rtDescarga.guardar", cv.NombreArchivo, cv.TipoContenido, r.Data);
+            if (!ok) error = "El navegador no pudo guardar el archivo.";
+        }
+        finally { guardando = false; }
+    }
+
+    private void PedirQuitarCv() => Confirmar("¿Quitar el currículum cargado?", async () =>
+    {
+        var r = await Api.EliminarCurriculumAsync(TrabajadorId);
+        if (!r.Ok) { error = r.Error; return; }
+        exito = "Currículum eliminado.";
+        await Cargar();
+    });
+
+    // ---------------- Confirmación ----------------
+    private void Confirmar(string texto, Func<Task> accion) { confirmarTexto = texto; confirmarAccion = accion; confirmarVisible = true; }
+
+    private async Task EjecutarConfirmacion()
+    {
+        if (confirmarAccion is null) return;
+        error = exito = null; guardando = true;
+        try { await confirmarAccion(); }
+        finally { guardando = false; confirmarVisible = false; confirmarAccion = null; }
+    }
+
+    private class EstudioForm
+    {
+        public int Tipo { get; set; } = TipoEstudio.Licenciatura;
+        [Required(ErrorMessage = "Ingresa el título"), StringLength(200, MinimumLength = 2)] public string Titulo { get; set; } = "";
+        [StringLength(200)] public string? Institucion { get; set; }
+        public DateOnly? FechaInicio { get; set; }
+        public DateOnly? FechaFin { get; set; }
+        public bool EnCurso { get; set; }
+        [StringLength(500)] public string? Notas { get; set; }
+    }
+
+    private class HabilidadForm
+    {
+        [Required(ErrorMessage = "Ingresa la habilidad"), StringLength(80, MinimumLength = 2)] public string Nombre { get; set; } = "";
+        public int Nivel { get; set; } = NivelHabilidad.Intermedio;
+        [Range(0, 60, ErrorMessage = "Entre 0 y 60 años")] public int? AniosExperiencia { get; set; }
+        [StringLength(300)] public string? Notas { get; set; }
+    }
+}

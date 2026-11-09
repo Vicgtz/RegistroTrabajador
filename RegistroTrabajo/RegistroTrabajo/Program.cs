@@ -50,6 +50,7 @@ builder.Services.AddScoped<EmpresaClient>();
 builder.Services.AddScoped<PlataformaClient>();
 builder.Services.AddScoped<CatalogosClient>();
 builder.Services.AddScoped<TrabajadoresClient>();
+builder.Services.AddScoped<ExpedienteClient>();
 builder.Services.AddScoped<SolicitudesPerfilClient>();
 builder.Services.AddScoped<TiposPermisoClient>();
 builder.Services.AddScoped<SolicitudesPermisoClient>();

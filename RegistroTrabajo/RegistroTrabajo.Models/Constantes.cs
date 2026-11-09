@@ -402,6 +402,15 @@ public static class Permisos
     /// <summary>Permisos del Bloque 12 para empresas normales (catálogo insertado por el script 013).</summary>
     public static readonly string[] Bloque12 = { EmpresaVerPermisosEfectivos };
 
+    // Bloque 14
+    public const string ExpedienteConsultar = "expediente.consultar";
+    public const string ExpedienteEditar = "expediente.editar";
+    public const string ExpedienteAprobar = "expediente.aprobar";
+    public const string ExpedienteBuscar = "expediente.buscar";
+
+    /// <summary>Permisos del Bloque 14 (catálogo insertado por el script 017).</summary>
+    public static readonly string[] Bloque14 = { ExpedienteConsultar, ExpedienteEditar, ExpedienteAprobar, ExpedienteBuscar };
+
     // Bloque 10
     public const string ReportesConsultar = "reportes.consultar";
     public const string ReportesExportar = "reportes.exportar";
@@ -465,7 +474,8 @@ public static class Permisos
         ProyectosConsultar, ProyectosConsultarTodos, ProyectosCrear, ProyectosModificar, ProyectosAsignar, ProyectosCambiarResponsable,
         ProyectosFinalizar, ProyectosReabrir, ProyectosConfigurarEstados, TareasGestionar, TareasActualizarAvance, TareasRevisar,
         TareasComentar, NotificacionesConsultar, TareasVerSeguimiento, ReportesConsultar, ReportesExportar, ErroresConsultar,
-        EmpresaVerPermisosEfectivos
+        EmpresaVerPermisosEfectivos,
+        ExpedienteConsultar, ExpedienteEditar, ExpedienteAprobar, ExpedienteBuscar
     };
 }
 /// <summary>Permisos exclusivos de la empresa de plataforma (nunca se asignan a roles de empresas normales).</summary>
@@ -502,7 +512,8 @@ public static class PermisosPorDefecto
             Permisos.CalendarioConsultar, Permisos.CalendarioGestionarEventos, Permisos.CalendarioConfigurar, Permisos.CalendarioVerFechasRelevantes, Permisos.CalendarioVerAusenciasTodos,
             Permisos.ProyectosConsultar, Permisos.ProyectosCrear, Permisos.ProyectosModificar, Permisos.ProyectosAsignar, Permisos.ProyectosFinalizar,
             Permisos.TareasGestionar, Permisos.TareasActualizarAvance, Permisos.TareasRevisar, Permisos.TareasComentar, Permisos.NotificacionesConsultar, Permisos.TareasVerSeguimiento,
-            Permisos.ReportesConsultar, Permisos.ReportesExportar
+            Permisos.ReportesConsultar, Permisos.ReportesExportar,
+            Permisos.ExpedienteConsultar, Permisos.ExpedienteEditar, Permisos.ExpedienteAprobar, Permisos.ExpedienteBuscar
         },
         [NombresRol.Supervisor] = new[]
         {
@@ -514,7 +525,8 @@ public static class PermisosPorDefecto
             Permisos.CalendarioConsultar, Permisos.CalendarioVerFechasRelevantes, Permisos.CalendarioVerAusenciasTodos,
             Permisos.ProyectosConsultar, Permisos.ProyectosCrear, Permisos.ProyectosModificar, Permisos.ProyectosAsignar, Permisos.ProyectosFinalizar,
             Permisos.TareasGestionar, Permisos.TareasActualizarAvance, Permisos.TareasRevisar, Permisos.TareasComentar, Permisos.NotificacionesConsultar, Permisos.TareasVerSeguimiento,
-            Permisos.ReportesConsultar
+            Permisos.ReportesConsultar,
+            Permisos.ExpedienteConsultar, Permisos.ExpedienteBuscar
         },
         [NombresRol.Trabajador] = new[]
         {
